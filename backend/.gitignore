@@ -1,0 +1,20 @@
+# Variáveis de ambiente (nunca versionar segredos)
+.env
+
+# Banco de dados SQLite e arquivos auxiliares
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# Binários compilados (ancorados na raiz p/ não casar pastas como cmd/server)
+/bin/
+/sige-ti
+/server
+
+# Saídas de teste/cobertura (ancorado: não casar coverage.go do vendor)
+*.out
+/coverage.*
+
+# Sistema operacional
+.DS_Store

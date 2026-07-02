@@ -1,0 +1,9 @@
+.env
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+/bin/
+*.out
+.DS_Store
+README.md

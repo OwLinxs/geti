@@ -1,0 +1,27 @@
+# Segredos e configuração de ambiente — NUNCA versionar.
+.env
+*.env
+!.env.example
+
+# Banco SQLite e backups locais
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+/backups/
+
+# Dependências e builds
+node_modules/
+dist/
+/bin/
+
+# Sistema operacional
+.DS_Store
+
+# Ferramentas de IA / assistentes — configuração e memória locais
+.claude/
+.agents/
+CLAUDE.md
+AGENTS.md
+.cursor/
+.aider*

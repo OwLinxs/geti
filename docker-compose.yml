@@ -1,0 +1,118 @@
+# ==========================================================================
+# SIGE-TI - Orquestração com Docker Compose (deploy em rede interna / LAN)
+#
+# Por padrão sobe backend (SQLite, persistido em volume) e frontend (Nginx
+# na porta 80 do host). O Nginx serve a SPA e faz proxy de /api -> backend.
+#
+# Segredos e configurações sensíveis NÃO ficam neste arquivo: são lidos do
+# arquivo .env (na mesma pasta). Copie .env.example para .env e ajuste antes
+# de subir. NUNCA versione o .env.
+#
+#   cp .env.example .env   &&   editar .env   &&   docker compose up -d --build
+#
+# Para usar PostgreSQL, descomente o serviço "postgres" e ajuste DB_DRIVER/
+# DB_DSN no .env.
+# ==========================================================================
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: sige-ti-backend
+    restart: unless-stopped
+    # Não expõe porta no host: o acesso é feito via Nginx (proxy /api).
+    # Para depurar diretamente, descomente:
+    # ports:
+    #   - "8080:8080"
+    environment:
+      PORT: "8080"
+      # release = produção (ativa as validações de segredos obrigatórios).
+      GIN_MODE: "release"
+
+      # --- Banco de dados ---
+      DB_DRIVER: "${DB_DRIVER:-sqlite}"
+      DB_DSN: "${DB_DSN:-/app/data/sige-ti.db}"
+
+      # --- Segurança (OBRIGATÓRIOS em produção; vêm do .env) ---
+      JWT_SECRET: "${JWT_SECRET:?defina JWT_SECRET no .env (mín. 16 caracteres)}"
+      JWT_EXPIRES_HOURS: "${JWT_EXPIRES_HOURS:-8}"
+
+      # --- Administrador inicial (criado no primeiro boot via seed base) ---
+      ADMIN_NOME: "${ADMIN_NOME:-Administrador do Sistema}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@sige-ti.local}"
+      ADMIN_SENHA: "${ADMIN_SENHA:?defina ADMIN_SENHA no .env e troque-a após o primeiro acesso}"
+
+      # --- Rate limiting do login (mitigação de força bruta) ---
+      LOGIN_RATE_LIMITE: "${LOGIN_RATE_LIMITE:-10}"
+      LOGIN_RATE_JANELA_SEG: "${LOGIN_RATE_JANELA_SEG:-60}"
+
+      # --- CORS ---
+      # Como o frontend acessa via mesmo host (Nginx proxy), normalmente o IP
+      # do servidor. Ajuste no .env conforme o IP/hostname interno.
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost}"
+
+      # --- Seed ---
+      # Seed BASE (admin + categorias + setores) roda sempre na 1ª execução.
+      SEED_ON_START: "true"
+      # Seed DEMO (dados fictícios) é proibido em produção (GIN_MODE=release).
+      SEED_DEMO: "false"
+
+      # --- Termo de Responsabilidade (PDF) - parametrizável ---
+      PREFEITURA_NOME: "${PREFEITURA_NOME:-Prefeitura Municipal}"
+      PREFEITURA_DEPTO: "${PREFEITURA_DEPTO:-Departamento de Tecnologia da Informação}"
+      PREFEITURA_LOGO_PATH: "${PREFEITURA_LOGO_PATH:-}"
+      TERMO_CABECALHO: "${TERMO_CABECALHO:-Termo de Responsabilidade de Equipamento}"
+      TERMO_CIDADE_UF: "${TERMO_CIDADE_UF:-}"
+    volumes:
+      # Persistência do banco SQLite (use para backup — ver scripts/backup.sh).
+      - sige_data:/app/data
+      # Logo/brasão para o cabeçalho do termo (opcional).
+      - ./backend/assets:/app/assets:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+    # depends_on:
+    #   - postgres   # descomente ao usar PostgreSQL
+
+  # --- Frontend (React + Vite, servido por Nginx) --------------------------
+  # O Nginx serve os arquivos estáticos e faz proxy de /api -> backend:8080.
+  # Publicado na porta 80 do host para acesso direto via http://IP-do-servidor
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Vazio: o Nginx faz proxy de /api para o backend (ver nginx.conf).
+        VITE_API_BASE_URL: ""
+    container_name: sige-ti-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # --- PostgreSQL (OPCIONAL) -----------------------------------------------
+  # Descomente todo o bloco abaixo para usar PostgreSQL no lugar do SQLite e
+  # ajuste DB_DRIVER/DB_DSN no .env.
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: sige-ti-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: "${POSTGRES_USER:-sige}"
+  #     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}"
+  #     POSTGRES_DB: "${POSTGRES_DB:-sige_ti}"
+  #   volumes:
+  #     - sige_pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U sige -d sige_ti"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  sige_data:
+  # sige_pgdata:   # descomente ao usar PostgreSQL
