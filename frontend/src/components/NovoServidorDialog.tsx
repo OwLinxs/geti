@@ -124,7 +124,7 @@ export function NovoServidorDialog({
             />
           </FormField>
 
-          <FormField label="Setor (lotação)">
+          <FormField label="Departamento (lotação)">
             <Select value={setorId} onValueChange={setSetorId}>
               <SelectTrigger>
                 <SelectValue placeholder="Opcional" />

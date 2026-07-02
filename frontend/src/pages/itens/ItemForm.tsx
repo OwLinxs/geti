@@ -309,7 +309,7 @@ export function ItemForm({
           )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Setor / localização">
+            <FormField label="Departamento / localização">
               <Select
                 value={form.setor_id ? String(form.setor_id) : SEM}
                 onValueChange={(v) =>

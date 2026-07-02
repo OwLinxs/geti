@@ -14,6 +14,7 @@ type SetorRepository interface {
 	Atualizar(s *models.Setor) error
 	Remover(id uint) error
 	ContarItens(setorID uint) (int64, error)
+	ContarFilhos(paiID uint) (int64, error)
 }
 
 type setorRepository struct {
@@ -58,5 +59,11 @@ func (r *setorRepository) Remover(id uint) error {
 func (r *setorRepository) ContarItens(setorID uint) (int64, error) {
 	var n int64
 	err := r.db.Model(&models.Item{}).Where("setor_id = ?", setorID).Count(&n).Error
+	return n, err
+}
+
+func (r *setorRepository) ContarFilhos(paiID uint) (int64, error) {
+	var n int64
+	err := r.db.Model(&models.Setor{}).Where("pai_id = ?", paiID).Count(&n).Error
 	return n, err
 }

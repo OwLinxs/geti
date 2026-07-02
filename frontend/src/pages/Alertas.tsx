@@ -100,7 +100,7 @@ export default function Alertas() {
                 <TableRow>
                   <TableHead>Item</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead>Setor</TableHead>
+                  <TableHead>Departamento</TableHead>
                   <TableHead className="text-center">Quantidade</TableHead>
                   <TableHead className="text-center">Mínimo</TableHead>
                   <TableHead className="text-center">Faltam</TableHead>

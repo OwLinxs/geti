@@ -211,7 +211,7 @@ export default function ItensLista() {
             }}
           >
             <SelectTrigger className="lg:w-44">
-              <SelectValue placeholder="Setor" />
+              <SelectValue placeholder="Departamento" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={TODOS}>Todos setores</SelectItem>
@@ -271,7 +271,7 @@ export default function ItensLista() {
                   <TableHead>Descrição</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Patrimônio</TableHead>
-                  <TableHead>Setor</TableHead>
+                  <TableHead>Departamento</TableHead>
                   <TableHead className="text-center">Qtd.</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-24 text-right">Ações</TableHead>

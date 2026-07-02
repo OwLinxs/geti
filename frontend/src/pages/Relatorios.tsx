@@ -40,7 +40,7 @@ type TipoRelatorio =
 
 const ABAS: { id: TipoRelatorio; rotulo: string }[] = [
   { id: "inventario", rotulo: "Inventário geral" },
-  { id: "itens-por-setor", rotulo: "Por setor" },
+  { id: "itens-por-setor", rotulo: "Por departamento" },
   { id: "itens-por-responsavel", rotulo: "Por responsável" },
   { id: "estoque-baixo", rotulo: "Estoque baixo" },
   { id: "movimentacoes", rotulo: "Movimentações" },
@@ -189,13 +189,13 @@ export default function Relatorios() {
         <Card className="mb-4">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
             {aba === "itens-por-setor" && (
-              <FormField label="Setor" className="sm:w-64">
+              <FormField label="Departamento" className="sm:w-64">
                 <Select value={setorId} onValueChange={setSetorId}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={TODOS}>Todos os setores</SelectItem>
+                    <SelectItem value={TODOS}>Todos os departamentos</SelectItem>
                     {setores.map((s) => (
                       <SelectItem key={s.id} value={String(s.id)}>
                         {s.nome}
@@ -276,7 +276,7 @@ function TabelaItens({ itens }: { itens: Item[] }) {
           <TableHead>Descrição</TableHead>
           <TableHead>Categoria</TableHead>
           <TableHead>Patrimônio</TableHead>
-          <TableHead>Setor</TableHead>
+          <TableHead>Departamento</TableHead>
           <TableHead>Responsável</TableHead>
           <TableHead className="text-center">Qtd.</TableHead>
           <TableHead>Estado</TableHead>

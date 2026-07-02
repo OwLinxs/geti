@@ -242,7 +242,7 @@ export function MovimentacaoForm({
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Setor de origem">
+            <FormField label="Departamento de origem">
               <Select value={setorOrigem} onValueChange={setSetorOrigem}>
                 <SelectTrigger>
                   <SelectValue placeholder="Opcional" />
@@ -258,7 +258,7 @@ export function MovimentacaoForm({
               </Select>
             </FormField>
 
-            <FormField label="Setor de destino">
+            <FormField label="Departamento de destino">
               <Select value={setorDestino} onValueChange={setSetorDestino}>
                 <SelectTrigger>
                   <SelectValue placeholder="Opcional" />

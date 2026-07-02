@@ -135,7 +135,7 @@ export default function ItemDetalhe() {
             <Campo rotulo="Marca / modelo">
               {[item.marca, item.modelo].filter(Boolean).join(" · ") || "—"}
             </Campo>
-            <Campo rotulo="Setor">{item.setor?.nome ?? "—"}</Campo>
+            <Campo rotulo="Departamento">{item.setor?.nome ?? "—"}</Campo>
             <Campo rotulo="Responsável">
               {item.responsavel
                 ? `${item.responsavel.nome} (${item.responsavel.matricula})`

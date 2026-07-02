@@ -33,7 +33,7 @@ const PRINCIPAL: ItemMenu[] = [
 
 const CADASTROS: ItemMenu[] = [
   { rotulo: "Categorias", para: "/categorias", icone: Tags },
-  { rotulo: "Setores", para: "/setores", icone: Building2 },
+  { rotulo: "Departamentos", para: "/setores", icone: Building2 },
   { rotulo: "Servidores", para: "/servidores", icone: Users },
   { rotulo: "Usuários", para: "/usuarios", icone: UserCog, somenteAdmin: true },
   { rotulo: "Auditoria", para: "/auditoria", icone: ShieldCheck, somenteAdmin: true },

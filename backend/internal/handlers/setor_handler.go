@@ -19,6 +19,16 @@ type setorRequest struct {
 	Nome        string `json:"nome"`
 	Sigla       string `json:"sigla"`
 	Localizacao string `json:"localizacao"`
+	PaiID       *uint  `json:"pai_id"`
+}
+
+func (r setorRequest) toEntrada() services.EntradaSetor {
+	return services.EntradaSetor{
+		Nome:        r.Nome,
+		Sigla:       r.Sigla,
+		Localizacao: r.Localizacao,
+		PaiID:       r.PaiID,
+	}
 }
 
 func (h *SetorHandler) Listar(c *gin.Context) {
@@ -36,7 +46,7 @@ func (h *SetorHandler) Criar(c *gin.Context) {
 		erroBind(c, err)
 		return
 	}
-	st, err := h.svc.Criar(services.EntradaSetor{Nome: req.Nome, Sigla: req.Sigla, Localizacao: req.Localizacao})
+	st, err := h.svc.Criar(req.toEntrada())
 	if err != nil {
 		responderErro(c, err)
 		return
@@ -67,7 +77,7 @@ func (h *SetorHandler) Atualizar(c *gin.Context) {
 		erroBind(c, err)
 		return
 	}
-	st, err := h.svc.Atualizar(id, services.EntradaSetor{Nome: req.Nome, Sigla: req.Sigla, Localizacao: req.Localizacao})
+	st, err := h.svc.Atualizar(id, req.toEntrada())
 	if err != nil {
 		responderErro(c, err)
 		return

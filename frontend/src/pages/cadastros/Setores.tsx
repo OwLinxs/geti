@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FormField } from "@/components/FormField";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EstadoVazio } from "@/components/EstadoVazio";
@@ -29,7 +36,61 @@ import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Setor, SetorPayload } from "@/types";
 
-const VAZIO: SetorPayload = { nome: "", sigla: "", localizacao: "" };
+const SEM_PAI = "0";
+const VAZIO: SetorPayload = { nome: "", sigla: "", localizacao: "", pai_id: null };
+
+// Nó da árvore com profundidade calculada, para renderização indentada.
+interface NoArvore {
+  setor: Setor;
+  nivel: number;
+}
+
+// achatarArvore ordena a lista plana como uma árvore (pais antes dos filhos),
+// atribuindo o nível de profundidade a cada nó.
+function achatarArvore(lista: Setor[]): NoArvore[] {
+  const filhosDe = new Map<number | null, Setor[]>();
+  for (const s of lista) {
+    const chave = s.pai_id ?? null;
+    if (!filhosDe.has(chave)) filhosDe.set(chave, []);
+    filhosDe.get(chave)!.push(s);
+  }
+  for (const arr of filhosDe.values()) {
+    arr.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }
+  const saida: NoArvore[] = [];
+  const visitar = (paiId: number | null, nivel: number) => {
+    for (const s of filhosDe.get(paiId) ?? []) {
+      saida.push({ setor: s, nivel });
+      visitar(s.id, nivel + 1);
+    }
+  };
+  visitar(null, 0);
+  return saida;
+}
+
+// idsDescendentes devolve o id do nó + todos os descendentes (para impedir
+// escolher a si mesmo ou uma unidade filha como pai — evitaria ciclo).
+function idsDescendentes(lista: Setor[], raizId: number): Set<number> {
+  const filhosDe = new Map<number, Setor[]>();
+  for (const s of lista) {
+    if (s.pai_id != null) {
+      if (!filhosDe.has(s.pai_id)) filhosDe.set(s.pai_id, []);
+      filhosDe.get(s.pai_id)!.push(s);
+    }
+  }
+  const set = new Set<number>([raizId]);
+  const pilha = [raizId];
+  while (pilha.length) {
+    const atual = pilha.pop()!;
+    for (const f of filhosDe.get(atual) ?? []) {
+      if (!set.has(f.id)) {
+        set.add(f.id);
+        pilha.push(f.id);
+      }
+    }
+  }
+  return set;
+}
 
 export default function Setores() {
   const { toast } = useToast();
@@ -53,7 +114,7 @@ export default function Setores() {
       .then(setLista)
       .catch((err) =>
         toast({
-          titulo: "Erro ao carregar setores",
+          titulo: "Erro ao carregar departamentos",
           descricao: mensagemErro(err),
           variant: "destructive",
         })
@@ -63,16 +124,32 @@ export default function Setores() {
 
   React.useEffect(carregar, [carregar]);
 
-  function abrirCriacao() {
+  const arvore = React.useMemo(() => achatarArvore(lista), [lista]);
+
+  // Opções válidas para "unidade superior": todas, menos a própria unidade e
+  // suas descendentes (quando editando), apresentadas com indentação.
+  const opcoesPai = React.useMemo(() => {
+    const bloqueados = editando
+      ? idsDescendentes(lista, editando.id)
+      : new Set<number>();
+    return achatarArvore(lista).filter((n) => !bloqueados.has(n.setor.id));
+  }, [lista, editando]);
+
+  function abrirCriacao(paiSugerido?: Setor) {
     setEditando(null);
-    setForm(VAZIO);
+    setForm({ ...VAZIO, pai_id: paiSugerido?.id ?? null });
     setErros({});
     setModalAberto(true);
   }
 
   function abrirEdicao(s: Setor) {
     setEditando(s);
-    setForm({ nome: s.nome, sigla: s.sigla, localizacao: s.localizacao });
+    setForm({
+      nome: s.nome,
+      sigla: s.sigla,
+      localizacao: s.localizacao,
+      pai_id: s.pai_id ?? null,
+    });
     setErros({});
     setModalAberto(true);
   }
@@ -81,17 +158,17 @@ export default function Setores() {
     e.preventDefault();
     setErros({});
     if (!form.nome.trim()) {
-      setErros({ nome: "Informe o nome do setor." });
+      setErros({ nome: "Informe o nome do departamento." });
       return;
     }
     setSalvando(true);
     try {
       if (editando) {
         await setoresApi.atualizar(editando.id, form);
-        toast({ titulo: "Setor atualizado.", variant: "success" });
+        toast({ titulo: "Departamento atualizado.", variant: "success" });
       } else {
         await setoresApi.criar(form);
-        toast({ titulo: "Setor criado.", variant: "success" });
+        toast({ titulo: "Departamento criado.", variant: "success" });
       }
       setModalAberto(false);
       carregar();
@@ -114,7 +191,7 @@ export default function Setores() {
     setProcessandoRemocao(true);
     try {
       await setoresApi.remover(removendo.id);
-      toast({ titulo: "Setor removido.", variant: "success" });
+      toast({ titulo: "Departamento removido.", variant: "success" });
       setRemovendo(null);
       carregar();
     } catch (err) {
@@ -131,12 +208,12 @@ export default function Setores() {
   return (
     <div>
       <PageHeader
-        titulo="Setores"
-        descricao="Localizações organizacionais (departamentos, secretarias, salas)."
+        titulo="Departamentos"
+        descricao="Estrutura organizacional em árvore: Secretarias no topo e departamentos/divisões abaixo."
         acao={
           ehAdministrador && (
-            <Button onClick={abrirCriacao}>
-              <Plus className="h-4 w-4" /> Novo setor
+            <Button onClick={() => abrirCriacao()}>
+              <Plus className="h-4 w-4" /> Nova unidade
             </Button>
           )
         }
@@ -147,23 +224,33 @@ export default function Setores() {
           {carregando ? (
             <CarregandoTela />
           ) : lista.length === 0 ? (
-            <EstadoVazio descricao="Cadastre o primeiro setor." />
+            <EstadoVazio descricao="Cadastre a primeira unidade (ex.: uma Secretaria)." />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
+                  <TableHead>Unidade</TableHead>
                   <TableHead>Sigla</TableHead>
                   <TableHead>Localização</TableHead>
                   {ehAdministrador && (
-                    <TableHead className="w-24 text-right">Ações</TableHead>
+                    <TableHead className="w-32 text-right">Ações</TableHead>
                   )}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lista.map((s) => (
+                {arvore.map(({ setor: s, nivel }) => (
                   <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.nome}</TableCell>
+                    <TableCell className="font-medium">
+                      <span
+                        className="flex items-center"
+                        style={{ paddingLeft: `${nivel * 20}px` }}
+                      >
+                        {nivel > 0 && (
+                          <ChevronRight className="mr-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                        {s.nome}
+                      </span>
+                    </TableCell>
                     <TableCell>{s.sigla || "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {s.localizacao || "—"}
@@ -171,6 +258,15 @@ export default function Setores() {
                     {ehAdministrador && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => abrirCriacao(s)}
+                            aria-label="Adicionar unidade filha"
+                            title="Adicionar unidade subordinada"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -201,15 +297,42 @@ export default function Setores() {
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editando ? "Editar setor" : "Novo setor"}</DialogTitle>
+            <DialogTitle>
+              {editando ? "Editar unidade" : "Nova unidade"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={salvar} className="space-y-4" noValidate>
+            <FormField label="Unidade superior" erro={erros.pai_id}>
+              <Select
+                value={form.pai_id ? String(form.pai_id) : SEM_PAI}
+                onValueChange={(v) =>
+                  setForm({ ...form, pai_id: v === SEM_PAI ? null : Number(v) })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SEM_PAI}>
+                    Nenhuma (unidade de topo / Secretaria)
+                  </SelectItem>
+                  {opcoesPai.map(({ setor: s, nivel }) => (
+                    <SelectItem key={s.id} value={String(s.id)}>
+                      {" ".repeat(nivel * 3)}
+                      {nivel > 0 ? "└ " : ""}
+                      {s.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
             <FormField label="Nome" htmlFor="nome" obrigatorio erro={erros.nome}>
               <Input
                 id="nome"
                 value={form.nome}
                 onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                placeholder="Ex.: Secretaria de Educação"
+                placeholder="Ex.: Departamento de T.I."
               />
             </FormField>
             <FormField label="Sigla" htmlFor="sigla" erro={erros.sigla}>
@@ -217,7 +340,7 @@ export default function Setores() {
                 id="sigla"
                 value={form.sigla}
                 onChange={(e) => setForm({ ...form, sigla: e.target.value })}
-                placeholder="Ex.: SEMED"
+                placeholder="Ex.: DTI"
               />
             </FormField>
             <FormField
@@ -252,7 +375,7 @@ export default function Setores() {
 
       <ConfirmDialog
         aberto={!!removendo}
-        titulo="Remover setor"
+        titulo="Remover unidade"
         descricao={`Deseja remover "${removendo?.nome}"?`}
         textoConfirmar="Remover"
         destrutivo

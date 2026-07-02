@@ -37,6 +37,9 @@ export interface Setor extends Base {
   nome: string;
   sigla: string;
   localizacao: string;
+  // Hierarquia: unidade superior (null = topo/Secretaria).
+  pai_id?: number | null;
+  pai?: Setor | null;
 }
 
 export interface Servidor extends Base {
@@ -208,6 +211,7 @@ export interface SetorPayload {
   nome: string;
   sigla: string;
   localizacao: string;
+  pai_id?: number | null;
 }
 
 export interface ServidorPayload {
