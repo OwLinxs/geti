@@ -20,6 +20,7 @@ import { UserPlus } from "lucide-react";
 import { FormField } from "@/components/FormField";
 import { Spinner } from "@/components/ui/spinner";
 import { NovoServidorDialog } from "@/components/NovoServidorDialog";
+import { ordenarComoArvore, prefixoIndentacao } from "@/lib/setores";
 import { movimentacoesApi } from "@/services/api";
 import { camposInvalidos, mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
@@ -83,6 +84,9 @@ export function MovimentacaoForm({
   const [listaServidores, setListaServidores] = React.useState<Servidor[]>(servidores);
   const [novoServidorAberto, setNovoServidorAberto] = React.useState(false);
   React.useEffect(() => setListaServidores(servidores), [servidores]);
+
+  // Setores em ordem hierárquica para exibição indentada nos seletores.
+  const setoresArvore = React.useMemo(() => ordenarComoArvore(setores), [setores]);
 
   React.useEffect(() => {
     if (aberto) {
@@ -249,8 +253,9 @@ export function MovimentacaoForm({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={SEM}>Não informado</SelectItem>
-                  {setores.map((s) => (
+                  {setoresArvore.map(({ setor: s, nivel }) => (
                     <SelectItem key={s.id} value={String(s.id)}>
+                      {prefixoIndentacao(nivel)}
                       {s.nome}
                     </SelectItem>
                   ))}
@@ -265,8 +270,9 @@ export function MovimentacaoForm({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={SEM}>Não informado</SelectItem>
-                  {setores.map((s) => (
+                  {setoresArvore.map(({ setor: s, nivel }) => (
                     <SelectItem key={s.id} value={String(s.id)}>
+                      {prefixoIndentacao(nivel)}
                       {s.nome}
                     </SelectItem>
                   ))}

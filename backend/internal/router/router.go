@@ -68,6 +68,7 @@ func registrarUsuarios(g *gin.RouterGroup, ct *container.Container) {
 	// física — usuário inativo não consegue logar).
 	u.PATCH("/:id/senha", ct.UsuarioHandler.RedefinirSenha)
 	u.PATCH("/:id/ativo", ct.UsuarioHandler.DefinirAtivo)
+	u.PATCH("/:id/perfil", ct.UsuarioHandler.DefinirPerfil)
 }
 
 func registrarCategorias(g *gin.RouterGroup, ct *container.Container) {

@@ -22,6 +22,7 @@ import { camposInvalidos, mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { ESTADOS_CONSERVACAO } from "@/lib/rotulos";
 import { dateInputParaISO, isoParaDateInput } from "@/lib/format";
+import { ordenarComoArvore, prefixoIndentacao } from "@/lib/setores";
 import type {
   Categoria,
   EstadoConservacao,
@@ -90,6 +91,10 @@ export function ItemForm({
   const [form, setForm] = React.useState<FormState>(estadoInicial(item));
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [salvando, setSalvando] = React.useState(false);
+
+  // Setores em ordem hierárquica (Secretaria › Departamento › Unidade) para
+  // exibição indentada no seletor.
+  const setoresArvore = React.useMemo(() => ordenarComoArvore(setores), [setores]);
 
   React.useEffect(() => {
     if (aberto) {
@@ -321,8 +326,9 @@ export function ItemForm({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={SEM}>Não definido</SelectItem>
-                  {setores.map((s) => (
+                  {setoresArvore.map(({ setor: s, nivel }) => (
                     <SelectItem key={s.id} value={String(s.id)}>
+                      {prefixoIndentacao(nivel)}
                       {s.nome}
                     </SelectItem>
                   ))}

@@ -68,6 +68,9 @@ export default function Usuarios() {
   const [ativoAlvo, setAtivoAlvo] = React.useState<Usuario | null>(null);
   const [processandoAtivo, setProcessandoAtivo] = React.useState(false);
 
+  // Alteração de perfil (linha sendo salva).
+  const [perfilSalvandoId, setPerfilSalvandoId] = React.useState<number | null>(null);
+
   const carregar = React.useCallback(() => {
     setCarregando(true);
     usuariosApi
@@ -159,6 +162,28 @@ export default function Usuarios() {
     }
   }
 
+  async function alterarPerfil(u: Usuario, novoPerfil: Perfil) {
+    if (u.perfil === novoPerfil) return;
+    setPerfilSalvandoId(u.id);
+    try {
+      await usuariosApi.definirPerfil(u.id, novoPerfil);
+      toast({
+        titulo: "Perfil atualizado.",
+        descricao: `${u.nome} agora é ${rotuloPerfil(novoPerfil)}.`,
+        variant: "success",
+      });
+      carregar();
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível alterar o perfil",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setPerfilSalvandoId(null);
+    }
+  }
+
   async function confirmarAtivo() {
     if (!ativoAlvo) return;
     const novoAtivo = !ativoAlvo.ativo;
@@ -228,15 +253,39 @@ export default function Usuarios() {
                         {u.email}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={
-                            u.perfil === "administrador"
-                              ? "default"
-                              : "secondary"
-                          }
-                        >
-                          {rotuloPerfil(u.perfil)}
-                        </Badge>
+                        {ehProprio ? (
+                          <Badge
+                            variant={
+                              u.perfil === "administrador"
+                                ? "default"
+                                : "secondary"
+                            }
+                            title="Você não pode alterar o próprio perfil"
+                          >
+                            {rotuloPerfil(u.perfil)}
+                          </Badge>
+                        ) : (
+                          <Select
+                            value={u.perfil}
+                            onValueChange={(v) => alterarPerfil(u, v as Perfil)}
+                            disabled={perfilSalvandoId === u.id}
+                          >
+                            <SelectTrigger className="h-8 w-40">
+                              {perfilSalvandoId === u.id ? (
+                                <Spinner className="h-4 w-4" />
+                              ) : (
+                                <SelectValue />
+                              )}
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PERFIS.map((p) => (
+                                <SelectItem key={p.valor} value={p.valor}>
+                                  {p.rotulo}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </TableCell>
                       <TableCell>
                         {u.ativo ? (

@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormField } from "@/components/FormField";
+import { ordenarComoArvore, prefixoIndentacao } from "@/lib/setores";
 import { EstadoBadge } from "@/components/EstadoBadge";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { HistoricoTabela } from "@/components/HistoricoTabela";
@@ -196,8 +197,9 @@ export default function Relatorios() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={TODOS}>Todos os departamentos</SelectItem>
-                    {setores.map((s) => (
+                    {ordenarComoArvore(setores).map(({ setor: s, nivel }) => (
                       <SelectItem key={s.id} value={String(s.id)}>
+                        {prefixoIndentacao(nivel)}
                         {s.nome}
                       </SelectItem>
                     ))}

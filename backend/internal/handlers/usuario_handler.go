@@ -119,3 +119,30 @@ func (h *UsuarioHandler) DefinirAtivo(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, u)
 }
+
+type definirPerfilRequest struct {
+	Perfil models.Perfil `json:"perfil"`
+}
+
+// DefinirPerfil altera o perfil de um usuário (admin). PATCH /usuarios/:id/perfil
+func (h *UsuarioHandler) DefinirPerfil(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	var req definirPerfilRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+	if req.Perfil == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "Informe o campo 'perfil' (administrador ou operador)."})
+		return
+	}
+	u, err := h.svc.DefinirPerfil(id, req.Perfil)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, u)
+}

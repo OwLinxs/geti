@@ -130,6 +130,40 @@ func (s *UsuarioService) DefinirAtivo(id uint, ativo bool) (*models.Usuario, err
 	return u, nil
 }
 
+// DefinirPerfil altera o perfil de um usuário (administrador/operador). Impede
+// rebaixar o último administrador ativo, para não trancar o acesso ao sistema.
+func (s *UsuarioService) DefinirPerfil(id uint, perfil models.Perfil) (*models.Usuario, error) {
+	if !models.PerfilValido(perfil) {
+		ev := NovoErroValidacao()
+		ev.Add("perfil", "Perfil inválido. Use 'administrador' ou 'operador'.")
+		return nil, ev
+	}
+	u, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	if u.Perfil == perfil {
+		return u, nil // sem mudança
+	}
+	// Ao rebaixar um administrador, garante que reste ao menos um admin ativo.
+	if u.Perfil == models.PerfilAdministrador && perfil != models.PerfilAdministrador {
+		n, err := s.repo.ContarAdministradores()
+		if err != nil {
+			return nil, err
+		}
+		if n <= 1 {
+			ev := NovoErroValidacao()
+			ev.Add("perfil", "Não é possível rebaixar o último administrador ativo do sistema.")
+			return nil, ev
+		}
+	}
+	u.Perfil = perfil
+	if err := s.repo.Atualizar(u); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
 func (s *UsuarioService) BuscarPorID(id uint) (*models.Usuario, error) {
 	u, err := s.repo.BuscarPorID(id)
 	if err != nil {

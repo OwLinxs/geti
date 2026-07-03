@@ -146,6 +146,8 @@ export const usuariosApi = {
     api.patch<Usuario>(`/usuarios/${id}/senha`, { senha }).then((r) => r.data),
   definirAtivo: (id: number, ativo: boolean) =>
     api.patch<Usuario>(`/usuarios/${id}/ativo`, { ativo }).then((r) => r.data),
+  definirPerfil: (id: number, perfil: "administrador" | "operador") =>
+    api.patch<Usuario>(`/usuarios/${id}/perfil`, { perfil }).then((r) => r.data),
 };
 
 // ===== Auditoria (admin) =====

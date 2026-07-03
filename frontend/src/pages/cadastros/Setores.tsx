@@ -34,63 +34,11 @@ import { setoresApi } from "@/services/api";
 import { camposInvalidos, mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { ordenarComoArvore, idsDoRamo } from "@/lib/setores";
 import type { Setor, SetorPayload } from "@/types";
 
 const SEM_PAI = "0";
 const VAZIO: SetorPayload = { nome: "", sigla: "", localizacao: "", pai_id: null };
-
-// Nó da árvore com profundidade calculada, para renderização indentada.
-interface NoArvore {
-  setor: Setor;
-  nivel: number;
-}
-
-// achatarArvore ordena a lista plana como uma árvore (pais antes dos filhos),
-// atribuindo o nível de profundidade a cada nó.
-function achatarArvore(lista: Setor[]): NoArvore[] {
-  const filhosDe = new Map<number | null, Setor[]>();
-  for (const s of lista) {
-    const chave = s.pai_id ?? null;
-    if (!filhosDe.has(chave)) filhosDe.set(chave, []);
-    filhosDe.get(chave)!.push(s);
-  }
-  for (const arr of filhosDe.values()) {
-    arr.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  }
-  const saida: NoArvore[] = [];
-  const visitar = (paiId: number | null, nivel: number) => {
-    for (const s of filhosDe.get(paiId) ?? []) {
-      saida.push({ setor: s, nivel });
-      visitar(s.id, nivel + 1);
-    }
-  };
-  visitar(null, 0);
-  return saida;
-}
-
-// idsDescendentes devolve o id do nó + todos os descendentes (para impedir
-// escolher a si mesmo ou uma unidade filha como pai — evitaria ciclo).
-function idsDescendentes(lista: Setor[], raizId: number): Set<number> {
-  const filhosDe = new Map<number, Setor[]>();
-  for (const s of lista) {
-    if (s.pai_id != null) {
-      if (!filhosDe.has(s.pai_id)) filhosDe.set(s.pai_id, []);
-      filhosDe.get(s.pai_id)!.push(s);
-    }
-  }
-  const set = new Set<number>([raizId]);
-  const pilha = [raizId];
-  while (pilha.length) {
-    const atual = pilha.pop()!;
-    for (const f of filhosDe.get(atual) ?? []) {
-      if (!set.has(f.id)) {
-        set.add(f.id);
-        pilha.push(f.id);
-      }
-    }
-  }
-  return set;
-}
 
 export default function Setores() {
   const { toast } = useToast();
@@ -124,15 +72,15 @@ export default function Setores() {
 
   React.useEffect(carregar, [carregar]);
 
-  const arvore = React.useMemo(() => achatarArvore(lista), [lista]);
+  const arvore = React.useMemo(() => ordenarComoArvore(lista), [lista]);
 
   // Opções válidas para "unidade superior": todas, menos a própria unidade e
   // suas descendentes (quando editando), apresentadas com indentação.
   const opcoesPai = React.useMemo(() => {
     const bloqueados = editando
-      ? idsDescendentes(lista, editando.id)
+      ? idsDoRamo(lista, editando.id)
       : new Set<number>();
-    return achatarArvore(lista).filter((n) => !bloqueados.has(n.setor.id));
+    return ordenarComoArvore(lista).filter((n) => !bloqueados.has(n.setor.id));
   }, [lista, editando]);
 
   function abrirCriacao(paiSugerido?: Setor) {
