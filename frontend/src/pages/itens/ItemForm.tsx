@@ -1,4 +1,5 @@
 import * as React from "react";
+import { PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,6 +43,9 @@ interface ItemFormProps {
   servidores: Servidor[];
   onFechar: () => void;
   onSalvo: () => void;
+  // Quando fornecido, exibe no modo edição um atalho "Registrar entrada" ao
+  // lado da quantidade (que é read-only aqui — estoque só muda via movimentação).
+  onRegistrarEntrada?: () => void;
 }
 
 interface FormState {
@@ -86,6 +90,7 @@ export function ItemForm({
   servidores,
   onFechar,
   onSalvo,
+  onRegistrarEntrada,
 }: ItemFormProps) {
   const { toast } = useToast();
   const [form, setForm] = React.useState<FormState>(estadoInicial(item));
@@ -280,7 +285,7 @@ export function ItemForm({
             <FormField
               label={ehConsumivel ? "Quantidade em estoque" : "Quantidade"}
               htmlFor="quantidade"
-              obrigatorio
+              obrigatorio={!item}
               erro={erros.quantidade}
             >
               <Input
@@ -289,6 +294,7 @@ export function ItemForm({
                 min={0}
                 value={form.quantidade}
                 onChange={(e) => set("quantidade", e.target.value)}
+                disabled={!!item}
               />
             </FormField>
             <FormField
@@ -311,6 +317,25 @@ export function ItemForm({
               Para materiais de consumo, o alerta é disparado quando a
               quantidade fica abaixo do estoque mínimo.
             </p>
+          )}
+          {item && (
+            <div className="-mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+              <p className="text-xs text-muted-foreground">
+                A quantidade não é editada aqui — o estoque só muda por
+                movimentação, para manter o histórico rastreável.
+              </p>
+              {onRegistrarEntrada && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={onRegistrarEntrada}
+                >
+                  <PlusCircle className="h-4 w-4" /> Registrar entrada
+                </Button>
+              )}
+            </div>
           )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

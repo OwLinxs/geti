@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   FileText,
   AlertTriangle,
+  PlusCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useReferencias } from "@/hooks/useReferencias";
 import { formatarData, formatarMoeda } from "@/lib/format";
-import type { Item, Movimentacao } from "@/types";
+import type { Item, Movimentacao, TipoMovimentacao } from "@/types";
 
 export default function ItemDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +38,17 @@ export default function ItemDetalhe() {
 
   const [editAberto, setEditAberto] = React.useState(false);
   const [movAberto, setMovAberto] = React.useState(false);
+  const [movTipoInicial, setMovTipoInicial] = React.useState<
+    TipoMovimentacao | undefined
+  >(undefined);
   const [termoAberto, setTermoAberto] = React.useState(false);
+
+  // Abre a movimentação, opcionalmente já com um tipo pré-selecionado (ex.:
+  // "Adicionar estoque" abre com entrada por compra).
+  function abrirMovimentacao(tipo?: TipoMovimentacao) {
+    setMovTipoInicial(tipo);
+    setMovAberto(true);
+  }
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
@@ -85,13 +96,18 @@ export default function ItemDetalhe() {
         descricao={item.categoria?.nome}
         acao={
           <>
-            <Button variant="outline" onClick={() => setMovAberto(true)}>
+            {!item.baixado && (
+              <Button onClick={() => abrirMovimentacao("entrada_compra")}>
+                <PlusCircle className="h-4 w-4" /> Adicionar estoque
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => abrirMovimentacao()}>
               <ArrowLeftRight className="h-4 w-4" /> Movimentar
             </Button>
             <Button variant="outline" onClick={() => setTermoAberto(true)}>
               <FileText className="h-4 w-4" /> Emitir termo
             </Button>
-            <Button onClick={() => setEditAberto(true)}>
+            <Button variant="outline" onClick={() => setEditAberto(true)}>
               <Pencil className="h-4 w-4" /> Editar
             </Button>
           </>
@@ -126,7 +142,23 @@ export default function ItemDetalhe() {
             <Campo rotulo="Estado">
               <EstadoBadge estado={item.estado_conservacao} />
             </Campo>
-            <Campo rotulo="Quantidade">{item.quantidade}</Campo>
+            <Campo rotulo="Quantidade">
+              <span className="flex items-center gap-2">
+                {item.quantidade}
+                {!item.baixado && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    aria-label="Adicionar ao estoque"
+                    title="Adicionar ao estoque (registrar entrada)"
+                    onClick={() => abrirMovimentacao("entrada_compra")}
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                )}
+              </span>
+            </Campo>
             <Campo rotulo="Estoque mínimo">{item.estoque_minimo}</Campo>
             <Campo rotulo="Nº patrimônio">
               {item.numero_patrimonio ?? "—"}
@@ -171,6 +203,10 @@ export default function ItemDetalhe() {
           setEditAberto(false);
           carregar();
         }}
+        onRegistrarEntrada={() => {
+          setEditAberto(false);
+          abrirMovimentacao("entrada_compra");
+        }}
       />
 
       <MovimentacaoForm
@@ -178,6 +214,7 @@ export default function ItemDetalhe() {
         itemFixo={item}
         setores={setores}
         servidores={servidores}
+        tipoInicial={movTipoInicial}
         onFechar={() => setMovAberto(false)}
         onRegistrado={() => {
           setMovAberto(false);

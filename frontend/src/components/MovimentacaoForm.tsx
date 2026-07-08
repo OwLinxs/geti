@@ -48,6 +48,9 @@ interface MovimentacaoFormProps {
   itens?: Item[];
   setores: Setor[];
   servidores: Servidor[];
+  // Tipo pré-selecionado ao abrir (ex.: "entrada_compra" no fluxo de
+  // "Adicionar estoque"). O usuário ainda pode trocar.
+  tipoInicial?: TipoMovimentacao;
   onFechar: () => void;
   onRegistrado: (r: ResultadoMovimentacao) => void;
   // Notifica o pai quando um servidor é criado no cadastro rápido, para que a
@@ -61,6 +64,7 @@ export function MovimentacaoForm({
   itens,
   setores,
   servidores,
+  tipoInicial,
   onFechar,
   onRegistrado,
   onServidorCriado,
@@ -91,7 +95,7 @@ export function MovimentacaoForm({
   React.useEffect(() => {
     if (aberto) {
       setItemId(itemFixo?.id ?? null);
-      setTipo("");
+      setTipo(tipoInicial ?? "");
       setQuantidade("1");
       setSetorOrigem(SEM);
       setSetorDestino(SEM);
@@ -100,7 +104,7 @@ export function MovimentacaoForm({
       setMotivoBaixa("");
       setErros({});
     }
-  }, [aberto, itemFixo]);
+  }, [aberto, itemFixo, tipoInicial]);
 
   const itemAtual = itemFixo ?? itens?.find((i) => i.id === itemId) ?? null;
   const entrada = tipo ? ehEntrada(tipo) : false;
