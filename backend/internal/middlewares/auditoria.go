@@ -23,13 +23,18 @@ const (
 
 // singularRecurso mapeia o segmento de rota (plural) para um rótulo singular.
 var singularRecurso = map[string]string{
-	"itens":         "item",
-	"usuarios":      "usuario",
-	"servidores":    "servidor",
-	"categorias":    "categoria",
-	"setores":       "setor",
-	"movimentacoes": "movimentacao",
-	"termos":        "termo",
+	"itens":          "item",
+	"usuarios":       "usuario",
+	"servidores":     "servidor",
+	"categorias":     "categoria",
+	"setores":        "setor",
+	"movimentacoes":  "movimentacao",
+	"termos":         "termo",
+	"ordens-servico": "ordem de serviço",
+	"conhecimento":   "artigo",
+	"fornecedores":   "fornecedor",
+	"contratos":      "contrato",
+	"reservas":       "reserva",
 }
 
 // Auditoria registra, após cada requisição sensível, QUEM fez O QUÊ e QUANDO.
@@ -143,6 +148,14 @@ func preencherAcaoRecurso(c *gin.Context, reg *models.RegistroAuditoria) {
 		reg.Acao = "alterou acesso"
 	case seg[0] == "itens" && len(seg) >= 2 && seg[1] == "importar":
 		reg.Acao = "importou"
+	case seg[0] == "ordens-servico" && sub == "status":
+		reg.Acao = "alterou status"
+	case seg[0] == "ordens-servico" && sub == "passos":
+		reg.Acao = "atualizou checklist"
+	case seg[0] == "ordens-servico" && sub == "documento":
+		reg.Acao = "emitiu documento"
+	case seg[0] == "reservas" && sub == "status":
+		reg.Acao = "alterou status"
 	default:
 		reg.Acao = acaoPorMetodo(c.Request.Method)
 	}

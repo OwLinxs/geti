@@ -9,15 +9,15 @@ import (
 
 // FiltroItem agrupa os critérios de busca/filtragem de itens.
 type FiltroItem struct {
-	Texto            string // busca por descrição, patrimônio, série, marca, modelo
-	CategoriaID      *uint
-	SetorID          *uint
-	ResponsavelID    *uint
-	Estado           *models.EstadoConservacao
-	SomenteBaixados  *bool // nil = todos; true = só baixados; false = só ativos
-	AbaixoDoMinimo   bool  // true = só consumíveis em alerta de estoque
-	Pagina           int
-	TamanhoPagina    int
+	Texto           string // busca por descrição, patrimônio, série, marca, modelo
+	CategoriaID     *uint
+	SetorID         *uint
+	ResponsavelID   *uint
+	Estado          *models.EstadoConservacao
+	SomenteBaixados *bool // nil = todos; true = só baixados; false = só ativos
+	AbaixoDoMinimo  bool  // true = só consumíveis em alerta de estoque
+	Pagina          int
+	TamanhoPagina   int
 }
 
 type ItemRepository interface {

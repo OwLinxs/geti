@@ -10,10 +10,10 @@ import (
 
 // FiltroMovimentacao agrupa critérios de consulta ao histórico.
 type FiltroMovimentacao struct {
-	ItemID    *uint
-	Tipo      *models.TipoMovimentacao
-	DataInicio *time.Time
-	DataFim    *time.Time
+	ItemID        *uint
+	Tipo          *models.TipoMovimentacao
+	DataInicio    *time.Time
+	DataFim       *time.Time
 	Pagina        int
 	TamanhoPagina int
 }

@@ -28,12 +28,12 @@ type TermoResponsabilidade struct {
 	EmitidoPor   *Usuario `gorm:"foreignKey:EmitidoPorID" json:"emitido_por,omitempty"`
 
 	// Snapshots para fidelidade do documento.
-	ItemDescricaoSnapshot   string `gorm:"size:200" json:"item_descricao_snapshot"`
-	PatrimonioSnapshot      string `gorm:"size:60" json:"patrimonio_snapshot,omitempty"`
-	ServidorNomeSnapshot    string `gorm:"size:120" json:"servidor_nome_snapshot"`
+	ItemDescricaoSnapshot     string `gorm:"size:200" json:"item_descricao_snapshot"`
+	PatrimonioSnapshot        string `gorm:"size:60" json:"patrimonio_snapshot,omitempty"`
+	ServidorNomeSnapshot      string `gorm:"size:120" json:"servidor_nome_snapshot"`
 	ServidorMatriculaSnapshot string `gorm:"size:40" json:"servidor_matricula_snapshot"`
 
-	Observacao string    `gorm:"size:500" json:"observacao,omitempty"`
+	Observacao  string    `gorm:"size:500" json:"observacao,omitempty"`
 	DataEmissao time.Time `gorm:"not null;index" json:"data_emissao"`
 }
 

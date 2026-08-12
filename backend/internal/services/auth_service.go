@@ -33,9 +33,9 @@ type Claims struct {
 
 // ResultadoLogin é devolvido após autenticação bem-sucedida.
 type ResultadoLogin struct {
-	Token     string         `json:"token"`
-	ExpiraEm  time.Time      `json:"expira_em"`
-	Usuario   *models.Usuario `json:"usuario"`
+	Token    string          `json:"token"`
+	ExpiraEm time.Time       `json:"expira_em"`
+	Usuario  *models.Usuario `json:"usuario"`
 }
 
 // Login autentica e emite o token.

@@ -50,6 +50,11 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 		registrarTermos(auth, ct)
 		registrarRelatorios(auth, ct)
 		registrarAuditoria(auth, ct)
+		registrarOrdensServico(auth, ct)
+		registrarConhecimento(auth, ct)
+		registrarFornecedores(auth, ct)
+		registrarContratos(auth, ct)
+		registrarReservas(auth, ct)
 	}
 
 	return r
@@ -147,6 +152,62 @@ func registrarAuditoria(g *gin.RouterGroup, ct *container.Container) {
 	// Consulta da trilha de auditoria é exclusiva de administradores.
 	a := g.Group("/auditoria", adminOnly())
 	a.GET("", ct.AuditoriaHandler.Listar)
+}
+
+func registrarOrdensServico(g *gin.RouterGroup, ct *container.Container) {
+	// Módulo de manutenção: operador e administrador podem operar; exclusão
+	// (correção de OS aberta por engano) é exclusiva de administradores.
+	o := g.Group("/ordens-servico")
+	o.GET("", ct.OrdemServicoHandler.Listar)
+	o.POST("", ct.OrdemServicoHandler.Criar)
+	o.GET("/:id", ct.OrdemServicoHandler.BuscarPorID)
+	o.PUT("/:id", ct.OrdemServicoHandler.Atualizar)
+	o.PATCH("/:id/status", ct.OrdemServicoHandler.DefinirStatus)
+	o.PUT("/:id/passos", ct.OrdemServicoHandler.SalvarPassos)
+	o.POST("/:id/documento", ct.OrdemServicoHandler.Documento)
+	o.DELETE("/:id", adminOnly(), ct.OrdemServicoHandler.Excluir)
+}
+
+func registrarConhecimento(g *gin.RouterGroup, ct *container.Container) {
+	// Base de conhecimento: leitura para qualquer perfil; escrita para
+	// operador/administrador; exclusão exclusiva de administradores.
+	k := g.Group("/conhecimento")
+	k.GET("", ct.ConhecimentoHandler.Listar)
+	k.GET("/:id", ct.ConhecimentoHandler.BuscarPorID)
+	k.POST("", ct.ConhecimentoHandler.Criar)
+	k.PUT("/:id", ct.ConhecimentoHandler.Atualizar)
+	k.DELETE("/:id", adminOnly(), ct.ConhecimentoHandler.Excluir)
+}
+
+func registrarFornecedores(g *gin.RouterGroup, ct *container.Container) {
+	// Leitura para qualquer perfil; escrita/exclusão para administradores.
+	f := g.Group("/fornecedores")
+	f.GET("", ct.FornecedorHandler.Listar)
+	f.GET("/:id", ct.FornecedorHandler.BuscarPorID)
+	f.POST("", adminOnly(), ct.FornecedorHandler.Criar)
+	f.PUT("/:id", adminOnly(), ct.FornecedorHandler.Atualizar)
+	f.DELETE("/:id", adminOnly(), ct.FornecedorHandler.Excluir)
+}
+
+func registrarContratos(g *gin.RouterGroup, ct *container.Container) {
+	// Leitura para qualquer perfil; escrita/exclusão para administradores.
+	ct2 := g.Group("/contratos")
+	ct2.GET("", ct.ContratoHandler.Listar)
+	ct2.GET("/:id", ct.ContratoHandler.BuscarPorID)
+	ct2.POST("", adminOnly(), ct.ContratoHandler.Criar)
+	ct2.PUT("/:id", adminOnly(), ct.ContratoHandler.Atualizar)
+	ct2.DELETE("/:id", adminOnly(), ct.ContratoHandler.Excluir)
+}
+
+func registrarReservas(g *gin.RouterGroup, ct *container.Container) {
+	// Operador e administrador podem gerir reservas; exclusão só administrador.
+	res := g.Group("/reservas")
+	res.GET("", ct.ReservaHandler.Listar)
+	res.GET("/:id", ct.ReservaHandler.BuscarPorID)
+	res.POST("", ct.ReservaHandler.Criar)
+	res.PUT("/:id", ct.ReservaHandler.Atualizar)
+	res.PATCH("/:id/status", ct.ReservaHandler.DefinirStatus)
+	res.DELETE("/:id", adminOnly(), ct.ReservaHandler.Excluir)
 }
 
 func corsMiddleware(cfg *config.Config) gin.HandlerFunc {

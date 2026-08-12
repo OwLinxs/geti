@@ -3,7 +3,9 @@ import {
   LayoutDashboard,
   Package,
   ArrowLeftRight,
+  Wrench,
   FileText,
+  BookOpen,
   BarChart3,
   Tags,
   Building2,
@@ -11,6 +13,9 @@ import {
   UserCog,
   AlertTriangle,
   ShieldCheck,
+  CalendarClock,
+  Truck,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,8 +31,11 @@ const PRINCIPAL: ItemMenu[] = [
   { rotulo: "Painel", para: "/", icone: LayoutDashboard },
   { rotulo: "Itens", para: "/itens", icone: Package },
   { rotulo: "Movimentações", para: "/movimentacoes", icone: ArrowLeftRight },
+  { rotulo: "Manutenção", para: "/manutencao", icone: Wrench },
+  { rotulo: "Reservas", para: "/reservas", icone: CalendarClock },
   { rotulo: "Alertas de Estoque", para: "/alertas", icone: AlertTriangle },
   { rotulo: "Termos", para: "/termos", icone: FileText },
+  { rotulo: "Base de Conhecimento", para: "/conhecimento", icone: BookOpen },
   { rotulo: "Relatórios", para: "/relatorios", icone: BarChart3 },
 ];
 
@@ -35,6 +43,8 @@ const CADASTROS: ItemMenu[] = [
   { rotulo: "Categorias", para: "/categorias", icone: Tags },
   { rotulo: "Departamentos", para: "/setores", icone: Building2 },
   { rotulo: "Servidores", para: "/servidores", icone: Users },
+  { rotulo: "Fornecedores", para: "/fornecedores", icone: Truck },
+  { rotulo: "Contratos", para: "/contratos", icone: ScrollText },
   { rotulo: "Usuários", para: "/usuarios", icone: UserCog, somenteAdmin: true },
   { rotulo: "Auditoria", para: "/auditoria", icone: ShieldCheck, somenteAdmin: true },
 ];

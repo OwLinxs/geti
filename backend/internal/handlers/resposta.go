@@ -46,7 +46,7 @@ func responderErro(c *gin.Context, err error) {
 // erroBind responde a falhas de desserialização do corpo da requisição.
 func erroBind(c *gin.Context, err error) {
 	c.JSON(http.StatusBadRequest, gin.H{
-		"erro":     "Corpo da requisição inválido.",
-		"detalhe":  err.Error(),
+		"erro":    "Corpo da requisição inválido.",
+		"detalhe": err.Error(),
 	})
 }

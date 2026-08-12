@@ -26,6 +26,11 @@ type Container struct {
 	TermoService        *services.TermoService
 	RelatorioService    *services.RelatorioService
 	AuditoriaService    *services.AuditoriaService
+	OrdemServicoService *services.OrdemServicoService
+	ConhecimentoService *services.ConhecimentoService
+	FornecedorService   *services.FornecedorService
+	ContratoService     *services.ContratoService
+	ReservaService      *services.ReservaService
 
 	// Handlers.
 	HealthHandler       *handlers.HealthHandler
@@ -39,6 +44,11 @@ type Container struct {
 	TermoHandler        *handlers.TermoHandler
 	RelatorioHandler    *handlers.RelatorioHandler
 	AuditoriaHandler    *handlers.AuditoriaHandler
+	OrdemServicoHandler *handlers.OrdemServicoHandler
+	ConhecimentoHandler *handlers.ConhecimentoHandler
+	FornecedorHandler   *handlers.FornecedorHandler
+	ContratoHandler     *handlers.ContratoHandler
+	ReservaHandler      *handlers.ReservaHandler
 }
 
 func New(cfg *config.Config, db *gorm.DB) *Container {
@@ -51,6 +61,11 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	movRepo := repositories.NewMovimentacaoRepository(db)
 	termoRepo := repositories.NewTermoRepository(db)
 	auditoriaRepo := repositories.NewAuditoriaRepository(db)
+	ordemServicoRepo := repositories.NewOrdemServicoRepository(db)
+	conhecimentoRepo := repositories.NewConhecimentoRepository(db)
+	fornecedorRepo := repositories.NewFornecedorRepository(db)
+	contratoRepo := repositories.NewContratoRepository(db)
+	reservaRepo := repositories.NewReservaRepository(db)
 
 	// Services
 	usuarioSvc := services.NewUsuarioService(usuarioRepo)
@@ -63,6 +78,11 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	termoSvc := services.NewTermoService(termoRepo, itemRepo, servidorRepo, cfg)
 	relatorioSvc := services.NewRelatorioService(itemRepo, movRepo, cfg)
 	auditoriaSvc := services.NewAuditoriaService(auditoriaRepo)
+	ordemServicoSvc := services.NewOrdemServicoService(ordemServicoRepo, itemRepo, setorRepo, servidorRepo, usuarioRepo, cfg)
+	conhecimentoSvc := services.NewConhecimentoService(conhecimentoRepo)
+	fornecedorSvc := services.NewFornecedorService(fornecedorRepo)
+	contratoSvc := services.NewContratoService(contratoRepo, fornecedorRepo)
+	reservaSvc := services.NewReservaService(reservaRepo, itemRepo, servidorRepo)
 
 	// Handlers
 	return &Container{
@@ -78,6 +98,11 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		TermoService:        termoSvc,
 		RelatorioService:    relatorioSvc,
 		AuditoriaService:    auditoriaSvc,
+		OrdemServicoService: ordemServicoSvc,
+		ConhecimentoService: conhecimentoSvc,
+		FornecedorService:   fornecedorSvc,
+		ContratoService:     contratoSvc,
+		ReservaService:      reservaSvc,
 
 		HealthHandler:       handlers.NewHealthHandler(db),
 		AuthHandler:         handlers.NewAuthHandler(authSvc, usuarioSvc),
@@ -90,5 +115,10 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		TermoHandler:        handlers.NewTermoHandler(termoSvc),
 		RelatorioHandler:    handlers.NewRelatorioHandler(relatorioSvc),
 		AuditoriaHandler:    handlers.NewAuditoriaHandler(auditoriaSvc),
+		OrdemServicoHandler: handlers.NewOrdemServicoHandler(ordemServicoSvc),
+		ConhecimentoHandler: handlers.NewConhecimentoHandler(conhecimentoSvc),
+		FornecedorHandler:   handlers.NewFornecedorHandler(fornecedorSvc),
+		ContratoHandler:     handlers.NewContratoHandler(contratoSvc),
+		ReservaHandler:      handlers.NewReservaHandler(reservaSvc),
 	}
 }

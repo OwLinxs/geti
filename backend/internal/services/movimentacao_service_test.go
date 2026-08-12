@@ -39,12 +39,12 @@ func setupDB(t *testing.T) *gorm.DB {
 }
 
 type fixtures struct {
-	movSvc   *services.MovimentacaoService
-	itemSvc  *services.ItemService
-	db       *gorm.DB
-	usuario  *models.Usuario
-	catCons  *models.Categoria
-	catPatr  *models.Categoria
+	movSvc  *services.MovimentacaoService
+	itemSvc *services.ItemService
+	db      *gorm.DB
+	usuario *models.Usuario
+	catCons *models.Categoria
+	catPatr *models.Categoria
 }
 
 func novoAmbiente(t *testing.T) *fixtures {

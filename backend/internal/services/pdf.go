@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
@@ -118,7 +119,7 @@ func PDFRelatorioItens(titulo string, itens []models.Item, cfg *config.Config) (
 
 	// Cabeçalho da tabela.
 	cols := []struct {
-		titulo string
+		titulo  string
 		largura float64
 	}{
 		{"Descrição", 70},
@@ -152,6 +153,134 @@ func PDFRelatorioItens(titulo string, itens []models.Item, cfg *config.Config) (
 		}
 		pdf.Ln(-1)
 	}
+
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// rotuloStatusOS / rotuloPrioridadeOS traduzem os enums para exibição.
+var rotuloStatusOS = map[models.StatusOS]string{
+	models.OSAberta:         "Aberta",
+	models.OSEmAndamento:    "Em andamento",
+	models.OSAguardandoPeca: "Aguardando peça",
+	models.OSConcluida:      "Concluída",
+	models.OSCancelada:      "Cancelada",
+}
+
+var rotuloPrioridadeOS = map[models.PrioridadeOS]string{
+	models.PrioridadeBaixa:  "Baixa",
+	models.PrioridadeNormal: "Normal",
+	models.PrioridadeAlta:   "Alta",
+}
+
+// PDFOrdemServico gera o documento da ordem de serviço de manutenção, com o
+// checklist de procedimentos. passosExtra são acrescentados ao final apenas no
+// documento (não persistidos), atendendo ao "adicionar itens na impressão".
+func PDFOrdemServico(os *models.OrdemServico, passosExtra []string, cfg *config.Config) ([]byte, error) {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.SetMargins(15, 12, 15)
+	pdf.AddPage()
+	cabecalhoInstitucional(pdf, cfg)
+
+	pdf.SetFont("Helvetica", "B", 13)
+	pdf.CellFormat(0, 8, traduzir("Ordem de Serviço de Manutenção"), "", 1, "C", false, 0, "")
+	pdf.Ln(1)
+	pdf.SetFont("Helvetica", "", 10)
+	pdf.CellFormat(0, 6, traduzir(fmt.Sprintf("Número: %s", os.Numero)), "", 1, "C", false, 0, "")
+	pdf.Ln(4)
+
+	// Tabela de dados (rótulo + valor).
+	linha := func(rotulo, valor string) {
+		if valor == "" {
+			return
+		}
+		pdf.SetFont("Helvetica", "B", 10)
+		pdf.CellFormat(45, 7, traduzir(rotulo), "1", 0, "L", false, 0, "")
+		pdf.SetFont("Helvetica", "", 10)
+		pdf.CellFormat(0, 7, traduzir(valor), "1", 1, "L", false, 0, "")
+	}
+	linha("Equipamento:", os.EquipamentoSnapshot)
+	if os.PatrimonioSnapshot != "" {
+		linha("Nº Patrimônio:", os.PatrimonioSnapshot)
+	}
+	if os.EquipamentoIdentificacao != "" {
+		linha("Série / Identificação:", os.EquipamentoIdentificacao)
+	}
+	if os.SolicitanteNomeSnapshot != "" {
+		linha("Solicitante:", os.SolicitanteNomeSnapshot)
+	}
+	if os.Setor != nil {
+		linha("Departamento:", os.Setor.Nome)
+	}
+	linha("Prioridade:", rotuloPrioridadeOS[os.Prioridade])
+	linha("Status:", rotuloStatusOS[os.Status])
+	if os.Tecnico != nil {
+		linha("Técnico responsável:", os.Tecnico.Nome)
+	}
+	linha("Abertura:", os.DataAbertura.Format("02/01/2006"))
+	if os.DataConclusao != nil {
+		linha("Conclusão:", os.DataConclusao.Format("02/01/2006"))
+	}
+	pdf.Ln(4)
+
+	// Blocos de texto.
+	bloco := func(titulo, texto string) {
+		if strings.TrimSpace(texto) == "" {
+			return
+		}
+		pdf.SetFont("Helvetica", "B", 10)
+		pdf.CellFormat(0, 6, traduzir(titulo), "", 1, "L", false, 0, "")
+		pdf.SetFont("Helvetica", "", 10)
+		pdf.MultiCell(0, 5, traduzir(texto), "", "J", false)
+		pdf.Ln(2)
+	}
+	bloco("Defeito relatado:", os.DefeitoRelatado)
+	bloco("Diagnóstico:", os.Diagnostico)
+	bloco("Solução aplicada:", os.SolucaoAplicada)
+
+	// Checklist de procedimentos.
+	pdf.Ln(2)
+	pdf.SetFont("Helvetica", "B", 11)
+	pdf.CellFormat(0, 7, traduzir("Procedimentos de manutenção"), "", 1, "L", false, 0, "")
+	pdf.SetFont("Helvetica", "", 10)
+	item := func(descricao, observacao string, concluido bool) {
+		marca := "[  ]"
+		if concluido {
+			marca = "[X]"
+		}
+		texto := fmt.Sprintf("%s %s", marca, descricao)
+		if observacao != "" {
+			texto += fmt.Sprintf("  (%s)", observacao)
+		}
+		pdf.MultiCell(0, 6, traduzir(texto), "", "L", false)
+	}
+	for _, p := range os.Passos {
+		item(p.Descricao, p.Observacao, p.Concluido)
+	}
+	for _, extra := range passosExtra {
+		e := strings.TrimSpace(extra)
+		if e != "" {
+			item(e, "", false)
+		}
+	}
+
+	// Assinaturas (técnico e solicitante).
+	pdf.Ln(18)
+	larguraAssinatura := 80.0
+	x1 := 20.0
+	x2 := 210.0 - 20.0 - larguraAssinatura
+	y := pdf.GetY()
+	pdf.Line(x1, y, x1+larguraAssinatura, y)
+	pdf.Line(x2, y, x2+larguraAssinatura, y)
+	pdf.Ln(2)
+	pdf.SetFont("Helvetica", "", 9)
+	pdf.SetX(x1)
+	pdf.CellFormat(larguraAssinatura, 5, traduzir("Técnico responsável"), "", 0, "C", false, 0, "")
+	pdf.SetX(x2)
+	pdf.CellFormat(larguraAssinatura, 5, traduzir("Solicitante / recebimento"), "", 1, "C", false, 0, "")
 
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {

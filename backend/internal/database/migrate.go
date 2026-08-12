@@ -24,6 +24,12 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Movimentacao{},
 		&models.TermoResponsabilidade{},
 		&models.RegistroAuditoria{},
+		&models.OrdemServico{},
+		&models.OrdemServicoPasso{},
+		&models.ArtigoConhecimento{},
+		&models.Fornecedor{},
+		&models.Contrato{},
+		&models.Reserva{},
 	)
 	if err != nil {
 		return fmt.Errorf("falha na migração automática: %w", err)

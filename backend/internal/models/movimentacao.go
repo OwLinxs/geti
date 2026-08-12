@@ -64,12 +64,12 @@ type Movimentacao struct {
 	SaldoResultante int `gorm:"not null" json:"saldo_resultante"`
 
 	// Contexto estruturado (FKs, opcionais conforme o tipo).
-	SetorOrigemID   *uint     `gorm:"index" json:"setor_origem_id,omitempty"`
-	SetorOrigem     *Setor    `gorm:"foreignKey:SetorOrigemID" json:"setor_origem,omitempty"`
-	SetorDestinoID  *uint     `gorm:"index" json:"setor_destino_id,omitempty"`
-	SetorDestino    *Setor    `gorm:"foreignKey:SetorDestinoID" json:"setor_destino,omitempty"`
-	ServidorID      *uint     `gorm:"index" json:"servidor_id,omitempty"` // responsável envolvido
-	Servidor        *Servidor `gorm:"foreignKey:ServidorID" json:"servidor,omitempty"`
+	SetorOrigemID  *uint     `gorm:"index" json:"setor_origem_id,omitempty"`
+	SetorOrigem    *Setor    `gorm:"foreignKey:SetorOrigemID" json:"setor_origem,omitempty"`
+	SetorDestinoID *uint     `gorm:"index" json:"setor_destino_id,omitempty"`
+	SetorDestino   *Setor    `gorm:"foreignKey:SetorDestinoID" json:"setor_destino,omitempty"`
+	ServidorID     *uint     `gorm:"index" json:"servidor_id,omitempty"` // responsável envolvido
+	Servidor       *Servidor `gorm:"foreignKey:ServidorID" json:"servidor,omitempty"`
 
 	// Quem registrou a movimentação (usuário do sistema).
 	RegistradoPorID uint     `gorm:"not null;index" json:"registrado_por_id"`

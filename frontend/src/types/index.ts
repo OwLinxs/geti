@@ -109,6 +109,107 @@ export interface TermoResponsabilidade extends Base {
   data_emissao: string;
 }
 
+// ===== Manutenção / Ordem de Serviço =====
+
+export type StatusOS =
+  | "aberta"
+  | "em_andamento"
+  | "aguardando_peca"
+  | "concluida"
+  | "cancelada";
+
+export type PrioridadeOS = "baixa" | "normal" | "alta";
+
+export interface OrdemServicoPasso extends Base {
+  ordem_servico_id: number;
+  ordem: number;
+  descricao: string;
+  concluido: boolean;
+  observacao?: string;
+}
+
+export interface OrdemServico extends Base {
+  numero: string;
+  item_id?: number;
+  item?: Item | null;
+  equipamento_descricao?: string;
+  equipamento_identificacao?: string;
+  equipamento_snapshot: string;
+  patrimonio_snapshot?: string;
+  setor_id?: number | null;
+  setor?: Setor | null;
+  solicitante_id?: number | null;
+  solicitante?: Servidor | null;
+  solicitante_nome_snapshot?: string;
+  defeito_relatado: string;
+  diagnostico?: string;
+  solucao_aplicada?: string;
+  prioridade: PrioridadeOS;
+  status: StatusOS;
+  tecnico_id?: number | null;
+  tecnico?: Usuario | null;
+  aberto_por_id: number;
+  aberto_por?: Usuario | null;
+  data_abertura: string;
+  data_conclusao?: string | null;
+  passos?: OrdemServicoPasso[];
+}
+
+// ===== Base de conhecimento =====
+
+export interface ArtigoConhecimento extends Base {
+  titulo: string;
+  categoria?: string;
+  conteudo: string;
+  autor_id?: number | null;
+  autor?: Usuario | null;
+  publicado: boolean;
+  visualizacoes: number;
+}
+
+// ===== Fornecedores e contratos =====
+
+export interface Fornecedor extends Base {
+  nome: string;
+  cnpj?: string;
+  email?: string;
+  telefone?: string;
+  endereco?: string;
+  observacao?: string;
+}
+
+export type StatusContrato = "vigente" | "encerrado" | "cancelado";
+
+export interface Contrato extends Base {
+  numero: string;
+  fornecedor_id: number;
+  fornecedor?: Fornecedor | null;
+  objeto: string;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  valor?: number | null;
+  status: StatusContrato;
+  observacao?: string;
+}
+
+// ===== Reservas de equipamento =====
+
+export type StatusReserva = "reservada" | "em_uso" | "devolvida" | "cancelada";
+
+export interface Reserva extends Base {
+  item_id: number;
+  item?: Item | null;
+  solicitante_id?: number | null;
+  solicitante?: Servidor | null;
+  data_inicio: string;
+  data_fim: string;
+  finalidade?: string;
+  status: StatusReserva;
+  aprovado_por_id?: number | null;
+  aprovado_por?: Usuario | null;
+  observacao?: string;
+}
+
 // ===== Respostas =====
 
 export interface ResultadoLogin {
@@ -233,5 +334,61 @@ export interface TermoPayload {
   item_id: number;
   servidor_id: number;
   movimentacao_id?: number | null;
+  observacao?: string;
+}
+
+export interface OrdemServicoPayload {
+  item_id?: number;
+  equipamento_descricao?: string;
+  equipamento_identificacao?: string;
+  setor_id?: number | null;
+  solicitante_id?: number | null;
+  defeito_relatado: string;
+  diagnostico?: string;
+  solucao_aplicada?: string;
+  prioridade: PrioridadeOS;
+  tecnico_id?: number | null;
+}
+
+export interface PassoPayload {
+  descricao: string;
+  concluido: boolean;
+  observacao?: string;
+}
+
+export interface ArtigoConhecimentoPayload {
+  titulo: string;
+  categoria?: string;
+  conteudo: string;
+  publicado?: boolean;
+}
+
+export interface FornecedorPayload {
+  nome: string;
+  cnpj?: string;
+  email?: string;
+  telefone?: string;
+  endereco?: string;
+  observacao?: string;
+}
+
+export interface ContratoPayload {
+  numero: string;
+  fornecedor_id: number;
+  objeto: string;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  valor?: number | null;
+  status?: StatusContrato;
+  observacao?: string;
+}
+
+export interface ReservaPayload {
+  item_id: number;
+  solicitante_id?: number | null;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  finalidade?: string;
+  status?: StatusReserva;
   observacao?: string;
 }

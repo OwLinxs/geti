@@ -41,9 +41,9 @@ func EstadoConservacaoValido(e EstadoConservacao) bool {
 type Item struct {
 	Base
 
-	Descricao        string `gorm:"size:200;not null;index" json:"descricao"`
-	CategoriaID      uint   `gorm:"not null;index" json:"categoria_id"`
-	Categoria        *Categoria `gorm:"foreignKey:CategoriaID" json:"categoria,omitempty"`
+	Descricao   string     `gorm:"size:200;not null;index" json:"descricao"`
+	CategoriaID uint       `gorm:"not null;index" json:"categoria_id"`
+	Categoria   *Categoria `gorm:"foreignKey:CategoriaID" json:"categoria,omitempty"`
 
 	// Identificação patrimonial (opcionais para consumíveis).
 	NumeroPatrimonio *string `gorm:"size:60;uniqueIndex" json:"numero_patrimonio,omitempty"`
@@ -58,19 +58,19 @@ type Item struct {
 	EstoqueMinimo int `gorm:"not null;default:0" json:"estoque_minimo"`
 
 	// Localização e responsabilidade atuais.
-	SetorID            *uint     `gorm:"index" json:"setor_id,omitempty"`
-	Setor              *Setor    `gorm:"foreignKey:SetorID" json:"setor,omitempty"`
-	ResponsavelID      *uint     `gorm:"index" json:"responsavel_id,omitempty"`
-	Responsavel        *Servidor `gorm:"foreignKey:ResponsavelID" json:"responsavel,omitempty"`
+	SetorID       *uint     `gorm:"index" json:"setor_id,omitempty"`
+	Setor         *Setor    `gorm:"foreignKey:SetorID" json:"setor,omitempty"`
+	ResponsavelID *uint     `gorm:"index" json:"responsavel_id,omitempty"`
+	Responsavel   *Servidor `gorm:"foreignKey:ResponsavelID" json:"responsavel,omitempty"`
 
 	// Dados de aquisição (valor opcional).
 	DataAquisicao *time.Time `json:"data_aquisicao,omitempty"`
 	Valor         *float64   `json:"valor,omitempty"`
 
 	// Flag de baixa patrimonial (mantém item visível, rastreável).
-	Baixado    bool       `gorm:"not null;default:false;index" json:"baixado"`
-	DataBaixa  *time.Time `json:"data_baixa,omitempty"`
-	MotivoBaixa string    `gorm:"size:255" json:"motivo_baixa,omitempty"`
+	Baixado     bool       `gorm:"not null;default:false;index" json:"baixado"`
+	DataBaixa   *time.Time `json:"data_baixa,omitempty"`
+	MotivoBaixa string     `gorm:"size:255" json:"motivo_baixa,omitempty"`
 
 	// Soft delete EXCLUSIVO para correção de cadastro errado (admin), e somente
 	// quando o item NÃO tem histórico (movimentações/termos). Não confundir com

@@ -35,11 +35,11 @@ type Config struct {
 	LoginRateJanela time.Duration // duração da janela
 
 	// Parametrização do termo de responsabilidade (PDF)
-	PrefeituraNome      string
-	PrefeituraDepto     string
-	PrefeituraLogoPath  string // caminho para o brasão/logo (opcional)
-	TermoCabecalho      string
-	TermoCidadeUF       string
+	PrefeituraNome     string
+	PrefeituraDepto    string
+	PrefeituraLogoPath string // caminho para o brasão/logo (opcional)
+	TermoCabecalho     string
+	TermoCidadeUF      string
 
 	// CORS
 	CORSAllowedOrigins []string

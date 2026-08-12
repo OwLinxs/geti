@@ -32,6 +32,19 @@ func queryUint(c *gin.Context, nome string) *uint {
 	return &u
 }
 
+// queryIntPtr lê um parâmetro de query como *int (nil quando ausente/inválido).
+func queryIntPtr(c *gin.Context, nome string) *int {
+	raw := c.Query(nome)
+	if raw == "" {
+		return nil
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil {
+		return nil
+	}
+	return &v
+}
+
 // queryInt lê um parâmetro de query como int com valor padrão.
 func queryInt(c *gin.Context, nome string, padrao int) int {
 	raw := c.Query(nome)

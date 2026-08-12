@@ -13,15 +13,15 @@ import (
 // memória, usando janela fixa. Leve, sem dependências externas — adequado a
 // um servidor único em rede interna. Para mitigar força bruta no login.
 type limitadorJanela struct {
-	mu       sync.Mutex
+	mu         sync.Mutex
 	tentativas map[string]*registroTentativas
-	limite   int
-	janela   time.Duration
+	limite     int
+	janela     time.Duration
 }
 
 type registroTentativas struct {
-	contagem  int
-	inicio    time.Time
+	contagem int
+	inicio   time.Time
 }
 
 func novoLimitador(limite int, janela time.Duration) *limitadorJanela {

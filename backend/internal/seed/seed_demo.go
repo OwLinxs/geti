@@ -115,7 +115,7 @@ func ExecutarDemo(ct *container.Container) error {
 	// Termo de responsabilidade de exemplo (notebook para Ana).
 	_, _ = ct.TermoService.Emitir(services.EntradaTermo{
 		ItemID: item1.ID, ServidorID: servAna.ID,
-		Observacao: "Entrega acompanhada de carregador e mochila.",
+		Observacao:   "Entrega acompanhada de carregador e mochila.",
 		EmitidoPorID: admin.ID,
 	})
 

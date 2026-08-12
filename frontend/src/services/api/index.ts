@@ -4,8 +4,19 @@ import type {
   CategoriaPayload,
   Item,
   ItemPayload,
+  ArtigoConhecimento,
+  ArtigoConhecimentoPayload,
+  Contrato,
+  ContratoPayload,
+  Fornecedor,
+  FornecedorPayload,
+  Reserva,
+  ReservaPayload,
   Movimentacao,
   MovimentacaoPayload,
+  OrdemServico,
+  OrdemServicoPayload,
+  PassoPayload,
   RegistroAuditoria,
   RespostaPaginada,
   ResultadoImportacao,
@@ -135,6 +146,141 @@ export const termosApi = {
     api
       .get(`/termos/${id}/pdf`, { responseType: "blob" })
       .then((r) => r.data as Blob),
+};
+
+// ===== Manutenção / Ordens de serviço =====
+export interface FiltroOrdensServico {
+  status?: string;
+  tecnico_id?: number;
+  de?: string;
+  ate?: string;
+  pagina?: number;
+  tamanho?: number;
+}
+
+export const ordensServicoApi = {
+  listar: (f: FiltroOrdensServico = {}) =>
+    api
+      .get<RespostaPaginada<OrdemServico>>("/ordens-servico", {
+        params: limpar(f),
+      })
+      .then((r) => r.data),
+  buscarPorId: (id: number) =>
+    api.get<OrdemServico>(`/ordens-servico/${id}`).then((r) => r.data),
+  criar: (p: OrdemServicoPayload) =>
+    api.post<OrdemServico>("/ordens-servico", p).then((r) => r.data),
+  atualizar: (id: number, p: OrdemServicoPayload) =>
+    api.put<OrdemServico>(`/ordens-servico/${id}`, p).then((r) => r.data),
+  definirStatus: (id: number, status: string) =>
+    api
+      .patch<OrdemServico>(`/ordens-servico/${id}/status`, { status })
+      .then((r) => r.data),
+  salvarPassos: (id: number, passos: PassoPayload[]) =>
+    api
+      .put<OrdemServico>(`/ordens-servico/${id}/passos`, { passos })
+      .then((r) => r.data),
+  baixarDocumento: (id: number, passos_extra: string[] = []) =>
+    api
+      .post(
+        `/ordens-servico/${id}/documento`,
+        { passos_extra },
+        { responseType: "blob" }
+      )
+      .then((r) => r.data as Blob),
+  excluir: (id: number) =>
+    api.delete(`/ordens-servico/${id}`).then(() => undefined),
+};
+
+// ===== Base de conhecimento =====
+export interface FiltroConhecimento {
+  q?: string;
+  categoria?: string;
+  publicado?: boolean;
+  pagina?: number;
+  tamanho?: number;
+}
+
+export const conhecimentoApi = {
+  listar: (f: FiltroConhecimento = {}) =>
+    api
+      .get<RespostaPaginada<ArtigoConhecimento>>("/conhecimento", {
+        params: limpar(f),
+      })
+      .then((r) => r.data),
+  buscarPorId: (id: number) =>
+    api.get<ArtigoConhecimento>(`/conhecimento/${id}`).then((r) => r.data),
+  criar: (p: ArtigoConhecimentoPayload) =>
+    api.post<ArtigoConhecimento>("/conhecimento", p).then((r) => r.data),
+  atualizar: (id: number, p: ArtigoConhecimentoPayload) =>
+    api.put<ArtigoConhecimento>(`/conhecimento/${id}`, p).then((r) => r.data),
+  excluir: (id: number) =>
+    api.delete(`/conhecimento/${id}`).then(() => undefined),
+};
+
+// ===== Fornecedores =====
+export const fornecedoresApi = {
+  listar: (q?: string) =>
+    api
+      .get<Fornecedor[]>("/fornecedores", { params: limpar({ q }) })
+      .then((r) => r.data),
+  buscarPorId: (id: number) =>
+    api.get<Fornecedor>(`/fornecedores/${id}`).then((r) => r.data),
+  criar: (p: FornecedorPayload) =>
+    api.post<Fornecedor>("/fornecedores", p).then((r) => r.data),
+  atualizar: (id: number, p: FornecedorPayload) =>
+    api.put<Fornecedor>(`/fornecedores/${id}`, p).then((r) => r.data),
+  excluir: (id: number) =>
+    api.delete(`/fornecedores/${id}`).then(() => undefined),
+};
+
+// ===== Contratos =====
+export interface FiltroContratos {
+  q?: string;
+  status?: string;
+  fornecedor_id?: number;
+  vencendo?: number; // dias
+  pagina?: number;
+  tamanho?: number;
+}
+
+export const contratosApi = {
+  listar: (f: FiltroContratos = {}) =>
+    api
+      .get<RespostaPaginada<Contrato>>("/contratos", { params: limpar(f) })
+      .then((r) => r.data),
+  buscarPorId: (id: number) =>
+    api.get<Contrato>(`/contratos/${id}`).then((r) => r.data),
+  criar: (p: ContratoPayload) =>
+    api.post<Contrato>("/contratos", p).then((r) => r.data),
+  atualizar: (id: number, p: ContratoPayload) =>
+    api.put<Contrato>(`/contratos/${id}`, p).then((r) => r.data),
+  excluir: (id: number) => api.delete(`/contratos/${id}`).then(() => undefined),
+};
+
+// ===== Reservas =====
+export interface FiltroReservas {
+  item_id?: number;
+  status?: string;
+  pagina?: number;
+  tamanho?: number;
+}
+
+export const reservasApi = {
+  listar: (f: FiltroReservas = {}) =>
+    api
+      .get<RespostaPaginada<Reserva>>("/reservas", { params: limpar(f) })
+      .then((r) => r.data),
+  buscarPorId: (id: number) =>
+    api.get<Reserva>(`/reservas/${id}`).then((r) => r.data),
+  criar: (p: ReservaPayload) =>
+    api.post<Reserva>("/reservas", p).then((r) => r.data),
+  atualizar: (id: number, p: ReservaPayload) =>
+    api.put<Reserva>(`/reservas/${id}`, p).then((r) => r.data),
+  definirStatus: (id: number, status: string) =>
+    api
+      .patch<Reserva>(`/reservas/${id}/status`, { status })
+      .then((r) => r.data),
+  excluir: (id: number) => api.delete(`/reservas/${id}`).then(() => undefined),
 };
 
 // ===== Usuários (admin) =====
