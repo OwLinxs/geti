@@ -43,13 +43,20 @@ export function isoParaDateInput(iso?: string | null): string {
 }
 
 // Dispara o download de um Blob com o nome informado.
+//
+// A limpeza (remover o <a> e revogar o object URL) é adiada: revogar o URL de
+// forma síncrona logo após o click() faz alguns navegadores (ex.: Firefox)
+// cancelarem o download — o download "começa mas não completa".
 export function baixarBlob(blob: Blob, nomeArquivo: string) {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = nomeArquivo;
+  a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
+  setTimeout(() => {
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  }, 1500);
 }
