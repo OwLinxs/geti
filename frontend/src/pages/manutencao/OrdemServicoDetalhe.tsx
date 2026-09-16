@@ -441,6 +441,11 @@ function ImprimirDialog({
   }, [aberto]);
 
   async function baixar() {
+    // Abre a aba de forma síncrona (ainda no gesto do clique) para evitar
+    // bloqueio de popup. Em HTTP (contexto inseguro) o download direto de blob
+    // é bloqueado pelo navegador; por isso exibimos o PDF numa nova aba para
+    // visualizar/imprimir/salvar. Se o popup for bloqueado, cai no download.
+    const aba = window.open("", "_blank");
     setBaixando(true);
     try {
       const linhas = extras
@@ -448,9 +453,16 @@ function ImprimirDialog({
         .map((l) => l.trim())
         .filter(Boolean);
       const blob = await ordensServicoApi.baixarDocumento(os.id, linhas);
-      baixarBlob(blob, `ordem-servico-${os.numero}.pdf`);
+      const url = window.URL.createObjectURL(blob);
+      if (aba) {
+        aba.location.href = url;
+      } else {
+        baixarBlob(blob, `ordem-servico-${os.numero}.pdf`);
+      }
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
       onFechar();
     } catch (err) {
+      if (aba) aba.close();
       toast({
         titulo: "Não foi possível gerar o documento",
         descricao: mensagemErro(err),
