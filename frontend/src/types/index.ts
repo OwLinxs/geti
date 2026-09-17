@@ -1,7 +1,7 @@
 // Tipos TypeScript espelhando os DTOs/JSON do backend Go (SIGE-TI).
 // As tags `json` do backend ditam os nomes em snake_case usados aqui.
 
-export type Perfil = "administrador" | "operador";
+export type Perfil = "administrador" | "operador" | "solicitante";
 
 export type EstadoConservacao = "novo" | "bom" | "regular" | "inservivel";
 
@@ -130,6 +130,10 @@ export interface OrdemServicoPasso extends Base {
 
 export interface OrdemServico extends Base {
   numero: string;
+  origem?: string;
+  referencia_externa?: string;
+  assunto?: string;
+  solicitante_contato?: string;
   item_id?: number;
   item?: Item | null;
   equipamento_descricao?: string;
@@ -153,6 +157,27 @@ export interface OrdemServico extends Base {
   data_abertura: string;
   data_conclusao?: string | null;
   passos?: OrdemServicoPasso[];
+}
+
+// ===== Conversa do chamado (mensagens) =====
+
+export type DirecaoMensagem = "saida" | "entrada" | "interna";
+export type AutorTipoMensagem = "tecnico" | "servidor" | "sistema";
+
+export interface MensagemChamado extends Base {
+  ordem_servico_id: number;
+  direcao: DirecaoMensagem;
+  autor_tipo: AutorTipoMensagem;
+  autor_id?: number | null;
+  autor?: Usuario | null;
+  autor_nome: string;
+  texto: string;
+  interna: boolean;
+  status: string;
+  anexo_nome?: string;
+  anexo_tipo?: string;
+  anexo_tamanho?: number;
+  enviada_em: string;
 }
 
 // ===== Base de conhecimento =====

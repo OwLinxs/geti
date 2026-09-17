@@ -1,43 +1,48 @@
 import * as React from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Package } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/FormField";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/contexts/AuthContext";
-import { mensagemErro } from "@/services/api/client";
+import { camposInvalidos, mensagemErro } from "@/services/api/client";
 
-export default function Login() {
-  const { entrar, autenticado } = useAuth();
+export default function Registrar() {
+  const { registrar, autenticado } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const destino =
-    (location.state as { from?: { pathname?: string } } | null)?.from
-      ?.pathname ?? "/";
 
+  const [nome, setNome] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [senha, setSenha] = React.useState("");
-  const [erro, setErro] = React.useState<string | null>(null);
+  const [erros, setErros] = React.useState<Record<string, string>>({});
+  const [erroGeral, setErroGeral] = React.useState<string | null>(null);
   const [enviando, setEnviando] = React.useState(false);
 
   React.useEffect(() => {
-    if (autenticado) navigate(destino, { replace: true });
-  }, [autenticado, destino, navigate]);
+    if (autenticado) navigate("/", { replace: true });
+  }, [autenticado, navigate]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErro(null);
-    if (!email.trim() || !senha) {
-      setErro("Informe e-mail e senha.");
+    setErros({});
+    setErroGeral(null);
+    const novos: Record<string, string> = {};
+    if (!nome.trim()) novos.nome = "Informe seu nome.";
+    if (!email.trim()) novos.email = "Informe seu e-mail.";
+    if (senha.length < 6) novos.senha = "A senha deve ter ao menos 6 caracteres.";
+    if (Object.keys(novos).length) {
+      setErros(novos);
       return;
     }
     setEnviando(true);
     try {
-      await entrar(email.trim(), senha);
-      navigate(destino, { replace: true });
+      await registrar(nome.trim(), email.trim(), senha);
+      navigate("/", { replace: true });
     } catch (err) {
-      setErro(mensagemErro(err, "Falha ao entrar."));
+      const campos = camposInvalidos(err);
+      if (campos) setErros(campos);
+      else setErroGeral(mensagemErro(err, "Não foi possível criar a conta."));
     } finally {
       setEnviando(false);
     }
@@ -48,75 +53,81 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Package className="h-7 w-7" />
+            <LifeBuoy className="h-7 w-7" />
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              SIGE-TI
+              Abertura de Chamados
             </h1>
             <p className="text-sm text-muted-foreground">
-              Sistema de Gestão de Estoque de T.I.
+              Crie sua conta para abrir e acompanhar chamados de T.I.
             </p>
           </div>
         </div>
 
         <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
-          <h2 className="mb-1 text-lg font-semibold text-foreground">Acesso</h2>
-          <p className="mb-5 text-sm text-muted-foreground">
-            Entre com suas credenciais funcionais.
-          </p>
+          <h2 className="mb-5 text-lg font-semibold text-foreground">
+            Criar conta
+          </h2>
 
           <form onSubmit={onSubmit} className="space-y-4" noValidate>
-            <FormField label="E-mail" htmlFor="email" obrigatorio>
+            <FormField label="Nome completo" htmlFor="nome" obrigatorio erro={erros.nome}>
+              <Input
+                id="nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Seu nome"
+                disabled={enviando}
+              />
+            </FormField>
+            <FormField label="E-mail" htmlFor="email" obrigatorio erro={erros.email}>
               <Input
                 id="email"
                 type="email"
                 autoComplete="username"
-                placeholder="usuario@sige-ti.local"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="voce@prefeitura.gov.br"
                 disabled={enviando}
               />
             </FormField>
-
-            <FormField label="Senha" htmlFor="senha" obrigatorio>
+            <FormField label="Senha" htmlFor="senha" obrigatorio erro={erros.senha}>
               <Input
                 id="senha"
                 type="password"
-                autoComplete="current-password"
-                placeholder="••••••••"
+                autoComplete="new-password"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
                 disabled={enviando}
               />
             </FormField>
 
-            {erro && (
+            {erroGeral && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {erro}
+                {erroGeral}
               </div>
             )}
 
             <Button type="submit" className="w-full" disabled={enviando}>
-              {enviando ? <Spinner className="h-4 w-4" /> : "Entrar"}
+              {enviando ? <Spinner className="h-4 w-4" /> : "Criar conta e entrar"}
             </Button>
           </form>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            É servidor e precisa abrir um chamado?{" "}
+            Já tem conta?{" "}
             <button
               type="button"
               className="font-medium text-primary hover:underline"
-              onClick={() => navigate("/registrar")}
+              onClick={() => navigate("/login")}
             >
-              Criar conta
+              Entrar
             </button>
           </p>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Acesso restrito a servidores autorizados. Os dados são protegidos
-          conforme a LGPD.
+          Seus dados são protegidos conforme a LGPD.
         </p>
       </div>
     </div>

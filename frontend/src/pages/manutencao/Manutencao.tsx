@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, LayoutGrid } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,9 +104,14 @@ export default function Manutencao() {
         titulo="Manutenção"
         descricao="Ordens de serviço de manutenção de equipamentos."
         acao={
-          <Button onClick={() => setFormAberto(true)}>
-            <Plus className="h-4 w-4" /> Nova OS
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => navigate("/manutencao/kanban")}>
+              <LayoutGrid className="h-4 w-4" /> Kanban
+            </Button>
+            <Button onClick={() => setFormAberto(true)}>
+              <Plus className="h-4 w-4" /> Nova OS
+            </Button>
+          </>
         }
       />
 

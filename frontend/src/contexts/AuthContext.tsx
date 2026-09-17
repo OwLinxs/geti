@@ -13,7 +13,10 @@ interface AuthContextValue {
   carregando: boolean;
   autenticado: boolean;
   ehAdministrador: boolean;
+  ehEquipe: boolean; // administrador ou operador (área interna de T.I.)
+  ehSolicitante: boolean; // usuário final (portal de chamados)
   entrar: (email: string, senha: string) => Promise<void>;
+  registrar: (nome: string, email: string, senha: string) => Promise<void>;
   sair: () => void;
 }
 
@@ -61,12 +64,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUsuario(res.usuario);
   }, []);
 
+  const registrar = React.useCallback(
+    async (nome: string, email: string, senha: string) => {
+      const res = await authApi.registrar(nome, email, senha);
+      setToken(res.token);
+      setUsuario(res.usuario);
+    },
+    []
+  );
+
+  const perfil = usuario?.perfil;
   const value: AuthContextValue = {
     usuario,
     carregando,
     autenticado: !!usuario,
-    ehAdministrador: usuario?.perfil === ("administrador" as Perfil),
+    ehAdministrador: perfil === ("administrador" as Perfil),
+    ehEquipe: perfil === "administrador" || perfil === "operador",
+    ehSolicitante: perfil === "solicitante",
     entrar,
+    registrar,
     sair,
   };
 

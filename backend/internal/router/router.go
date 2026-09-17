@@ -34,27 +34,45 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 		middlewares.RateLimitLogin(cfg.LoginRateLimite, cfg.LoginRateJanela),
 		ct.AuthHandler.Login,
 	)
+	// Auto-cadastro público de solicitante (usuário final). Sempre cria com
+	// perfil "solicitante"; rate-limited por IP.
+	api.POST("/auth/registrar",
+		middlewares.RateLimitLogin(cfg.LoginRateLimite, cfg.LoginRateJanela),
+		ct.AuthHandler.Registrar,
+	)
+
+	// API de integração externa (chamados via WhatsApp/plataforma), autenticada
+	// por chave de API — fora do fluxo de login por JWT.
+	registrarIntegracao(api, cfg, ct)
 
 	// Rotas autenticadas.
 	auth := api.Group("")
 	auth.Use(middlewares.Autenticacao(ct.AuthService))
 	{
+		// Disponível para qualquer perfil autenticado (inclusive solicitante).
 		auth.GET("/auth/eu", ct.AuthHandler.EuMesmo)
 
-		registrarUsuarios(auth, ct)
-		registrarCategorias(auth, ct)
-		registrarSetores(auth, ct)
-		registrarServidores(auth, ct)
-		registrarItens(auth, ct)
-		registrarMovimentacoes(auth, ct)
-		registrarTermos(auth, ct)
-		registrarRelatorios(auth, ct)
-		registrarAuditoria(auth, ct)
-		registrarOrdensServico(auth, ct)
-		registrarConhecimento(auth, ct)
-		registrarFornecedores(auth, ct)
-		registrarContratos(auth, ct)
-		registrarReservas(auth, ct)
+		// Portal do solicitante (usuário final): abre e acompanha os PRÓPRIOS
+		// chamados + conversa. Acesso escopado ao próprio usuário nos handlers.
+		registrarMeusChamados(auth, ct)
+
+		// Área da equipe de T.I. (administrador/operador). Solicitantes são
+		// barrados aqui.
+		equipe := auth.Group("", middlewares.SomenteEquipe())
+		registrarUsuarios(equipe, ct)
+		registrarCategorias(equipe, ct)
+		registrarSetores(equipe, ct)
+		registrarServidores(equipe, ct)
+		registrarItens(equipe, ct)
+		registrarMovimentacoes(equipe, ct)
+		registrarTermos(equipe, ct)
+		registrarRelatorios(equipe, ct)
+		registrarAuditoria(equipe, ct)
+		registrarOrdensServico(equipe, ct)
+		registrarConhecimento(equipe, ct)
+		registrarFornecedores(equipe, ct)
+		registrarContratos(equipe, ct)
+		registrarReservas(equipe, ct)
 	}
 
 	return r
@@ -166,6 +184,10 @@ func registrarOrdensServico(g *gin.RouterGroup, ct *container.Container) {
 	o.PUT("/:id/passos", ct.OrdemServicoHandler.SalvarPassos)
 	o.POST("/:id/documento", ct.OrdemServicoHandler.Documento)
 	o.DELETE("/:id", adminOnly(), ct.OrdemServicoHandler.Excluir)
+	// Conversa do chamado (mensagens + anexos).
+	o.GET("/:id/mensagens", ct.MensagemHandler.Listar)
+	o.POST("/:id/mensagens", ct.MensagemHandler.Enviar)
+	o.GET("/:id/mensagens/:msgId/anexo", ct.MensagemHandler.BaixarAnexo)
 }
 
 func registrarConhecimento(g *gin.RouterGroup, ct *container.Container) {
@@ -197,6 +219,28 @@ func registrarContratos(g *gin.RouterGroup, ct *container.Container) {
 	ct2.POST("", adminOnly(), ct.ContratoHandler.Criar)
 	ct2.PUT("/:id", adminOnly(), ct.ContratoHandler.Atualizar)
 	ct2.DELETE("/:id", adminOnly(), ct.ContratoHandler.Excluir)
+}
+
+func registrarIntegracao(api *gin.RouterGroup, cfg *config.Config, ct *container.Container) {
+	g := api.Group("/integracao", middlewares.ChaveAPIIntegracao(cfg.IntegracaoAPIKey))
+	// Chamados (mapeiam para ordens de serviço). Sync completo: criar/atualizar
+	// (idempotente por referencia_externa), ler o board e mover de coluna.
+	g.POST("/ordens-servico", ct.IntegracaoHandler.Criar)
+	g.GET("/ordens-servico", ct.IntegracaoHandler.Listar)
+	g.GET("/ordens-servico/:id", ct.IntegracaoHandler.BuscarPorID)
+	g.PATCH("/ordens-servico/:id/status", ct.IntegracaoHandler.DefinirStatus)
+}
+
+func registrarMeusChamados(g *gin.RouterGroup, ct *container.Container) {
+	// Portal do solicitante. Ownership é garantido nos handlers (escopo ao
+	// próprio usuário). Qualquer perfil autenticado pode usar.
+	m := g.Group("/meus-chamados")
+	m.GET("", ct.MeusChamadosHandler.Listar)
+	m.POST("", ct.MeusChamadosHandler.Abrir)
+	m.GET("/:id", ct.MeusChamadosHandler.BuscarPorID)
+	m.GET("/:id/mensagens", ct.MeusChamadosHandler.ListarMensagens)
+	m.POST("/:id/mensagens", ct.MeusChamadosHandler.EnviarMensagem)
+	m.GET("/:id/mensagens/:msgId/anexo", ct.MeusChamadosHandler.BaixarAnexo)
 }
 
 func registrarReservas(g *gin.RouterGroup, ct *container.Container) {

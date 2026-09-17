@@ -43,6 +43,31 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+type registroRequest struct {
+	Nome  string `json:"nome"`
+	Email string `json:"email"`
+	Senha string `json:"senha"`
+}
+
+// Registrar cria uma conta de solicitante (auto-cadastro) e devolve o token.
+func (h *AuthHandler) Registrar(c *gin.Context) {
+	var req registroRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+	c.Set(middlewares.CtxAuditEmail, req.Email)
+
+	res, err := h.auth.Registrar(req.Nome, req.Email, req.Senha)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.Set(middlewares.CtxAuditUsuarioID, res.Usuario.ID)
+	c.Set(middlewares.CtxAuditUsuarioNome, res.Usuario.Nome)
+	c.JSON(http.StatusCreated, res)
+}
+
 // EuMesmo devolve os dados do usuário autenticado (a partir do token).
 func (h *AuthHandler) EuMesmo(c *gin.Context) {
 	id, ok := middlewares.UsuarioIDDoContexto(c)

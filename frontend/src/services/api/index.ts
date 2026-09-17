@@ -6,12 +6,14 @@ import type {
   ItemPayload,
   ArtigoConhecimento,
   ArtigoConhecimentoPayload,
+  MensagemChamado,
   Contrato,
   ContratoPayload,
   Fornecedor,
   FornecedorPayload,
   Reserva,
   ReservaPayload,
+  Perfil,
   Movimentacao,
   MovimentacaoPayload,
   OrdemServico,
@@ -36,7 +38,59 @@ import type {
 export const authApi = {
   login: (email: string, senha: string) =>
     api.post<ResultadoLogin>("/auth/login", { email, senha }).then((r) => r.data),
+  registrar: (nome: string, email: string, senha: string) =>
+    api
+      .post<ResultadoLogin>("/auth/registrar", { nome, email, senha })
+      .then((r) => r.data),
   euMesmo: () => api.get<Usuario>("/auth/eu").then((r) => r.data),
+};
+
+// ===== Portal do solicitante (meus chamados) =====
+export interface AbrirChamadoPayload {
+  assunto: string;
+  defeito_relatado: string;
+  equipamento_descricao?: string;
+  prioridade?: string;
+}
+
+export const portalApi = {
+  listar: (f: { status?: string; pagina?: number; tamanho?: number } = {}) =>
+    api
+      .get<RespostaPaginada<OrdemServico>>("/meus-chamados", { params: limpar(f) })
+      .then((r) => r.data),
+  abrir: (p: AbrirChamadoPayload) =>
+    api.post<OrdemServico>("/meus-chamados", p).then((r) => r.data),
+  buscarPorId: (id: number) =>
+    api.get<OrdemServico>(`/meus-chamados/${id}`).then((r) => r.data),
+};
+
+// ===== Conversa do chamado (equipe usa "ordens-servico"; solicitante "meus-chamados") =====
+export type BaseChamado = "ordens-servico" | "meus-chamados";
+
+export const chamadoMensagensApi = {
+  listar: (base: BaseChamado, osId: number) =>
+    api
+      .get<MensagemChamado[]>(`/${base}/${osId}/mensagens`)
+      .then((r) => r.data),
+  enviar: (
+    base: BaseChamado,
+    osId: number,
+    dados: { texto: string; interna?: boolean; arquivo?: File | null }
+  ) => {
+    const form = new FormData();
+    form.append("texto", dados.texto);
+    if (dados.interna) form.append("interna", "true");
+    if (dados.arquivo) form.append("arquivo", dados.arquivo);
+    return api
+      .post<MensagemChamado>(`/${base}/${osId}/mensagens`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data);
+  },
+  baixarAnexo: (base: BaseChamado, osId: number, msgId: number) =>
+    api
+      .get(`/${base}/${osId}/mensagens/${msgId}/anexo`, { responseType: "blob" })
+      .then((r) => r.data as Blob),
 };
 
 // ===== Categorias =====
@@ -292,7 +346,7 @@ export const usuariosApi = {
     api.patch<Usuario>(`/usuarios/${id}/senha`, { senha }).then((r) => r.data),
   definirAtivo: (id: number, ativo: boolean) =>
     api.patch<Usuario>(`/usuarios/${id}/ativo`, { ativo }).then((r) => r.data),
-  definirPerfil: (id: number, perfil: "administrador" | "operador") =>
+  definirPerfil: (id: number, perfil: Perfil) =>
     api.patch<Usuario>(`/usuarios/${id}/perfil`, { perfil }).then((r) => r.data),
 };
 

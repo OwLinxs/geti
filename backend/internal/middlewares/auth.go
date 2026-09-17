@@ -64,6 +64,12 @@ func SomenteAdministrador() gin.HandlerFunc {
 	return ExigirPerfil(models.PerfilAdministrador)
 }
 
+// SomenteEquipe restringe o acesso à equipe de T.I. (administrador ou
+// operador), barrando solicitantes (usuários finais).
+func SomenteEquipe() gin.HandlerFunc {
+	return ExigirPerfil(models.PerfilAdministrador, models.PerfilOperador)
+}
+
 // UsuarioIDDoContexto recupera o ID do usuário autenticado.
 func UsuarioIDDoContexto(c *gin.Context) (uint, bool) {
 	v, ok := c.Get(ctxUsuarioID)

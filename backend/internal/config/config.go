@@ -43,6 +43,13 @@ type Config struct {
 
 	// CORS
 	CORSAllowedOrigins []string
+
+	// Integração externa (API de chamados via chave). Vazio = integração
+	// desabilitada (endpoints /integracao respondem 503).
+	IntegracaoAPIKey string
+
+	// Diretório onde os anexos das mensagens de chamado são guardados.
+	AnexosDir string
 }
 
 // Load lê as variáveis de ambiente e devolve a configuração validada.
@@ -64,6 +71,8 @@ func Load() (*Config, error) {
 		PrefeituraLogoPath: getEnv("PREFEITURA_LOGO_PATH", ""),
 		TermoCabecalho:     getEnv("TERMO_CABECALHO", "Termo de Responsabilidade de Equipamento"),
 		TermoCidadeUF:      getEnv("TERMO_CIDADE_UF", ""),
+		IntegracaoAPIKey:   strings.TrimSpace(getEnv("INTEGRACAO_API_KEY", "")),
+		AnexosDir:          getEnv("ANEXOS_DIR", "data/anexos"),
 	}
 
 	expHours, err := strconv.Atoi(getEnv("JWT_EXPIRES_HOURS", "8"))

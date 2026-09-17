@@ -42,7 +42,7 @@ func (s *UsuarioService) Criar(in EntradaUsuario) (*models.Usuario, error) {
 		ev.Add("senha", "A senha deve ter ao menos 6 caracteres.")
 	}
 	if !models.PerfilValido(in.Perfil) {
-		ev.Add("perfil", "Perfil inválido. Use 'administrador' ou 'operador'.")
+		ev.Add("perfil", "Perfil inválido. Use 'administrador', 'operador' ou 'solicitante'.")
 	}
 	if ev.TemErros() {
 		return nil, ev
@@ -135,7 +135,7 @@ func (s *UsuarioService) DefinirAtivo(id uint, ativo bool) (*models.Usuario, err
 func (s *UsuarioService) DefinirPerfil(id uint, perfil models.Perfil) (*models.Usuario, error) {
 	if !models.PerfilValido(perfil) {
 		ev := NovoErroValidacao()
-		ev.Add("perfil", "Perfil inválido. Use 'administrador' ou 'operador'.")
+		ev.Add("perfil", "Perfil inválido. Use 'administrador', 'operador' ou 'solicitante'.")
 		return nil, ev
 	}
 	u, err := s.repo.BuscarPorID(id)

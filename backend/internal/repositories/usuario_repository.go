@@ -15,6 +15,9 @@ type UsuarioRepository interface {
 	Listar() ([]models.Usuario, error)
 	Atualizar(u *models.Usuario) error
 	ContarAdministradores() (int64, error)
+	// PrimeiroAdministrador devolve um administrador ativo (autor de chamados
+	// externos criados pela integração).
+	PrimeiroAdministrador() (*models.Usuario, error)
 }
 
 type usuarioRepository struct {
@@ -69,4 +72,18 @@ func (r *usuarioRepository) ContarAdministradores() (int64, error) {
 		Where("perfil = ? AND ativo = ?", models.PerfilAdministrador, true).
 		Count(&n).Error
 	return n, err
+}
+
+func (r *usuarioRepository) PrimeiroAdministrador() (*models.Usuario, error) {
+	var u models.Usuario
+	err := r.db.
+		Where("perfil = ? AND ativo = ?", models.PerfilAdministrador, true).
+		Order("id ASC").First(&u).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNaoEncontrado
+		}
+		return nil, err
+	}
+	return &u, nil
 }

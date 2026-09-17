@@ -1,13 +1,19 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { PortalShell } from "@/components/layout/PortalShell";
 import { ProtectedRoute } from "@/routes/ProtectedRoute";
+import { useAuth } from "@/contexts/AuthContext";
 
 import Login from "@/pages/Login";
+import Registrar from "@/pages/Registrar";
+import PortalChamados from "@/pages/portal/PortalChamados";
+import PortalChamadoDetalhe from "@/pages/portal/PortalChamadoDetalhe";
 import Dashboard from "@/pages/Dashboard";
 import ItensLista from "@/pages/itens/ItensLista";
 import ItemDetalhe from "@/pages/itens/ItemDetalhe";
 import Movimentacoes from "@/pages/Movimentacoes";
 import Manutencao from "@/pages/manutencao/Manutencao";
+import KanbanManutencao from "@/pages/manutencao/KanbanManutencao";
 import OrdemServicoDetalhe from "@/pages/manutencao/OrdemServicoDetalhe";
 import Alertas from "@/pages/Alertas";
 import Termos from "@/pages/Termos";
@@ -26,19 +32,31 @@ import SemPermissao from "@/pages/SemPermissao";
 import NaoEncontrado from "@/pages/NaoEncontrado";
 
 export default function App() {
+  const { ehSolicitante } = useAuth();
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/registrar" element={<Registrar />} />
       <Route path="/sem-permissao" element={<SemPermissao />} />
 
-      {/* Rotas autenticadas (qualquer perfil). */}
+      {/* Rotas autenticadas. Solicitante (usuário final) usa o portal enxuto;
+          a equipe de T.I. usa o painel completo. */}
       <Route element={<ProtectedRoute />}>
+        {ehSolicitante ? (
+          <Route element={<PortalShell />}>
+            <Route path="/" element={<PortalChamados />} />
+            <Route path="/chamado/:id" element={<PortalChamadoDetalhe />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        ) : (
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/itens" element={<ItensLista />} />
           <Route path="/itens/:id" element={<ItemDetalhe />} />
           <Route path="/movimentacoes" element={<Movimentacoes />} />
           <Route path="/manutencao" element={<Manutencao />} />
+          <Route path="/manutencao/kanban" element={<KanbanManutencao />} />
           <Route path="/manutencao/:id" element={<OrdemServicoDetalhe />} />
           <Route path="/reservas" element={<Reservas />} />
           <Route path="/alertas" element={<Alertas />} />
@@ -60,6 +78,7 @@ export default function App() {
 
           <Route path="*" element={<NaoEncontrado />} />
         </Route>
+        )}
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -6,10 +6,18 @@ type Perfil string
 const (
 	PerfilAdministrador Perfil = "administrador"
 	PerfilOperador      Perfil = "operador"
+	// PerfilSolicitante é o usuário final (servidor da Prefeitura) que abre e
+	// acompanha os próprios chamados. Sem acesso à área da equipe de T.I.
+	PerfilSolicitante Perfil = "solicitante"
 )
 
 // PerfilValido verifica se o perfil informado é aceito.
 func PerfilValido(p Perfil) bool {
+	return p == PerfilAdministrador || p == PerfilOperador || p == PerfilSolicitante
+}
+
+// PerfilEquipe indica se o perfil pertence à equipe de T.I. (acesso interno).
+func PerfilEquipe(p Perfil) bool {
 	return p == PerfilAdministrador || p == PerfilOperador
 }
 

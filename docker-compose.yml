@@ -51,6 +51,13 @@ services:
       # do servidor. Ajuste no .env conforme o IP/hostname interno.
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost}"
 
+      # --- Integração externa (API de chamados) ---
+      # Vazio = integração desabilitada. Defina no .env para habilitar.
+      INTEGRACAO_API_KEY: "${INTEGRACAO_API_KEY:-}"
+
+      # --- Anexos das mensagens de chamado (persistem no volume de dados) ---
+      ANEXOS_DIR: "/app/data/anexos"
+
       # --- Seed ---
       # Seed BASE (admin + categorias + setores) roda sempre na 1ª execução.
       SEED_ON_START: "true"

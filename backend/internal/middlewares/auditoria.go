@@ -154,6 +154,8 @@ func preencherAcaoRecurso(c *gin.Context, reg *models.RegistroAuditoria) {
 		reg.Acao = "atualizou checklist"
 	case seg[0] == "ordens-servico" && sub == "documento":
 		reg.Acao = "emitiu documento"
+	case seg[0] == "ordens-servico" && sub == "mensagens":
+		reg.Acao = "enviou mensagem"
 	case seg[0] == "reservas" && sub == "status":
 		reg.Acao = "alterou status"
 	default:

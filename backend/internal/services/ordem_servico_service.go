@@ -42,6 +42,7 @@ func NewOrdemServicoService(
 // EntradaOS reúne os dados de abertura/edição de uma ordem de serviço.
 type EntradaOS struct {
 	ItemID                   uint // 0 = máquina externa
+	Assunto                  string
 	EquipamentoDescricao     string
 	EquipamentoIdentificacao string
 	SetorID                  *uint
@@ -51,7 +52,13 @@ type EntradaOS struct {
 	SolucaoAplicada          string
 	Prioridade               string
 	TecnicoID                *uint
-	AbertoPorID              uint // usado apenas na criação
+	AbertoPorID              uint // usado apenas na criação (0 = sem autor, ex.: integração)
+
+	// Campos usados por chamados externos (integração):
+	SolicitanteNome    string // nome do solicitante quando não é servidor cadastrado
+	SolicitanteContato string // telefone/WhatsApp do solicitante externo
+	Origem             string // "interno" (padrão) ou "whatsapp"/externo
+	ReferenciaExterna  string // id do card na plataforma externa (idempotência)
 }
 
 // dadosValidados guarda as entidades resolvidas durante a validação.
@@ -69,7 +76,9 @@ func (s *OrdemServicoService) validar(in EntradaOS) (*dadosValidados, error) {
 		ev.Add("defeito_relatado", "Descreva o defeito relatado.")
 	}
 
-	// Equipamento: item do inventário OU descrição de máquina externa.
+	// Equipamento é OPCIONAL: pode ser item do inventário, descrição de máquina
+	// externa, ou nada (chamado de helpdesk identificado pelo Assunto). Exige-se
+	// apenas que haja Assunto OU equipamento OU defeito para descrever o chamado.
 	if in.ItemID != 0 {
 		item, err := s.itemRepo.BuscarPorID(in.ItemID)
 		if err != nil {
@@ -77,8 +86,12 @@ func (s *OrdemServicoService) validar(in EntradaOS) (*dadosValidados, error) {
 		} else {
 			d.item = item
 		}
-	} else if strings.TrimSpace(in.EquipamentoDescricao) == "" {
-		ev.Add("equipamento", "Informe o item do inventário ou a descrição da máquina externa.")
+	}
+	if in.ItemID == 0 &&
+		strings.TrimSpace(in.EquipamentoDescricao) == "" &&
+		strings.TrimSpace(in.Assunto) == "" &&
+		strings.TrimSpace(in.DefeitoRelatado) == "" {
+		ev.Add("assunto", "Informe ao menos o assunto ou a descrição do chamado.")
 	}
 
 	if in.SetorID != nil {
@@ -123,14 +136,21 @@ func aplicarEquipamento(os *models.OrdemServico, in EntradaOS, item *models.Item
 	} else {
 		os.ItemID = nil
 	}
+	os.Assunto = strings.TrimSpace(in.Assunto)
 	os.EquipamentoIdentificacao = strings.TrimSpace(in.EquipamentoIdentificacao)
 	if item != nil {
 		os.EquipamentoDescricao = ""
 		os.EquipamentoSnapshot = item.Descricao
 		os.PatrimonioSnapshot = derefStr(item.NumeroPatrimonio)
 	} else {
-		os.EquipamentoDescricao = strings.TrimSpace(in.EquipamentoDescricao)
-		os.EquipamentoSnapshot = strings.TrimSpace(in.EquipamentoDescricao)
+		desc := strings.TrimSpace(in.EquipamentoDescricao)
+		os.EquipamentoDescricao = desc
+		// Título do card: descrição do equipamento, senão o assunto do chamado.
+		if desc != "" {
+			os.EquipamentoSnapshot = desc
+		} else {
+			os.EquipamentoSnapshot = strings.TrimSpace(in.Assunto)
+		}
 		os.PatrimonioSnapshot = ""
 	}
 }
@@ -146,10 +166,24 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 		return nil, err
 	}
 
+	// Nome do solicitante: do servidor cadastrado ou, para chamado externo, o
+	// nome informado no payload.
+	nomeSolic := d.solicitanteNome
+	if nomeSolic == "" {
+		nomeSolic = strings.TrimSpace(in.SolicitanteNome)
+	}
+	origem := strings.TrimSpace(in.Origem)
+	if origem == "" {
+		origem = "interno"
+	}
+
 	os := &models.OrdemServico{
+		Origem:                  origem,
+		ReferenciaExterna:       strings.TrimSpace(in.ReferenciaExterna),
 		SetorID:                 in.SetorID,
 		SolicitanteID:           in.SolicitanteID,
-		SolicitanteNomeSnapshot: d.solicitanteNome,
+		SolicitanteNomeSnapshot: nomeSolic,
+		SolicitanteContato:      strings.TrimSpace(in.SolicitanteContato),
 		DefeitoRelatado:         strings.TrimSpace(in.DefeitoRelatado),
 		Diagnostico:             strings.TrimSpace(in.Diagnostico),
 		SolucaoAplicada:         strings.TrimSpace(in.SolucaoAplicada),
@@ -174,6 +208,39 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 		return nil, err
 	}
 	return s.repo.BuscarPorID(os.ID)
+}
+
+// UpsertViaIntegracao cria ou atualiza uma OS a partir de um chamado externo.
+// Idempotência: se ReferenciaExterna já existe, atualiza; senão, cria. Devolve
+// também se foi criada (para o handler responder 201 vs 200).
+func (s *OrdemServicoService) UpsertViaIntegracao(in EntradaOS) (*models.OrdemServico, bool, error) {
+	if in.Origem == "" {
+		in.Origem = "externo"
+	}
+	// Chamado externo não tem usuário autor: usa o administrador do sistema,
+	// preservando NOT NULL e a foreign key de aberto_por_id.
+	if in.AbertoPorID == 0 {
+		admin, err := s.usuarioRepo.PrimeiroAdministrador()
+		if err != nil {
+			return nil, false, err
+		}
+		in.AbertoPorID = admin.ID
+	}
+	if ref := strings.TrimSpace(in.ReferenciaExterna); ref != "" {
+		existente, err := s.repo.BuscarPorReferenciaExterna(ref)
+		if err == nil && existente != nil {
+			atualizada, err := s.Atualizar(existente.ID, in)
+			if err != nil {
+				return nil, false, err
+			}
+			return atualizada, false, nil
+		}
+	}
+	criada, err := s.Criar(in)
+	if err != nil {
+		return nil, false, err
+	}
+	return criada, true, nil
 }
 
 // passosPadrao materializa o template em registros de checklist.
@@ -202,7 +269,16 @@ func (s *OrdemServicoService) Atualizar(id uint, in EntradaOS) (*models.OrdemSer
 
 	os.SetorID = in.SetorID
 	os.SolicitanteID = in.SolicitanteID
-	os.SolicitanteNomeSnapshot = d.solicitanteNome
+	// Só sobrescreve o nome do solicitante quando há servidor selecionado ou um
+	// nome informado; caso contrário preserva o snapshot (ex.: chamado externo).
+	if d.solicitanteNome != "" {
+		os.SolicitanteNomeSnapshot = d.solicitanteNome
+	} else if nome := strings.TrimSpace(in.SolicitanteNome); nome != "" {
+		os.SolicitanteNomeSnapshot = nome
+	}
+	if c := strings.TrimSpace(in.SolicitanteContato); c != "" {
+		os.SolicitanteContato = c
+	}
 	os.DefeitoRelatado = strings.TrimSpace(in.DefeitoRelatado)
 	os.Diagnostico = strings.TrimSpace(in.Diagnostico)
 	os.SolucaoAplicada = strings.TrimSpace(in.SolucaoAplicada)

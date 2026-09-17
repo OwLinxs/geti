@@ -11,18 +11,21 @@ import (
 
 // FiltroOrdemServico concentra os filtros de consulta da fila de manutenção.
 type FiltroOrdemServico struct {
-	Status    string
-	TecnicoID *uint
-	De        *time.Time
-	Ate       *time.Time
-	Pagina    int
-	Tamanho   int
+	Status      string
+	TecnicoID   *uint
+	AbertoPorID *uint // filtra pelos chamados abertos por um usuário (portal)
+	De          *time.Time
+	Ate         *time.Time
+	Pagina      int
+	Tamanho     int
 }
 
 type OrdemServicoRepository interface {
 	CriarComTx(tx *gorm.DB, os *models.OrdemServico) error
 	Atualizar(os *models.OrdemServico) error
 	BuscarPorID(id uint) (*models.OrdemServico, error)
+	// BuscarPorReferenciaExterna localiza a OS pelo id do card externo (sync).
+	BuscarPorReferenciaExterna(ref string) (*models.OrdemServico, error)
 	Listar(f FiltroOrdemServico) ([]models.OrdemServico, int64, error)
 	Remover(id uint) error
 	// SubstituirPassos troca todos os passos de uma OS numa transação.
@@ -73,6 +76,20 @@ func (r *ordemServicoRepository) BuscarPorID(id uint) (*models.OrdemServico, err
 	return &os, nil
 }
 
+func (r *ordemServicoRepository) BuscarPorReferenciaExterna(ref string) (*models.OrdemServico, error) {
+	if ref == "" {
+		return nil, ErrNaoEncontrado
+	}
+	var os models.OrdemServico
+	if err := r.preloads(r.db).Where("referencia_externa = ?", ref).First(&os).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNaoEncontrado
+		}
+		return nil, err
+	}
+	return &os, nil
+}
+
 func (r *ordemServicoRepository) Listar(f FiltroOrdemServico) ([]models.OrdemServico, int64, error) {
 	q := r.db.Model(&models.OrdemServico{})
 
@@ -81,6 +98,9 @@ func (r *ordemServicoRepository) Listar(f FiltroOrdemServico) ([]models.OrdemSer
 	}
 	if f.TecnicoID != nil {
 		q = q.Where("tecnico_id = ?", *f.TecnicoID)
+	}
+	if f.AbertoPorID != nil {
+		q = q.Where("aberto_por_id = ?", *f.AbertoPorID)
 	}
 	if f.De != nil {
 		q = q.Where("data_abertura >= ?", *f.De)

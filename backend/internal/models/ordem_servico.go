@@ -76,6 +76,17 @@ type OrdemServico struct {
 
 	Numero string `gorm:"size:40;uniqueIndex;not null" json:"numero"` // ex.: OS-2026-0001
 
+	// Origem do chamado: "interno" (aberto no sistema) ou "whatsapp"/externo
+	// (criado pela API de integração).
+	Origem string `gorm:"size:20;not null;default:interno;index" json:"origem"`
+	// ReferenciaExterna guarda o id do card na plataforma externa, garantindo
+	// idempotência do sync (criar/atualizar sem duplicar).
+	ReferenciaExterna string `gorm:"size:100;index" json:"referencia_externa,omitempty"`
+
+	// Assunto: título curto do chamado (usado quando aberto pelo solicitante,
+	// sem equipamento vinculado).
+	Assunto string `gorm:"size:150" json:"assunto,omitempty"`
+
 	// Equipamento: do inventário (opcional) ou externo (descrito em texto).
 	// Ponteiro para gravar NULL (e não 0) quando for máquina externa, evitando
 	// violar a foreign key para itens.
@@ -92,6 +103,8 @@ type OrdemServico struct {
 	SolicitanteID           *uint     `gorm:"index" json:"solicitante_id,omitempty"`
 	Solicitante             *Servidor `gorm:"foreignKey:SolicitanteID" json:"solicitante,omitempty"`
 	SolicitanteNomeSnapshot string    `gorm:"size:120" json:"solicitante_nome_snapshot,omitempty"`
+	// Contato do solicitante externo (telefone/WhatsApp), quando não é servidor.
+	SolicitanteContato string `gorm:"size:80" json:"solicitante_contato,omitempty"`
 
 	DefeitoRelatado string `gorm:"size:1000;not null" json:"defeito_relatado"`
 	Diagnostico     string `gorm:"size:1000" json:"diagnostico,omitempty"`
@@ -103,6 +116,8 @@ type OrdemServico struct {
 	TecnicoID *uint    `gorm:"index" json:"tecnico_id,omitempty"`
 	Tecnico   *Usuario `gorm:"foreignKey:TecnicoID" json:"tecnico,omitempty"`
 
+	// Autor da abertura. Chamados externos (integração) usam o administrador do
+	// sistema como autor, preservando a restrição NOT NULL e a foreign key.
 	AbertoPorID uint     `gorm:"not null;index" json:"aberto_por_id"`
 	AbertoPor   *Usuario `gorm:"foreignKey:AbertoPorID" json:"aberto_por,omitempty"`
 

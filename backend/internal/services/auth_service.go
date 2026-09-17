@@ -51,6 +51,26 @@ func (s *AuthService) Login(email, senha string) (*ResultadoLogin, error) {
 	return &ResultadoLogin{Token: token, ExpiraEm: exp, Usuario: u}, nil
 }
 
+// Registrar cria uma conta de solicitante (auto-cadastro público) e já devolve
+// o token de sessão. O perfil é SEMPRE "solicitante" — nunca privilegiado.
+func (s *AuthService) Registrar(nome, email, senha string) (*ResultadoLogin, error) {
+	u, err := s.usuarioService.Criar(EntradaUsuario{
+		Nome:   nome,
+		Email:  email,
+		Senha:  senha,
+		Perfil: models.PerfilSolicitante,
+		Ativo:  true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	token, exp, err := s.gerarToken(u)
+	if err != nil {
+		return nil, err
+	}
+	return &ResultadoLogin{Token: token, ExpiraEm: exp, Usuario: u}, nil
+}
+
 func (s *AuthService) gerarToken(u *models.Usuario) (string, time.Time, error) {
 	exp := time.Now().UTC().Add(s.expiraEm)
 	claims := Claims{

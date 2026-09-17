@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { FormField } from "@/components/FormField";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ConversaChamado } from "@/components/ConversaChamado";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { OrdemServicoForm } from "./OrdemServicoForm";
 import {
@@ -381,6 +382,17 @@ export default function OrdemServicoDetalhe() {
               <Button variant="outline" size="sm" onClick={adicionarPasso}>
                 <Plus className="h-4 w-4" /> Adicionar passo
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Conversa com o solicitante
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ConversaChamado osId={os.id} modo="equipe" />
             </CardContent>
           </Card>
         </div>
