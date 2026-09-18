@@ -73,6 +73,9 @@ export default function PortalChamadoDetalhe() {
             <Badge variant={variantePrioridadeOS(os.prioridade)}>
               {rotuloPrioridadeOS(os.prioridade)}
             </Badge>
+            {os.categoria_chamado?.nome && (
+              <Badge variant="outline">{os.categoria_chamado.nome}</Badge>
+            )}
           </div>
           <CardTitle className="text-lg">
             {os.assunto || os.equipamento_snapshot}

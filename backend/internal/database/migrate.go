@@ -24,6 +24,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Movimentacao{},
 		&models.TermoResponsabilidade{},
 		&models.RegistroAuditoria{},
+		&models.CategoriaChamado{},
 		&models.OrdemServico{},
 		&models.OrdemServicoPasso{},
 		&models.MensagemChamado{},

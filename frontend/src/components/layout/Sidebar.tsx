@@ -16,6 +16,7 @@ import {
   CalendarClock,
   Truck,
   ScrollText,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +46,12 @@ const CADASTROS: ItemMenu[] = [
   { rotulo: "Servidores", para: "/servidores", icone: Users },
   { rotulo: "Fornecedores", para: "/fornecedores", icone: Truck },
   { rotulo: "Contratos", para: "/contratos", icone: ScrollText },
+  {
+    rotulo: "Categorias de Chamado",
+    para: "/categorias-chamado",
+    icone: Tag,
+    somenteAdmin: true,
+  },
   { rotulo: "Usuários", para: "/usuarios", icone: UserCog, somenteAdmin: true },
   { rotulo: "Auditoria", para: "/auditoria", icone: ShieldCheck, somenteAdmin: true },
 ];

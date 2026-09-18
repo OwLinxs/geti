@@ -161,6 +161,11 @@ export default function KanbanManutencao() {
                       </p>
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {os.categoria_chamado?.nome && (
+                        <Badge variant="outline">
+                          {os.categoria_chamado.nome}
+                        </Badge>
+                      )}
                       {os.origem && os.origem !== "interno" && (
                         <Badge variant="secondary" className="gap-1">
                           <MessageCircle className="h-3 w-3" />

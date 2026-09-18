@@ -11,13 +11,14 @@ import (
 
 // FiltroOrdemServico concentra os filtros de consulta da fila de manutenção.
 type FiltroOrdemServico struct {
-	Status      string
-	TecnicoID   *uint
-	AbertoPorID *uint // filtra pelos chamados abertos por um usuário (portal)
-	De          *time.Time
-	Ate         *time.Time
-	Pagina      int
-	Tamanho     int
+	Status             string
+	TecnicoID          *uint
+	CategoriaChamadoID *uint
+	AbertoPorID        *uint // filtra pelos chamados abertos por um usuário (portal)
+	De                 *time.Time
+	Ate                *time.Time
+	Pagina             int
+	Tamanho            int
 }
 
 type OrdemServicoRepository interface {
@@ -49,6 +50,7 @@ func (r *ordemServicoRepository) preloads(q *gorm.DB) *gorm.DB {
 	return q.
 		Preload("Item").
 		Preload("Setor").
+		Preload("CategoriaChamado").
 		Preload("Solicitante").
 		Preload("Tecnico").
 		Preload("AbertoPor").
@@ -101,6 +103,9 @@ func (r *ordemServicoRepository) Listar(f FiltroOrdemServico) ([]models.OrdemSer
 	}
 	if f.AbertoPorID != nil {
 		q = q.Where("aberto_por_id = ?", *f.AbertoPorID)
+	}
+	if f.CategoriaChamadoID != nil {
+		q = q.Where("categoria_chamado_id = ?", *f.CategoriaChamadoID)
 	}
 	if f.De != nil {
 		q = q.Where("data_abertura >= ?", *f.De)

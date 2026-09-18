@@ -24,6 +24,11 @@ func Executar(ct *container.Container) error {
 		return err
 	}
 
+	// Categorias de chamado padrão (idempotente: só cria se não houver nenhuma).
+	if err := ct.CategoriaChamadoService.SemearPadrao(); err != nil {
+		return err
+	}
+
 	// Seed demo só roda em desenvolvimento (SEED_DEMO=true). A validação de
 	// config já impede SEED_DEMO em produção.
 	if ct.Config.SeedDemo {

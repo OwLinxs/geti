@@ -18,6 +18,7 @@ type OrdemServicoService struct {
 	setorRepo   repositories.SetorRepository
 	servRepo    repositories.ServidorRepository
 	usuarioRepo repositories.UsuarioRepository
+	catRepo     repositories.CategoriaChamadoRepository
 	cfg         *config.Config
 }
 
@@ -27,6 +28,7 @@ func NewOrdemServicoService(
 	setorRepo repositories.SetorRepository,
 	servRepo repositories.ServidorRepository,
 	usuarioRepo repositories.UsuarioRepository,
+	catRepo repositories.CategoriaChamadoRepository,
 	cfg *config.Config,
 ) *OrdemServicoService {
 	return &OrdemServicoService{
@@ -35,6 +37,7 @@ func NewOrdemServicoService(
 		setorRepo:   setorRepo,
 		servRepo:    servRepo,
 		usuarioRepo: usuarioRepo,
+		catRepo:     catRepo,
 		cfg:         cfg,
 	}
 }
@@ -46,6 +49,7 @@ type EntradaOS struct {
 	EquipamentoDescricao     string
 	EquipamentoIdentificacao string
 	SetorID                  *uint
+	CategoriaChamadoID       *uint
 	SolicitanteID            *uint
 	DefeitoRelatado          string
 	Diagnostico              string
@@ -97,6 +101,11 @@ func (s *OrdemServicoService) validar(in EntradaOS) (*dadosValidados, error) {
 	if in.SetorID != nil {
 		if _, err := s.setorRepo.BuscarPorID(*in.SetorID); err != nil {
 			ev.Add("setor_id", "Departamento não encontrado.")
+		}
+	}
+	if in.CategoriaChamadoID != nil && s.catRepo != nil {
+		if _, err := s.catRepo.BuscarPorID(*in.CategoriaChamadoID); err != nil {
+			ev.Add("categoria_chamado_id", "Categoria de chamado não encontrada.")
 		}
 	}
 	if in.SolicitanteID != nil {
@@ -181,6 +190,7 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 		Origem:                  origem,
 		ReferenciaExterna:       strings.TrimSpace(in.ReferenciaExterna),
 		SetorID:                 in.SetorID,
+		CategoriaChamadoID:      in.CategoriaChamadoID,
 		SolicitanteID:           in.SolicitanteID,
 		SolicitanteNomeSnapshot: nomeSolic,
 		SolicitanteContato:      strings.TrimSpace(in.SolicitanteContato),
@@ -268,6 +278,7 @@ func (s *OrdemServicoService) Atualizar(id uint, in EntradaOS) (*models.OrdemSer
 	}
 
 	os.SetorID = in.SetorID
+	os.CategoriaChamadoID = in.CategoriaChamadoID
 	os.SolicitanteID = in.SolicitanteID
 	// Só sobrescreve o nome do solicitante quando há servidor selecionado ou um
 	// nome informado; caso contrário preserva o snapshot (ex.: chamado externo).
@@ -402,6 +413,7 @@ func (s *OrdemServicoService) GerarPDF(id uint, passosExtra []string) ([]byte, *
 func limparAssociacoes(os *models.OrdemServico) {
 	os.Item = nil
 	os.Setor = nil
+	os.CategoriaChamado = nil
 	os.Solicitante = nil
 	os.Tecnico = nil
 	os.AbertoPor = nil

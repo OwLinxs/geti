@@ -128,11 +128,27 @@ export interface OrdemServicoPasso extends Base {
   observacao?: string;
 }
 
+export interface CategoriaChamado extends Base {
+  nome: string;
+  descricao?: string;
+  ordem: number;
+  ativo: boolean;
+}
+
+export interface CategoriaChamadoPayload {
+  nome: string;
+  descricao?: string;
+  ordem?: number;
+  ativo?: boolean;
+}
+
 export interface OrdemServico extends Base {
   numero: string;
   origem?: string;
   referencia_externa?: string;
   assunto?: string;
+  categoria_chamado_id?: number | null;
+  categoria_chamado?: CategoriaChamado | null;
   solicitante_contato?: string;
   item_id?: number;
   item?: Item | null;
@@ -367,6 +383,7 @@ export interface OrdemServicoPayload {
   equipamento_descricao?: string;
   equipamento_identificacao?: string;
   setor_id?: number | null;
+  categoria_chamado_id?: number | null;
   solicitante_id?: number | null;
   defeito_relatado: string;
   diagnostico?: string;

@@ -18,13 +18,14 @@ import {
 } from "@/components/ui/select";
 import { FormField } from "@/components/FormField";
 import { Spinner } from "@/components/ui/spinner";
-import { ordensServicoApi } from "@/services/api";
+import { categoriasChamadoApi, ordensServicoApi } from "@/services/api";
 import { camposInvalidos, mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { PRIORIDADES_OS } from "@/lib/rotulos";
 import { ordenarComoArvore, prefixoIndentacao } from "@/lib/setores";
 import { cn } from "@/lib/utils";
 import type {
+  CategoriaChamado,
   Item,
   OrdemServico,
   OrdemServicoPayload,
@@ -66,6 +67,8 @@ export function OrdemServicoForm({
   const [equipDescricao, setEquipDescricao] = React.useState("");
   const [equipIdent, setEquipIdent] = React.useState("");
   const [setorId, setSetorId] = React.useState<string>(SEM);
+  const [categoriaId, setCategoriaId] = React.useState<string>(SEM);
+  const [categorias, setCategorias] = React.useState<CategoriaChamado[]>([]);
   const [solicitanteId, setSolicitanteId] = React.useState<string>(SEM);
   const [defeito, setDefeito] = React.useState("");
   const [diagnostico, setDiagnostico] = React.useState("");
@@ -88,12 +91,19 @@ export function OrdemServicoForm({
 
   React.useEffect(() => {
     if (!aberto) return;
+    categoriasChamadoApi
+      .listar(true)
+      .then(setCategorias)
+      .catch(() => setCategorias([]));
     if (ordem) {
       setOrigem(ordem.item_id ? "inventario" : "externa");
       setItemId(ordem.item_id ? String(ordem.item_id) : SEM);
       setEquipDescricao(ordem.equipamento_descricao ?? "");
       setEquipIdent(ordem.equipamento_identificacao ?? "");
       setSetorId(ordem.setor_id ? String(ordem.setor_id) : SEM);
+      setCategoriaId(
+        ordem.categoria_chamado_id ? String(ordem.categoria_chamado_id) : SEM
+      );
       setSolicitanteId(ordem.solicitante_id ? String(ordem.solicitante_id) : SEM);
       setDefeito(ordem.defeito_relatado);
       setDiagnostico(ordem.diagnostico ?? "");
@@ -106,6 +116,7 @@ export function OrdemServicoForm({
       setEquipDescricao("");
       setEquipIdent("");
       setSetorId(SEM);
+      setCategoriaId(SEM);
       setSolicitanteId(SEM);
       setDefeito("");
       setDiagnostico("");
@@ -140,6 +151,7 @@ export function OrdemServicoForm({
       equipamento_identificacao:
         origem === "externa" ? equipIdent.trim() : "",
       setor_id: setorId !== SEM ? Number(setorId) : null,
+      categoria_chamado_id: categoriaId !== SEM ? Number(categoriaId) : null,
       solicitante_id: solicitanteId !== SEM ? Number(solicitanteId) : null,
       defeito_relatado: defeito.trim(),
       diagnostico: diagnostico.trim(),
@@ -253,6 +265,22 @@ export function OrdemServicoForm({
               onChange={(e) => setDefeito(e.target.value)}
               placeholder="Ex.: Não liga; barulho na fonte; muito lento…"
             />
+          </FormField>
+
+          <FormField label="Categoria do chamado">
+            <Select value={categoriaId} onValueChange={setCategoriaId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Opcional" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SEM}>Não classificado</SelectItem>
+                {categorias.map((cat) => (
+                  <SelectItem key={cat.id} value={String(cat.id)}>
+                    {cat.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </FormField>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

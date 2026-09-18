@@ -49,6 +49,7 @@ type abrirChamadoRequest struct {
 	Assunto              string `json:"assunto"`
 	DefeitoRelatado      string `json:"defeito_relatado"`
 	EquipamentoDescricao string `json:"equipamento_descricao"`
+	CategoriaChamadoID   *uint  `json:"categoria_chamado_id"`
 	Prioridade           string `json:"prioridade"`
 }
 
@@ -65,6 +66,7 @@ func (h *MeusChamadosHandler) Abrir(c *gin.Context) {
 		Assunto:              req.Assunto,
 		DefeitoRelatado:      req.DefeitoRelatado,
 		EquipamentoDescricao: req.EquipamentoDescricao,
+		CategoriaChamadoID:   req.CategoriaChamadoID,
 		Prioridade:           req.Prioridade,
 		Origem:               "portal",
 		AbertoPorID:          uid,

@@ -56,6 +56,10 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 		// chamados + conversa. Acesso escopado ao próprio usuário nos handlers.
 		registrarMeusChamados(auth, ct)
 
+		// Categorias de chamado: leitura para qualquer perfil (o solicitante
+		// precisa escolher ao abrir); escrita só administrador (configuração).
+		registrarCategoriasChamado(auth, ct)
+
 		// Área da equipe de T.I. (administrador/operador). Solicitantes são
 		// barrados aqui.
 		equipe := auth.Group("", middlewares.SomenteEquipe())
@@ -229,6 +233,14 @@ func registrarIntegracao(api *gin.RouterGroup, cfg *config.Config, ct *container
 	g.GET("/ordens-servico", ct.IntegracaoHandler.Listar)
 	g.GET("/ordens-servico/:id", ct.IntegracaoHandler.BuscarPorID)
 	g.PATCH("/ordens-servico/:id/status", ct.IntegracaoHandler.DefinirStatus)
+}
+
+func registrarCategoriasChamado(g *gin.RouterGroup, ct *container.Container) {
+	c := g.Group("/categorias-chamado")
+	c.GET("", ct.CategoriaChamadoHandler.Listar)
+	c.POST("", adminOnly(), ct.CategoriaChamadoHandler.Criar)
+	c.PUT("/:id", adminOnly(), ct.CategoriaChamadoHandler.Atualizar)
+	c.DELETE("/:id", adminOnly(), ct.CategoriaChamadoHandler.Excluir)
 }
 
 func registrarMeusChamados(g *gin.RouterGroup, ct *container.Container) {

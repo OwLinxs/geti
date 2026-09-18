@@ -27,6 +27,7 @@ import Fornecedores from "@/pages/cadastros/Fornecedores";
 import Contratos from "@/pages/cadastros/Contratos";
 import Reservas from "@/pages/Reservas";
 import Usuarios from "@/pages/cadastros/Usuarios";
+import CategoriasChamado from "@/pages/config/CategoriasChamado";
 import Auditoria from "@/pages/Auditoria";
 import SemPermissao from "@/pages/SemPermissao";
 import NaoEncontrado from "@/pages/NaoEncontrado";
@@ -73,6 +74,7 @@ export default function App() {
           {/* Rotas exclusivas de administrador. */}
           <Route element={<ProtectedRoute somenteAdmin />}>
             <Route path="/usuarios" element={<Usuarios />} />
+            <Route path="/categorias-chamado" element={<CategoriasChamado />} />
             <Route path="/auditoria" element={<Auditoria />} />
           </Route>
 

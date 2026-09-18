@@ -87,6 +87,10 @@ type OrdemServico struct {
 	// sem equipamento vinculado).
 	Assunto string `gorm:"size:150" json:"assunto,omitempty"`
 
+	// Categoria do chamado (rede, e-mail, impressora...), configurável.
+	CategoriaChamadoID *uint             `gorm:"index" json:"categoria_chamado_id,omitempty"`
+	CategoriaChamado   *CategoriaChamado `gorm:"foreignKey:CategoriaChamadoID" json:"categoria_chamado,omitempty"`
+
 	// Equipamento: do inventário (opcional) ou externo (descrito em texto).
 	// Ponteiro para gravar NULL (e não 0) quando for máquina externa, evitando
 	// violar a foreign key para itens.

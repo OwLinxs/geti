@@ -291,6 +291,9 @@ export default function OrdemServicoDetalhe() {
             <Campo rotulo="Solicitante">
               {os.solicitante?.nome ?? os.solicitante_nome_snapshot ?? "—"}
             </Campo>
+            <Campo rotulo="Categoria">
+              {os.categoria_chamado?.nome ?? "—"}
+            </Campo>
             <Campo rotulo="Departamento">{os.setor?.nome ?? "—"}</Campo>
             <Campo rotulo="Técnico">{os.tecnico?.nome ?? "—"}</Campo>
             <Campo rotulo="Abertura">{formatarData(os.data_abertura)}</Campo>

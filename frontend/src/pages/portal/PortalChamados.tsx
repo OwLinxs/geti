@@ -23,7 +23,11 @@ import {
 import { FormField } from "@/components/FormField";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
-import { portalApi, type AbrirChamadoPayload } from "@/services/api";
+import {
+  categoriasChamadoApi,
+  portalApi,
+  type AbrirChamadoPayload,
+} from "@/services/api";
 import { camposInvalidos, mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { formatarData } from "@/lib/format";
@@ -32,7 +36,7 @@ import {
   rotuloStatusOS,
   varianteStatusOS,
 } from "@/lib/rotulos";
-import type { OrdemServico } from "@/types";
+import type { CategoriaChamado, OrdemServico } from "@/types";
 
 export default function PortalChamados() {
   const { toast } = useToast();
@@ -146,6 +150,8 @@ function AbrirChamadoDialog({
   const [descricao, setDescricao] = React.useState("");
   const [local, setLocal] = React.useState("");
   const [prioridade, setPrioridade] = React.useState("normal");
+  const [categoriaId, setCategoriaId] = React.useState("0");
+  const [categorias, setCategorias] = React.useState<CategoriaChamado[]>([]);
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [enviando, setEnviando] = React.useState(false);
 
@@ -155,7 +161,12 @@ function AbrirChamadoDialog({
       setDescricao("");
       setLocal("");
       setPrioridade("normal");
+      setCategoriaId("0");
       setErros({});
+      categoriasChamadoApi
+        .listar(true)
+        .then(setCategorias)
+        .catch(() => setCategorias([]));
     }
   }, [aberto]);
 
@@ -175,6 +186,7 @@ function AbrirChamadoDialog({
         assunto: assunto.trim(),
         defeito_relatado: descricao.trim(),
         equipamento_descricao: local.trim(),
+        categoria_chamado_id: categoriaId !== "0" ? Number(categoriaId) : null,
         prioridade,
       };
       const os = await portalApi.abrir(payload);
@@ -231,20 +243,39 @@ function AbrirChamadoDialog({
               placeholder="Ex.: PC da sala 3 / patrimônio 12345"
             />
           </FormField>
-          <FormField label="Prioridade">
-            <Select value={prioridade} onValueChange={setPrioridade}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRIORIDADES_OS.map((p) => (
-                  <SelectItem key={p.valor} value={p.valor}>
-                    {p.rotulo}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormField>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {categorias.length > 0 && (
+              <FormField label="Categoria">
+                <Select value={categoriaId} onValueChange={setCategoriaId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">Não sei / outros</SelectItem>
+                    {categorias.map((cat) => (
+                      <SelectItem key={cat.id} value={String(cat.id)}>
+                        {cat.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+            )}
+            <FormField label="Prioridade">
+              <Select value={prioridade} onValueChange={setPrioridade}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORIDADES_OS.map((p) => (
+                    <SelectItem key={p.valor} value={p.valor}>
+                      {p.rotulo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+          </div>
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onFechar}>
               Cancelar

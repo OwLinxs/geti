@@ -24,6 +24,7 @@ type ordemServicoRequest struct {
 	EquipamentoDescricao     string `json:"equipamento_descricao"`
 	EquipamentoIdentificacao string `json:"equipamento_identificacao"`
 	SetorID                  *uint  `json:"setor_id"`
+	CategoriaChamadoID       *uint  `json:"categoria_chamado_id"`
 	SolicitanteID            *uint  `json:"solicitante_id"`
 	DefeitoRelatado          string `json:"defeito_relatado"`
 	Diagnostico              string `json:"diagnostico"`
@@ -38,6 +39,7 @@ func (r ordemServicoRequest) toEntrada() services.EntradaOS {
 		EquipamentoDescricao:     r.EquipamentoDescricao,
 		EquipamentoIdentificacao: r.EquipamentoIdentificacao,
 		SetorID:                  r.SetorID,
+		CategoriaChamadoID:       r.CategoriaChamadoID,
 		SolicitanteID:            r.SolicitanteID,
 		DefeitoRelatado:          r.DefeitoRelatado,
 		Diagnostico:              r.Diagnostico,

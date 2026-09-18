@@ -6,6 +6,8 @@ import type {
   ItemPayload,
   ArtigoConhecimento,
   ArtigoConhecimentoPayload,
+  CategoriaChamado,
+  CategoriaChamadoPayload,
   MensagemChamado,
   Contrato,
   ContratoPayload,
@@ -45,11 +47,30 @@ export const authApi = {
   euMesmo: () => api.get<Usuario>("/auth/eu").then((r) => r.data),
 };
 
+// ===== Categorias de chamado (configurável) =====
+export const categoriasChamadoApi = {
+  listar: (apenasAtivas = false) =>
+    api
+      .get<CategoriaChamado[]>("/categorias-chamado", {
+        params: apenasAtivas ? { ativas: "true" } : {},
+      })
+      .then((r) => r.data),
+  criar: (p: CategoriaChamadoPayload) =>
+    api.post<CategoriaChamado>("/categorias-chamado", p).then((r) => r.data),
+  atualizar: (id: number, p: CategoriaChamadoPayload) =>
+    api
+      .put<CategoriaChamado>(`/categorias-chamado/${id}`, p)
+      .then((r) => r.data),
+  excluir: (id: number) =>
+    api.delete(`/categorias-chamado/${id}`).then(() => undefined),
+};
+
 // ===== Portal do solicitante (meus chamados) =====
 export interface AbrirChamadoPayload {
   assunto: string;
   defeito_relatado: string;
   equipamento_descricao?: string;
+  categoria_chamado_id?: number | null;
   prioridade?: string;
 }
 

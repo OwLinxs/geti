@@ -23,18 +23,19 @@ const (
 
 // singularRecurso mapeia o segmento de rota (plural) para um rótulo singular.
 var singularRecurso = map[string]string{
-	"itens":          "item",
-	"usuarios":       "usuario",
-	"servidores":     "servidor",
-	"categorias":     "categoria",
-	"setores":        "setor",
-	"movimentacoes":  "movimentacao",
-	"termos":         "termo",
-	"ordens-servico": "ordem de serviço",
-	"conhecimento":   "artigo",
-	"fornecedores":   "fornecedor",
-	"contratos":      "contrato",
-	"reservas":       "reserva",
+	"itens":              "item",
+	"usuarios":           "usuario",
+	"servidores":         "servidor",
+	"categorias":         "categoria",
+	"setores":            "setor",
+	"movimentacoes":      "movimentacao",
+	"termos":             "termo",
+	"ordens-servico":     "ordem de serviço",
+	"conhecimento":       "artigo",
+	"fornecedores":       "fornecedor",
+	"contratos":          "contrato",
+	"reservas":           "reserva",
+	"categorias-chamado": "categoria de chamado",
 }
 
 // Auditoria registra, após cada requisição sensível, QUEM fez O QUÊ e QUANDO.
