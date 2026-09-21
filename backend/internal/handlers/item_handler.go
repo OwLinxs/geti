@@ -36,6 +36,7 @@ type itemRequest struct {
 	ResponsavelID     *uint                    `json:"responsavel_id"`
 	DataAquisicao     *time.Time               `json:"data_aquisicao"`
 	Valor             *float64                 `json:"valor"`
+	Reservavel        bool                     `json:"reservavel"`
 }
 
 func (r itemRequest) toEntrada() services.EntradaItem {
@@ -53,7 +54,29 @@ func (r itemRequest) toEntrada() services.EntradaItem {
 		ResponsavelID:     r.ResponsavelID,
 		DataAquisicao:     r.DataAquisicao,
 		Valor:             r.Valor,
+		Reservavel:        r.Reservavel,
 	}
+}
+
+// DefinirReservavel marca/desmarca o item como reservável (atalho da aba Reservas).
+func (h *ItemHandler) DefinirReservavel(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	var req struct {
+		Reservavel bool `json:"reservavel"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+	item, err := h.svc.DefinirReservavel(id, req.Reservavel)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, item)
 }
 
 // Listar suporta busca e filtros via query string.

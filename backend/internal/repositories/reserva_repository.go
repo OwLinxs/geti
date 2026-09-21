@@ -25,6 +25,9 @@ type ReservaRepository interface {
 	// ExisteConflito informa se há reserva ativa do mesmo item cujo período se
 	// sobrepõe a [inicio, fim]. ignorarID exclui a própria reserva (edição).
 	ExisteConflito(itemID uint, inicio, fim time.Time, ignorarID uint) (bool, error)
+	// BuscarAtivaPorItem devolve a reserva ativa (reservada/em_uso) mais recente
+	// do item, ou nil quando não há (equipamento no departamento).
+	BuscarAtivaPorItem(itemID uint) (*models.Reserva, error)
 }
 
 type reservaRepository struct {
@@ -94,6 +97,22 @@ func (r *reservaRepository) Listar(f FiltroReserva) ([]models.Reserva, int64, er
 
 func (r *reservaRepository) Remover(id uint) error {
 	return r.db.Delete(&models.Reserva{}, id).Error
+}
+
+func (r *reservaRepository) BuscarAtivaPorItem(itemID uint) (*models.Reserva, error) {
+	var res models.Reserva
+	err := r.preloads(r.db).
+		Where("item_id = ? AND status IN ?", itemID,
+			[]models.StatusReserva{models.ReservaReservada, models.ReservaEmUso}).
+		Order("data_inicio DESC, id DESC").
+		First(&res).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil // sem reserva ativa
+		}
+		return nil, err
+	}
+	return &res, nil
 }
 
 func (r *reservaRepository) ExisteConflito(itemID uint, inicio, fim time.Time, ignorarID uint) (bool, error) {

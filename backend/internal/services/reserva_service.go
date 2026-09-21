@@ -31,6 +31,7 @@ type EntradaReserva struct {
 	DataInicio    *time.Time
 	DataFim       *time.Time
 	Finalidade    string
+	LocalDestino  string
 	Status        string
 	Observacao    string
 	AprovadoPorID uint // usuário autenticado (na criação)
@@ -105,6 +106,7 @@ func aplicarReserva(r *models.Reserva, in EntradaReserva, status models.StatusRe
 	r.DataInicio = *in.DataInicio
 	r.DataFim = *in.DataFim
 	r.Finalidade = strings.TrimSpace(in.Finalidade)
+	r.LocalDestino = strings.TrimSpace(in.LocalDestino)
 	r.Status = status
 	r.Observacao = strings.TrimSpace(in.Observacao)
 }
@@ -182,6 +184,38 @@ func (s *ReservaService) BuscarPorID(id uint) (*models.Reserva, error) {
 
 func (s *ReservaService) Listar(f repositories.FiltroReserva) ([]models.Reserva, int64, error) {
 	return s.repo.Listar(f)
+}
+
+// EquipamentoReservavel representa um item do pool de reservas com seu estado
+// atual (reserva ativa quando alocado; nil quando está no departamento).
+type EquipamentoReservavel struct {
+	Item         models.Item     `json:"item"`
+	ReservaAtiva *models.Reserva `json:"reserva_ativa"`
+}
+
+// ListarEquipamentos devolve os itens marcados como reserváveis (não baixados)
+// com a reserva ativa de cada um, para o painel de alocação.
+func (s *ReservaService) ListarEquipamentos() ([]EquipamentoReservavel, error) {
+	reservavel := true
+	ativos := false
+	itens, _, err := s.itemRepo.Listar(repositories.FiltroItem{
+		Reservavel:      &reservavel,
+		SomenteBaixados: &ativos,
+		Pagina:          1,
+		TamanhoPagina:   500,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]EquipamentoReservavel, 0, len(itens))
+	for i := range itens {
+		ativa, err := s.repo.BuscarAtivaPorItem(itens[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, EquipamentoReservavel{Item: itens[i], ReservaAtiva: ativa})
+	}
+	return out, nil
 }
 
 func (s *ReservaService) Excluir(id uint) error {

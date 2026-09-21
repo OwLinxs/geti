@@ -24,6 +24,7 @@ type reservaRequest struct {
 	DataInicio    *string `json:"data_inicio"`
 	DataFim       *string `json:"data_fim"`
 	Finalidade    string  `json:"finalidade"`
+	LocalDestino  string  `json:"local_destino"`
 	Status        string  `json:"status"`
 	Observacao    string  `json:"observacao"`
 }
@@ -35,9 +36,21 @@ func (r reservaRequest) toEntrada() services.EntradaReserva {
 		DataInicio:    parseDataCorpo(r.DataInicio),
 		DataFim:       parseDataCorpo(r.DataFim),
 		Finalidade:    r.Finalidade,
+		LocalDestino:  r.LocalDestino,
 		Status:        r.Status,
 		Observacao:    r.Observacao,
 	}
+}
+
+// ListarEquipamentos devolve o pool de equipamentos reserváveis com o estado
+// atual (alocado ou no departamento).
+func (h *ReservaHandler) ListarEquipamentos(c *gin.Context) {
+	lista, err := h.svc.ListarEquipamentos()
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, lista)
 }
 
 func (h *ReservaHandler) Criar(c *gin.Context) {

@@ -2,6 +2,7 @@ import * as React from "react";
 import { PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,7 @@ interface FormState {
   responsavel_id: number | null;
   data_aquisicao: string;
   valor: string;
+  reservavel: boolean;
 }
 
 function estadoInicial(item: Item | null): FormState {
@@ -79,6 +81,7 @@ function estadoInicial(item: Item | null): FormState {
     responsavel_id: item?.responsavel_id ?? null,
     data_aquisicao: isoParaDateInput(item?.data_aquisicao),
     valor: item?.valor != null ? String(item.valor) : "",
+    reservavel: item?.reservavel ?? false,
   };
 }
 
@@ -151,6 +154,7 @@ export function ItemForm({
       responsavel_id: form.responsavel_id,
       data_aquisicao: dateInputParaISO(form.data_aquisicao),
       valor: form.valor ? Number(form.valor) : null,
+      reservavel: form.reservavel,
     };
 
     setSalvando(true);
@@ -406,6 +410,22 @@ export function ItemForm({
               />
             </FormField>
           </div>
+
+          {!ehConsumivel && (
+            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+              <div>
+                <p className="text-sm font-medium">Disponível para reserva</p>
+                <p className="text-xs text-muted-foreground">
+                  Entra no pool de equipamentos que podem ser alocados na aba
+                  Reservas.
+                </p>
+              </div>
+              <Switch
+                checked={form.reservavel}
+                onCheckedChange={(v) => set("reservavel", v)}
+              />
+            </div>
+          )}
 
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onFechar}>

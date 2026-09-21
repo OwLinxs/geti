@@ -1,11 +1,11 @@
 import * as React from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Trash2, LogOut, LogIn, PackagePlus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -32,201 +32,82 @@ import { FormField } from "@/components/FormField";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
-import {
-  itensApi,
-  reservasApi,
-  type FiltroReservas,
-} from "@/services/api";
+import { itensApi, reservasApi } from "@/services/api";
 import { camposInvalidos, mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useReferencias } from "@/hooks/useReferencias";
-import {
-  STATUS_RESERVA,
-  rotuloStatusReserva,
-  varianteStatusReserva,
-} from "@/lib/rotulos";
-import { dateInputParaISO, formatarData, isoParaDateInput } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { Item, Reserva, ReservaPayload } from "@/types";
+import { rotuloStatusReserva, varianteStatusReserva } from "@/lib/rotulos";
+import { dateInputParaISO, formatarData } from "@/lib/format";
+import type {
+  EquipamentoReservavel,
+  Item,
+  ReservaPayload,
+  Servidor,
+} from "@/types";
 
-const TAMANHO = 20;
-const TODOS = "todos";
 const SEM = "0";
-
-interface FormState {
-  item_id: string;
-  solicitante_id: string;
-  data_inicio: string;
-  data_fim: string;
-  finalidade: string;
-  status: string;
-  observacao: string;
-}
-
-const VAZIO: FormState = {
-  item_id: "",
-  solicitante_id: SEM,
-  data_inicio: "",
-  data_fim: "",
-  finalidade: "",
-  status: "reservada",
-  observacao: "",
-};
 
 export default function Reservas() {
   const { toast } = useToast();
   const { ehAdministrador } = useAuth();
   const { servidores } = useReferencias();
 
-  const [lista, setLista] = React.useState<Reserva[]>([]);
-  const [total, setTotal] = React.useState(0);
-  const [pagina, setPagina] = React.useState(1);
-  const [statusFiltro, setStatusFiltro] = React.useState<string>(TODOS);
+  const [equipamentos, setEquipamentos] = React.useState<
+    EquipamentoReservavel[]
+  >([]);
   const [carregando, setCarregando] = React.useState(true);
-  const [itens, setItens] = React.useState<Item[]>([]);
+  const [processando, setProcessando] = React.useState<number | null>(null);
 
-  const [modalAberto, setModalAberto] = React.useState(false);
-  const [editando, setEditando] = React.useState<Reserva | null>(null);
-  const [form, setForm] = React.useState<FormState>(VAZIO);
-  const [erros, setErros] = React.useState<Record<string, string>>({});
-  const [salvando, setSalvando] = React.useState(false);
-  const [removendo, setRemovendo] = React.useState<Reserva | null>(null);
-  const [processandoRemocao, setProcessandoRemocao] = React.useState(false);
-  const [statusSalvandoId, setStatusSalvandoId] = React.useState<number | null>(
-    null
-  );
-
-  const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO));
+  // Diálogo de alocação (item fixo).
+  const [alocarItem, setAlocarItem] = React.useState<Item | null>(null);
+  // Diálogo "adicionar equipamento ao pool".
+  const [adicionarAberto, setAdicionarAberto] = React.useState(false);
+  // Remoção do pool.
+  const [removerPool, setRemoverPool] = React.useState<Item | null>(null);
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
-    const f: FiltroReservas = {
-      pagina,
-      tamanho: TAMANHO,
-      status: statusFiltro !== TODOS ? statusFiltro : undefined,
-    };
     reservasApi
-      .listar(f)
-      .then((r) => {
-        setLista(r.dados);
-        setTotal(r.total);
-      })
+      .equipamentos()
+      .then(setEquipamentos)
       .catch((err) =>
         toast({
-          titulo: "Erro ao carregar reservas",
+          titulo: "Erro ao carregar equipamentos",
           descricao: mensagemErro(err),
           variant: "destructive",
         })
       )
       .finally(() => setCarregando(false));
-  }, [pagina, statusFiltro, toast]);
+  }, [toast]);
 
   React.useEffect(carregar, [carregar]);
 
-  // Só equipamentos patrimoniados (não consumíveis) e não baixados podem ser
-  // reservados.
-  React.useEffect(() => {
-    itensApi
-      .listar({ tamanho: 500, baixado: false })
-      .then((r) => setItens(r.dados.filter((i) => !i.categoria?.consumivel)))
-      .catch(() => setItens([]));
-  }, []);
-
-  function abrirCriacao() {
-    setEditando(null);
-    setForm(VAZIO);
-    setErros({});
-    setModalAberto(true);
-  }
-
-  function abrirEdicao(r: Reserva) {
-    setEditando(r);
-    setForm({
-      item_id: String(r.item_id),
-      solicitante_id: r.solicitante_id ? String(r.solicitante_id) : SEM,
-      data_inicio: isoParaDateInput(r.data_inicio),
-      data_fim: isoParaDateInput(r.data_fim),
-      finalidade: r.finalidade ?? "",
-      status: r.status,
-      observacao: r.observacao ?? "",
-    });
-    setErros({});
-    setModalAberto(true);
-  }
-
-  async function salvar(e: React.FormEvent) {
-    e.preventDefault();
-    const novos: Record<string, string> = {};
-    if (!form.item_id) novos.item_id = "Selecione o equipamento.";
-    if (!form.data_inicio) novos.data_inicio = "Informe o início.";
-    if (!form.data_fim) novos.data_fim = "Informe o término.";
-    if (Object.keys(novos).length) {
-      setErros(novos);
-      return;
-    }
-    setErros({});
-
-    const payload: ReservaPayload = {
-      item_id: Number(form.item_id),
-      solicitante_id:
-        form.solicitante_id !== SEM ? Number(form.solicitante_id) : null,
-      data_inicio: dateInputParaISO(form.data_inicio),
-      data_fim: dateInputParaISO(form.data_fim),
-      finalidade: form.finalidade.trim(),
-      status: form.status as ReservaPayload["status"],
-      observacao: form.observacao.trim(),
-    };
-
-    setSalvando(true);
+  async function voltarAoDepartamento(eq: EquipamentoReservavel) {
+    if (!eq.reserva_ativa) return;
+    setProcessando(eq.item.id);
     try {
-      if (editando) {
-        await reservasApi.atualizar(editando.id, payload);
-        toast({ titulo: "Reserva atualizada.", variant: "success" });
-      } else {
-        await reservasApi.criar(payload);
-        toast({ titulo: "Reserva registrada.", variant: "success" });
-      }
-      setModalAberto(false);
-      carregar();
-    } catch (err) {
-      const campos = camposInvalidos(err);
-      if (campos) setErros(campos);
-      else
-        toast({
-          titulo: "Não foi possível salvar",
-          descricao: mensagemErro(err),
-          variant: "destructive",
-        });
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  async function mudarStatus(r: Reserva, novo: string) {
-    setStatusSalvandoId(r.id);
-    try {
-      await reservasApi.definirStatus(r.id, novo);
-      toast({ titulo: "Status atualizado.", variant: "success" });
+      await reservasApi.definirStatus(eq.reserva_ativa.id, "devolvida");
+      toast({ titulo: "Equipamento de volta ao departamento.", variant: "success" });
       carregar();
     } catch (err) {
       toast({
-        titulo: "Não foi possível alterar o status",
+        titulo: "Não foi possível registrar a devolução",
         descricao: mensagemErro(err),
         variant: "destructive",
       });
     } finally {
-      setStatusSalvandoId(null);
+      setProcessando(null);
     }
   }
 
-  async function confirmarRemocao() {
-    if (!removendo) return;
-    setProcessandoRemocao(true);
+  async function confirmarRemoverPool() {
+    if (!removerPool) return;
+    setProcessando(removerPool.id);
     try {
-      await reservasApi.excluir(removendo.id);
-      toast({ titulo: "Reserva removida.", variant: "success" });
-      setRemovendo(null);
+      await itensApi.definirReservavel(removerPool.id, false);
+      toast({ titulo: "Equipamento removido do pool.", variant: "success" });
+      setRemoverPool(null);
       carregar();
     } catch (err) {
       toast({
@@ -235,322 +116,410 @@ export default function Reservas() {
         variant: "destructive",
       });
     } finally {
-      setProcessandoRemocao(false);
+      setProcessando(null);
     }
   }
+
+  const noDepartamento = equipamentos.filter((e) => !e.reserva_ativa).length;
+  const alocados = equipamentos.length - noDepartamento;
 
   return (
     <div>
       <PageHeader
-        titulo="Reservas"
-        descricao="Agendamento de uso de equipamentos, com controle de conflito de datas."
+        titulo="Reservas de Equipamento"
+        descricao="Pool de equipamentos disponíveis para alocação temporária."
         acao={
-          <Button onClick={abrirCriacao}>
-            <Plus className="h-4 w-4" /> Nova reserva
+          <Button onClick={() => setAdicionarAberto(true)}>
+            <PackagePlus className="h-4 w-4" /> Adicionar equipamento
           </Button>
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <FiltroBotao
-          ativo={statusFiltro === TODOS}
-          onClick={() => {
-            setStatusFiltro(TODOS);
-            setPagina(1);
-          }}
-        >
-          Todas
-        </FiltroBotao>
-        {STATUS_RESERVA.map((s) => (
-          <FiltroBotao
-            key={s.valor}
-            ativo={statusFiltro === s.valor}
-            onClick={() => {
-              setStatusFiltro(s.valor);
-              setPagina(1);
-            }}
-          >
-            {s.rotulo}
-          </FiltroBotao>
-        ))}
+      <div className="mb-4 flex gap-3 text-sm">
+        <Badge variant="success">No departamento: {noDepartamento}</Badge>
+        <Badge variant="warning">Alocados: {alocados}</Badge>
       </div>
 
       <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Equipamentos</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           {carregando ? (
             <CarregandoTela />
-          ) : lista.length === 0 ? (
-            <EstadoVazio descricao="Nenhuma reserva para este filtro." />
+          ) : equipamentos.length === 0 ? (
+            <EstadoVazio
+              titulo="Nenhum equipamento no pool"
+              descricao="Clique em 'Adicionar equipamento' para incluir computadores disponíveis para reserva."
+            />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Equipamento</TableHead>
-                  <TableHead>Solicitante</TableHead>
-                  <TableHead>Período</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Patrimônio</TableHead>
+                  <TableHead>Situação</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lista.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">
-                      {r.item?.descricao ?? `#${r.item_id}`}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.solicitante?.nome ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatarData(r.data_inicio)} — {formatarData(r.data_fim)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={varianteStatusReserva(r.status)}>
-                        {rotuloStatusReserva(r.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {statusSalvandoId === r.id ? (
-                          <Spinner className="h-4 w-4" />
+                {equipamentos.map((eq) => {
+                  const r = eq.reserva_ativa;
+                  return (
+                    <TableRow key={eq.item.id}>
+                      <TableCell className="font-medium">
+                        {eq.item.descricao}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {eq.item.numero_patrimonio || "—"}
+                      </TableCell>
+                      <TableCell>
+                        {r ? (
+                          <div className="flex flex-col">
+                            <Badge
+                              variant={varianteStatusReserva(r.status)}
+                              className="w-fit"
+                            >
+                              {rotuloStatusReserva(r.status)}
+                            </Badge>
+                            <span className="mt-1 text-xs text-muted-foreground">
+                              {r.local_destino ? `Em ${r.local_destino}` : "Alocado"}
+                              {" · "}
+                              {formatarData(r.data_inicio)} — {formatarData(r.data_fim)}
+                              {r.solicitante?.nome && ` · ${r.solicitante.nome}`}
+                            </span>
+                          </div>
                         ) : (
-                          <>
-                            {r.status === "reservada" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => mudarStatus(r, "em_uso")}
-                              >
-                                Em uso
-                              </Button>
-                            )}
-                            {(r.status === "reservada" ||
-                              r.status === "em_uso") && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => mudarStatus(r, "devolvida")}
-                              >
-                                Devolver
-                              </Button>
-                            )}
-                          </>
+                          <Badge variant="success">No departamento</Badge>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => abrirEdicao(r)}
-                          aria-label="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {ehAdministrador && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setRemovendo(r)}
-                            aria-label="Remover"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {processando === eq.item.id ? (
+                            <Spinner className="h-4 w-4" />
+                          ) : r ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => voltarAoDepartamento(eq)}
+                            >
+                              <LogIn className="h-4 w-4" /> Voltar ao
+                              departamento
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => setAlocarItem(eq.item)}
+                              >
+                                <LogOut className="h-4 w-4" /> Alocar
+                              </Button>
+                              {ehAdministrador && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="Remover do pool"
+                                  title="Remover do pool de reservas"
+                                  onClick={() => setRemoverPool(eq.item)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      {total > TAMANHO && (
-        <div className="mt-4 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            {total} reserva(s) · página {pagina} de {totalPaginas}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagina <= 1 || carregando}
-              onClick={() => setPagina((p) => p - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagina >= totalPaginas || carregando}
-              onClick={() => setPagina((p) => p + 1)}
-            >
-              {carregando ? <Spinner className="h-4 w-4" /> : "Próxima"}
-            </Button>
-          </div>
-        </div>
-      )}
+      <AlocarDialog
+        item={alocarItem}
+        servidores={servidores}
+        onFechar={() => setAlocarItem(null)}
+        onAlocado={() => {
+          setAlocarItem(null);
+          carregar();
+        }}
+      />
 
-      <Dialog open={modalAberto} onOpenChange={setModalAberto}>
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editando ? "Editar reserva" : "Nova reserva"}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={salvar} className="space-y-4" noValidate>
-            <FormField label="Equipamento" obrigatorio erro={erros.item_id}>
-              <Select
-                value={form.item_id}
-                onValueChange={(v) => setForm({ ...form, item_id: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o equipamento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {itens.map((i) => (
-                    <SelectItem key={i.id} value={String(i.id)}>
-                      {i.descricao}
-                      {i.numero_patrimonio ? ` — ${i.numero_patrimonio}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Início" htmlFor="di" obrigatorio erro={erros.data_inicio}>
-                <Input
-                  id="di"
-                  type="date"
-                  value={form.data_inicio}
-                  onChange={(e) =>
-                    setForm({ ...form, data_inicio: e.target.value })
-                  }
-                />
-              </FormField>
-              <FormField label="Término" htmlFor="df" obrigatorio erro={erros.data_fim}>
-                <Input
-                  id="df"
-                  type="date"
-                  value={form.data_fim}
-                  onChange={(e) =>
-                    setForm({ ...form, data_fim: e.target.value })
-                  }
-                />
-              </FormField>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Solicitante">
-                <Select
-                  value={form.solicitante_id}
-                  onValueChange={(v) =>
-                    setForm({ ...form, solicitante_id: v })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Opcional" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={SEM}>Não informado</SelectItem>
-                    {servidores.map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>
-                        {s.nome} ({s.matricula})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
-              <FormField label="Status">
-                <Select
-                  value={form.status}
-                  onValueChange={(v) => setForm({ ...form, status: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_RESERVA.map((s) => (
-                      <SelectItem key={s.valor} value={s.valor}>
-                        {s.rotulo}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
-            </div>
-
-            <FormField label="Finalidade" htmlFor="fin">
-              <Input
-                id="fin"
-                value={form.finalidade}
-                onChange={(e) =>
-                  setForm({ ...form, finalidade: e.target.value })
-                }
-                placeholder="Ex.: Apresentação na Secretaria de Educação"
-              />
-            </FormField>
-
-            <FormField label="Observação" htmlFor="obs">
-              <Textarea
-                id="obs"
-                value={form.observacao}
-                onChange={(e) =>
-                  setForm({ ...form, observacao: e.target.value })
-                }
-              />
-            </FormField>
-
-            <DialogFooter className="gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setModalAberto(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={salvando}>
-                {salvando ? <Spinner className="h-4 w-4" /> : "Salvar"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <AdicionarEquipamentoDialog
+        aberto={adicionarAberto}
+        jaNoPool={equipamentos.map((e) => e.item.id)}
+        onFechar={() => setAdicionarAberto(false)}
+        onAdicionado={() => {
+          setAdicionarAberto(false);
+          carregar();
+        }}
+      />
 
       <ConfirmDialog
-        aberto={!!removendo}
-        titulo="Remover reserva"
-        descricao="Deseja remover esta reserva?"
+        aberto={!!removerPool}
+        titulo="Remover do pool de reservas"
+        descricao={`Remover "${removerPool?.descricao}" do pool? O equipamento continua no inventário.`}
         textoConfirmar="Remover"
         destrutivo
-        processando={processandoRemocao}
-        onConfirmar={confirmarRemocao}
-        onCancelar={() => setRemovendo(null)}
+        processando={processando === removerPool?.id}
+        onConfirmar={confirmarRemoverPool}
+        onCancelar={() => setRemoverPool(null)}
       />
     </div>
   );
 }
 
-function FiltroBotao({
-  ativo,
-  onClick,
-  children,
+// AlocarDialog cria uma reserva "em uso" para um equipamento (sai do
+// departamento para um destino).
+function AlocarDialog({
+  item,
+  servidores,
+  onFechar,
+  onAlocado,
 }: {
-  ativo: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  item: Item | null;
+  servidores: Servidor[];
+  onFechar: () => void;
+  onAlocado: () => void;
 }) {
+  const { toast } = useToast();
+  const [local, setLocal] = React.useState("");
+  const [inicio, setInicio] = React.useState("");
+  const [fim, setFim] = React.useState("");
+  const [solicitanteId, setSolicitanteId] = React.useState(SEM);
+  const [finalidade, setFinalidade] = React.useState("");
+  const [erros, setErros] = React.useState<Record<string, string>>({});
+  const [salvando, setSalvando] = React.useState(false);
+
+  React.useEffect(() => {
+    if (item) {
+      const hoje = new Date().toISOString().slice(0, 10);
+      setLocal("");
+      setInicio(hoje);
+      setFim(hoje);
+      setSolicitanteId(SEM);
+      setFinalidade("");
+      setErros({});
+    }
+  }, [item]);
+
+  async function salvar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!item) return;
+    const novos: Record<string, string> = {};
+    if (!local.trim()) novos.local_destino = "Informe para onde vai.";
+    if (!inicio) novos.data_inicio = "Informe o início.";
+    if (!fim) novos.data_fim = "Informe o término.";
+    if (Object.keys(novos).length) {
+      setErros(novos);
+      return;
+    }
+    setErros({});
+    setSalvando(true);
+    try {
+      const payload: ReservaPayload = {
+        item_id: item.id,
+        local_destino: local.trim(),
+        data_inicio: dateInputParaISO(inicio),
+        data_fim: dateInputParaISO(fim),
+        solicitante_id: solicitanteId !== SEM ? Number(solicitanteId) : null,
+        finalidade: finalidade.trim(),
+        status: "em_uso",
+      };
+      await reservasApi.criar(payload);
+      toast({ titulo: "Equipamento alocado.", variant: "success" });
+      onAlocado();
+    } catch (err) {
+      const campos = camposInvalidos(err);
+      if (campos) setErros(campos);
+      else
+        toast({
+          titulo: "Não foi possível alocar",
+          descricao: mensagemErro(err),
+          variant: "destructive",
+        });
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
-        ativo
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-card text-foreground hover:bg-accent"
-      )}
-    >
-      {children}
-    </button>
+    <Dialog open={!!item} onOpenChange={(o) => !o && onFechar()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Alocar equipamento</DialogTitle>
+        </DialogHeader>
+        {item && (
+          <div className="mb-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+            <span className="font-medium">{item.descricao}</span>
+            {item.numero_patrimonio ? ` — ${item.numero_patrimonio}` : ""}
+          </div>
+        )}
+        <form onSubmit={salvar} className="space-y-4" noValidate>
+          <FormField
+            label="Para onde vai (local/destino)"
+            htmlFor="local"
+            obrigatorio
+            erro={erros.local_destino}
+          >
+            <Input
+              id="local"
+              value={local}
+              onChange={(e) => setLocal(e.target.value)}
+              placeholder="Ex.: Sala 3 / Secretaria de Saúde"
+            />
+          </FormField>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="Início" htmlFor="di" obrigatorio erro={erros.data_inicio}>
+              <Input
+                id="di"
+                type="date"
+                value={inicio}
+                onChange={(e) => setInicio(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Previsão de retorno" htmlFor="df" obrigatorio erro={erros.data_fim}>
+              <Input
+                id="df"
+                type="date"
+                value={fim}
+                onChange={(e) => setFim(e.target.value)}
+              />
+            </FormField>
+          </div>
+          <FormField label="Responsável (opcional)">
+            <Select value={solicitanteId} onValueChange={setSolicitanteId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Opcional" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SEM}>Não informado</SelectItem>
+                {servidores.map((s) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    {s.nome} ({s.matricula})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField label="Finalidade (opcional)" htmlFor="fin">
+            <Textarea
+              id="fin"
+              value={finalidade}
+              onChange={(e) => setFinalidade(e.target.value)}
+            />
+          </FormField>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={onFechar}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={salvando}>
+              {salvando ? <Spinner className="h-4 w-4" /> : "Alocar"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// AdicionarEquipamentoDialog marca um item do inventário como reservável.
+function AdicionarEquipamentoDialog({
+  aberto,
+  jaNoPool,
+  onFechar,
+  onAdicionado,
+}: {
+  aberto: boolean;
+  jaNoPool: number[];
+  onFechar: () => void;
+  onAdicionado: () => void;
+}) {
+  const { toast } = useToast();
+  const [itens, setItens] = React.useState<Item[]>([]);
+  const [itemId, setItemId] = React.useState("");
+  const [salvando, setSalvando] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!aberto) return;
+    setItemId("");
+    itensApi
+      .listar({ tamanho: 500, baixado: false })
+      .then((r) =>
+        setItens(
+          r.dados.filter(
+            (i) =>
+              !i.reservavel &&
+              !i.categoria?.consumivel &&
+              !jaNoPool.includes(i.id)
+          )
+        )
+      )
+      .catch(() => setItens([]));
+  }, [aberto, jaNoPool]);
+
+  async function salvar() {
+    if (!itemId) return;
+    setSalvando(true);
+    try {
+      await itensApi.definirReservavel(Number(itemId), true);
+      toast({ titulo: "Equipamento adicionado ao pool.", variant: "success" });
+      onAdicionado();
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível adicionar",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Dialog open={aberto} onOpenChange={(o) => !o && onFechar()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Adicionar equipamento ao pool</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Escolha um equipamento patrimoniado para disponibilizar para reserva.
+          </p>
+          <FormField label="Equipamento">
+            <Select value={itemId} onValueChange={setItemId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um equipamento" />
+              </SelectTrigger>
+              <SelectContent>
+                {itens.map((i) => (
+                  <SelectItem key={i.id} value={String(i.id)}>
+                    {i.descricao}
+                    {i.numero_patrimonio ? ` — ${i.numero_patrimonio}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+          {itens.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Nenhum equipamento disponível. Cadastre itens patrimoniados ou
+              marque "Disponível para reserva" no cadastro do item.
+            </p>
+          )}
+        </div>
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={onFechar}>
+            Cancelar
+          </Button>
+          <Button onClick={salvar} disabled={salvando || !itemId}>
+            {salvando ? <Spinner className="h-4 w-4" /> : "Adicionar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

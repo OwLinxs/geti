@@ -16,6 +16,7 @@ type FiltroItem struct {
 	Estado          *models.EstadoConservacao
 	SomenteBaixados *bool // nil = todos; true = só baixados; false = só ativos
 	AbaixoDoMinimo  bool  // true = só consumíveis em alerta de estoque
+	Reservavel      *bool // nil = todos; true = só reserváveis
 	Pagina          int
 	TamanhoPagina   int
 }
@@ -81,6 +82,9 @@ func (r *itemRepository) Listar(f FiltroItem) ([]models.Item, int64, error) {
 	}
 	if f.Estado != nil {
 		q = q.Where("estado_conservacao = ?", *f.Estado)
+	}
+	if f.Reservavel != nil {
+		q = q.Where("reservavel = ?", *f.Reservavel)
 	}
 	if f.SomenteBaixados != nil {
 		q = q.Where("baixado = ?", *f.SomenteBaixados)

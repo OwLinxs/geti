@@ -45,8 +45,10 @@ type Reserva struct {
 	DataInicio time.Time `gorm:"not null;index" json:"data_inicio"`
 	DataFim    time.Time `gorm:"not null;index" json:"data_fim"`
 
-	Finalidade string        `gorm:"size:500" json:"finalidade,omitempty"`
-	Status     StatusReserva `gorm:"size:20;not null;default:reservada;index" json:"status"`
+	Finalidade string `gorm:"size:500" json:"finalidade,omitempty"`
+	// LocalDestino: para onde o equipamento foi alocado (sala, secretaria...).
+	LocalDestino string        `gorm:"size:200" json:"local_destino,omitempty"`
+	Status       StatusReserva `gorm:"size:20;not null;default:reservada;index" json:"status"`
 
 	AprovadoPorID *uint    `gorm:"index" json:"aprovado_por_id,omitempty"`
 	AprovadoPor   *Usuario `gorm:"foreignKey:AprovadoPorID" json:"aprovado_por,omitempty"`

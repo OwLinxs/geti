@@ -67,6 +67,10 @@ type Item struct {
 	DataAquisicao *time.Time `json:"data_aquisicao,omitempty"`
 	Valor         *float64   `json:"valor,omitempty"`
 
+	// Reservável: equipamento disponível para reserva/alocação temporária
+	// (entra no pool da aba Reservas).
+	Reservavel bool `gorm:"not null;default:false;index" json:"reservavel"`
+
 	// Flag de baixa patrimonial (mantém item visível, rastreável).
 	Baixado     bool       `gorm:"not null;default:false;index" json:"baixado"`
 	DataBaixa   *time.Time `json:"data_baixa,omitempty"`

@@ -141,6 +141,7 @@ func registrarItens(g *gin.RouterGroup, ct *container.Container) {
 	// Cadastro/edição: operador e administrador.
 	i.POST("", ct.ItemHandler.Criar)
 	i.PUT("/:id", ct.ItemHandler.Atualizar)
+	i.PATCH("/:id/reservavel", ct.ItemHandler.DefinirReservavel)
 	// Exclusão (correção de cadastro errado): só administrador, e somente se o
 	// item não tiver histórico (caso contrário, usar baixa patrimonial).
 	i.DELETE("/:id", adminOnly(), ct.ItemHandler.Excluir)
@@ -259,6 +260,7 @@ func registrarReservas(g *gin.RouterGroup, ct *container.Container) {
 	// Operador e administrador podem gerir reservas; exclusão só administrador.
 	res := g.Group("/reservas")
 	res.GET("", ct.ReservaHandler.Listar)
+	res.GET("/equipamentos", ct.ReservaHandler.ListarEquipamentos)
 	res.GET("/:id", ct.ReservaHandler.BuscarPorID)
 	res.POST("", ct.ReservaHandler.Criar)
 	res.PUT("/:id", ct.ReservaHandler.Atualizar)

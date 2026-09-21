@@ -8,6 +8,7 @@ import type {
   ArtigoConhecimentoPayload,
   CategoriaChamado,
   CategoriaChamadoPayload,
+  EquipamentoReservavel,
   MensagemChamado,
   Contrato,
   ContratoPayload,
@@ -187,6 +188,10 @@ export const itensApi = {
     api
       .get("/itens/modelo-csv", { responseType: "blob" })
       .then((r) => r.data as Blob),
+  definirReservavel: (id: number, reservavel: boolean) =>
+    api
+      .patch<Item>(`/itens/${id}/reservavel`, { reservavel })
+      .then((r) => r.data),
 };
 
 // ===== Movimentações =====
@@ -344,6 +349,10 @@ export const reservasApi = {
   listar: (f: FiltroReservas = {}) =>
     api
       .get<RespostaPaginada<Reserva>>("/reservas", { params: limpar(f) })
+      .then((r) => r.data),
+  equipamentos: () =>
+    api
+      .get<EquipamentoReservavel[]>("/reservas/equipamentos")
       .then((r) => r.data),
   buscarPorId: (id: number) =>
     api.get<Reserva>(`/reservas/${id}`).then((r) => r.data),

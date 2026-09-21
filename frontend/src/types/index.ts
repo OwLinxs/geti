@@ -70,6 +70,7 @@ export interface Item extends Base {
   baixado: boolean;
   data_baixa?: string | null;
   motivo_baixa?: string;
+  reservavel?: boolean;
 }
 
 export interface Movimentacao extends Base {
@@ -237,6 +238,12 @@ export interface Contrato extends Base {
 
 export type StatusReserva = "reservada" | "em_uso" | "devolvida" | "cancelada";
 
+// Item do pool de reservas + reserva ativa (null = no departamento).
+export interface EquipamentoReservavel {
+  item: Item;
+  reserva_ativa: Reserva | null;
+}
+
 export interface Reserva extends Base {
   item_id: number;
   item?: Item | null;
@@ -245,6 +252,7 @@ export interface Reserva extends Base {
   data_inicio: string;
   data_fim: string;
   finalidade?: string;
+  local_destino?: string;
   status: StatusReserva;
   aprovado_por_id?: number | null;
   aprovado_por?: Usuario | null;
@@ -329,6 +337,7 @@ export interface ItemPayload {
   responsavel_id?: number | null;
   data_aquisicao?: string | null;
   valor?: number | null;
+  reservavel?: boolean;
 }
 
 export interface MovimentacaoPayload {
@@ -431,6 +440,7 @@ export interface ReservaPayload {
   data_inicio?: string | null;
   data_fim?: string | null;
   finalidade?: string;
+  local_destino?: string;
   status?: StatusReserva;
   observacao?: string;
 }

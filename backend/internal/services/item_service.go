@@ -50,6 +50,7 @@ type EntradaItem struct {
 	ResponsavelID     *uint
 	DataAquisicao     *time.Time
 	Valor             *float64
+	Reservavel        bool
 }
 
 func (s *ItemService) Criar(in EntradaItem) (*models.Item, error) {
@@ -72,6 +73,7 @@ func (s *ItemService) Criar(in EntradaItem) (*models.Item, error) {
 		ResponsavelID:     in.ResponsavelID,
 		DataAquisicao:     in.DataAquisicao,
 		Valor:             in.Valor,
+		Reservavel:        in.Reservavel,
 	}
 	// Patrimoniados têm controle unitário: padroniza quantidade mínima 1.
 	if !categoria.Consumivel && item.Quantidade == 0 {
@@ -108,6 +110,7 @@ func (s *ItemService) Atualizar(id uint, in EntradaItem) (*models.Item, error) {
 	item.ResponsavelID = in.ResponsavelID
 	item.DataAquisicao = in.DataAquisicao
 	item.Valor = in.Valor
+	item.Reservavel = in.Reservavel
 	// Observação: a Quantidade NÃO é editada aqui — só muda via movimentações
 	// (regra de negócio: estoque é sempre recalculado por movimentação).
 
@@ -115,6 +118,22 @@ func (s *ItemService) Atualizar(id uint, in EntradaItem) (*models.Item, error) {
 		return nil, err
 	}
 	return s.repo.BuscarPorID(item.ID)
+}
+
+// DefinirReservavel marca/desmarca o item como reservável (pool de reservas).
+func (s *ItemService) DefinirReservavel(id uint, reservavel bool) (*models.Item, error) {
+	item, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	if item.Baixado {
+		return nil, ErrItemBaixado
+	}
+	item.Reservavel = reservavel
+	if err := s.repo.Atualizar(item); err != nil {
+		return nil, err
+	}
+	return s.repo.BuscarPorID(id)
 }
 
 // Excluir remove (soft delete) um item cadastrado por engano. Uso restrito a
