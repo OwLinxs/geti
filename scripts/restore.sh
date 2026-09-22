@@ -49,4 +49,33 @@ else
   rm -f "${SIGE_DB_PATH}-wal" "${SIGE_DB_PATH}-shm"
 fi
 
+echo "[restore] banco restaurado."
+
+# ---- Anexos: se existir um tar de anexos correspondente, restaura também ----
+# Procura sige-ti-anexos-<mesmo-timestamp>.tar.gz ao lado do backup do banco,
+# ou aceita como 2º argumento.
+ANEXOS_SUBDIR="${ANEXOS_SUBDIR:-anexos}"
+ANEXOS_TAR="${2:-}"
+if [ -z "$ANEXOS_TAR" ]; then
+  TS="$(basename "$BACKUP_FILE" | sed -n 's/^sige-ti-\([0-9]\{8\}-[0-9]\{6\}\)\.db.*/\1/p')"
+  CAND="$(dirname "$BACKUP_FILE")/sige-ti-anexos-${TS}.tar.gz"
+  [ -n "$TS" ] && [ -f "$CAND" ] && ANEXOS_TAR="$CAND"
+fi
+if [ -n "$ANEXOS_TAR" ] && [ -f "$ANEXOS_TAR" ]; then
+  echo "[restore] restaurando anexos de: $ANEXOS_TAR"
+  if command -v docker >/dev/null 2>&1; then
+    docker run --rm \
+      -v "${SIGE_VOLUME}:/data" \
+      -v "${ANEXOS_TAR}:/anexos.tar.gz:ro" \
+      alpine:3.20 sh -c "rm -rf '/data/${ANEXOS_SUBDIR}' && tar xzf /anexos.tar.gz -C /data"
+  else
+    DEST="$(dirname "$SIGE_DB_PATH")"
+    rm -rf "${DEST}/${ANEXOS_SUBDIR}"
+    tar xzf "$ANEXOS_TAR" -C "$DEST"
+  fi
+  echo "[restore] anexos restaurados."
+else
+  echo "[restore] (nenhum tar de anexos encontrado — só o banco foi restaurado)"
+fi
+
 echo "[restore] concluído. Suba a aplicação novamente (docker compose start backend)."

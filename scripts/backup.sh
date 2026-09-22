@@ -68,10 +68,34 @@ fi
 # Compacta o backup para economizar espaço.
 gzip -f "$ARQUIVO"
 ARQUIVO="${ARQUIVO}.gz"
-echo "[backup] gerado: $ARQUIVO"
+echo "[backup] banco: $ARQUIVO"
+
+# ---- Anexos (arquivos das mensagens de chamado) ----
+# Ficam no mesmo volume, em /data/${ANEXOS_SUBDIR}. São estáticos: tar é seguro.
+ANEXOS_SUBDIR="${ANEXOS_SUBDIR:-anexos}"
+ANEXOS_TAR="$BACKUP_DIR/sige-ti-anexos-${TIMESTAMP}.tar.gz"
+if command -v docker >/dev/null 2>&1; then
+  docker run --rm \
+    -v "${SIGE_VOLUME}:/data:ro" \
+    -v "${BACKUP_DIR}:/backup" \
+    alpine:3.20 sh -c "
+      if [ -d '/data/${ANEXOS_SUBDIR}' ]; then
+        tar czf '/backup/$(basename "$ANEXOS_TAR")' -C /data '${ANEXOS_SUBDIR}'
+      else
+        echo '[backup] sem diretório de anexos (nada a arquivar).'
+      fi
+    "
+else
+  ANEXOS_DIR_LOCAL="$(dirname "$SIGE_DB_PATH")/${ANEXOS_SUBDIR}"
+  if [ -d "$ANEXOS_DIR_LOCAL" ]; then
+    tar czf "$ANEXOS_TAR" -C "$(dirname "$ANEXOS_DIR_LOCAL")" "${ANEXOS_SUBDIR}"
+  fi
+fi
+[ -f "$ANEXOS_TAR" ] && echo "[backup] anexos: $ANEXOS_TAR"
 
 # ---- Retenção: remove backups com mais de RETENCAO_DIAS dias ----
 echo "[backup] aplicando retenção de ${RETENCAO_DIAS} dias..."
 find "$BACKUP_DIR" -name 'sige-ti-*.db.gz' -type f -mtime +"$RETENCAO_DIAS" -print -delete || true
+find "$BACKUP_DIR" -name 'sige-ti-anexos-*.tar.gz' -type f -mtime +"$RETENCAO_DIAS" -print -delete || true
 
 echo "[backup] concluído."

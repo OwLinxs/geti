@@ -274,6 +274,8 @@ export interface ConfigChamados {
   sla_resolucao_alta_h: number;
   sla_resolucao_normal_h: number;
   sla_resolucao_baixa_h: number;
+  auto_cadastro_ativo: boolean;
+  dominios_permitidos: string;
 }
 
 // ===== Base de conhecimento =====

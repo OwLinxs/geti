@@ -62,6 +62,21 @@ func main() {
 		}
 	}
 
+	// Monitor de SLA: avisa a equipe sobre chamados que furaram o prazo.
+	if cfg.SLACheckMinutos > 0 {
+		go func() {
+			intervalo := time.Duration(cfg.SLACheckMinutos) * time.Minute
+			log.Printf("[sla] monitor ativo (a cada %s)", intervalo)
+			// Roda uma vez no boot e depois periodicamente.
+			ct.OrdemServicoService.VerificarSLA()
+			t := time.NewTicker(intervalo)
+			defer t.Stop()
+			for range t.C {
+				ct.OrdemServicoService.VerificarSLA()
+			}
+		}()
+	}
+
 	engine := router.Setup(cfg, ct)
 
 	srv := &http.Server{

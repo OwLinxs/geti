@@ -111,6 +111,8 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	ordemServicoSvc.SetConfig(configuracaoSvc)
 	// Liga o log de eventos (linha do tempo do chamado).
 	ordemServicoSvc.SetEventos(eventoChamadoRepo)
+	// Liga a configuração ao auth (regras de auto-cadastro).
+	authSvc.SetConfig(configuracaoSvc)
 	fornecedorSvc := services.NewFornecedorService(fornecedorRepo)
 	contratoSvc := services.NewContratoService(contratoRepo, fornecedorRepo)
 	reservaSvc := services.NewReservaService(reservaRepo, itemRepo, servidorRepo)

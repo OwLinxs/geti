@@ -55,6 +55,11 @@ type OrdemServicoRepository interface {
 	SubstituirPassos(osID uint, passos []models.OrdemServicoPasso) error
 	// DefinirPrimeiraResposta marca a 1ª resposta da equipe (só se ainda nula).
 	DefinirPrimeiraResposta(osID uint, t time.Time) error
+	// SLAEstourado devolve chamados ativos que furaram o prazo e ainda não
+	// foram notificados. tipo = "resposta" ou "resolucao".
+	SLAEstourado(tipo string, agora time.Time) ([]models.OrdemServico, error)
+	// MarcarSLANotificado marca o chamado como já notificado para aquele tipo.
+	MarcarSLANotificado(osID uint, tipo string) error
 	// ProximoNumero gera o próximo número sequencial no formato OS-AAAA-NNNN.
 	ProximoNumero(tx *gorm.DB, ano int) (string, error)
 	DB() *gorm.DB
@@ -275,6 +280,28 @@ func (r *ordemServicoRepository) DefinirPrimeiraResposta(osID uint, t time.Time)
 	return r.db.Model(&models.OrdemServico{}).
 		Where("id = ? AND primeira_resposta_em IS NULL", osID).
 		Update("primeira_resposta_em", t).Error
+}
+
+func (r *ordemServicoRepository) SLAEstourado(tipo string, agora time.Time) ([]models.OrdemServico, error) {
+	ativos := []models.StatusOS{models.OSAberta, models.OSEmAndamento, models.OSAguardandoPeca}
+	q := r.db.Model(&models.OrdemServico{}).Where("status IN ?", ativos)
+	if tipo == "resposta" {
+		q = q.Where("primeira_resposta_em IS NULL AND prazo_resposta_em IS NOT NULL AND prazo_resposta_em < ? AND sla_resposta_notificada = ?", agora, false)
+	} else {
+		q = q.Where("prazo_resolucao_em IS NOT NULL AND prazo_resolucao_em < ? AND sla_resolucao_notificada = ?", agora, false)
+	}
+	var lista []models.OrdemServico
+	err := q.Find(&lista).Error
+	return lista, err
+}
+
+func (r *ordemServicoRepository) MarcarSLANotificado(osID uint, tipo string) error {
+	coluna := "sla_resolucao_notificada"
+	if tipo == "resposta" {
+		coluna = "sla_resposta_notificada"
+	}
+	return r.db.Model(&models.OrdemServico{}).Where("id = ?", osID).
+		Update(coluna, true).Error
 }
 
 func (r *ordemServicoRepository) ProximoNumero(tx *gorm.DB, ano int) (string, error) {

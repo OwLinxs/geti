@@ -320,6 +320,17 @@ export const ordensServicoApi = {
     api
       .patch<OrdemServico>(`/ordens-servico/${id}/status`, { status })
       .then((r) => r.data),
+  atribuir: (id: number, tecnico_id?: number | null) =>
+    api
+      .patch<OrdemServico>(`/ordens-servico/${id}/atribuir`, { tecnico_id })
+      .then((r) => r.data),
+  exportar: (f: FiltroOrdensServico = {}) =>
+    api
+      .get("/ordens-servico/exportar", {
+        params: limpar(f),
+        responseType: "blob",
+      })
+      .then((r) => r.data as Blob),
   salvarPassos: (id: number, passos: PassoPayload[]) =>
     api
       .put<OrdemServico>(`/ordens-servico/${id}/passos`, { passos })

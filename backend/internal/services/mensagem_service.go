@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,15 @@ import (
 	"github.com/pmfb/sige-ti/internal/models"
 	"github.com/pmfb/sige-ti/internal/repositories"
 )
+
+// tipoAnexoPermitido valida o tipo de conteúdo REAL do arquivo (detectado por
+// sniff, não pelo header do cliente). Aceita imagens, PDF e texto; bloqueia
+// executáveis e formatos arbitrários.
+func tipoAnexoPermitido(tipo string) bool {
+	return strings.HasPrefix(tipo, "image/") ||
+		strings.HasPrefix(tipo, "text/plain") ||
+		tipo == "application/pdf"
+}
 
 // tamanhoMaxAnexo limita o tamanho de um anexo (10 MB).
 const tamanhoMaxAnexo = 10 << 20
@@ -150,6 +160,20 @@ func (s *MensagemService) anexar(msg *models.MensagemChamado, fh *multipart.File
 	}
 	defer src.Close()
 
+	// Detecta o tipo REAL pelos primeiros bytes (não confia no header do cliente)
+	// e aplica a whitelist.
+	cabeca := make([]byte, 512)
+	n, _ := io.ReadFull(src, cabeca)
+	tipoReal := http.DetectContentType(cabeca[:n])
+	if !tipoAnexoPermitido(tipoReal) {
+		ev := NovoErroValidacao()
+		ev.Add("arquivo", "Tipo de arquivo não permitido. Envie imagem, PDF ou texto.")
+		return ev
+	}
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+
 	dir := s.cfg.AnexosDir
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -168,12 +192,12 @@ func (s *MensagemService) anexar(msg *models.MensagemChamado, fh *multipart.File
 	defer dst.Close()
 
 	// Copia com teto de segurança (evita estouro além do limite declarado).
-	n, err := io.Copy(dst, io.LimitReader(src, tamanhoMaxAnexo+1))
+	tam, err := io.Copy(dst, io.LimitReader(src, tamanhoMaxAnexo+1))
 	if err != nil {
 		os.Remove(caminho)
 		return err
 	}
-	if n > tamanhoMaxAnexo {
+	if tam > tamanhoMaxAnexo {
 		os.Remove(caminho)
 		ev := NovoErroValidacao()
 		ev.Add("arquivo", "Arquivo excede o limite de 10 MB.")
@@ -181,9 +205,10 @@ func (s *MensagemService) anexar(msg *models.MensagemChamado, fh *multipart.File
 	}
 
 	msg.AnexoNome = filepath.Base(fh.Filename)
-	msg.AnexoTipo = fh.Header.Get("Content-Type")
+	// Guarda o tipo detectado (confiável), não o informado pelo cliente.
+	msg.AnexoTipo = tipoReal
 	msg.AnexoCaminho = caminho
-	msg.AnexoTamanho = n
+	msg.AnexoTamanho = tam
 	return nil
 }
 

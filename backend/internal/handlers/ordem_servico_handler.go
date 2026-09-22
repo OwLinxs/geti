@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/csv"
 	"fmt"
 	"net/http"
 
@@ -84,6 +85,33 @@ func (h *OrdemServicoHandler) Atualizar(c *gin.Context) {
 	c.JSON(http.StatusOK, os)
 }
 
+type atribuirRequest struct {
+	TecnicoID *uint `json:"tecnico_id"`
+}
+
+// AtribuirTecnico define o técnico do chamado. Sem tecnico_id no corpo, atribui
+// ao próprio usuário logado ("atribuir a mim").
+func (h *OrdemServicoHandler) AtribuirTecnico(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	var req atribuirRequest
+	_ = c.ShouldBindJSON(&req)
+	var tecnicoID uint
+	if req.TecnicoID != nil {
+		tecnicoID = *req.TecnicoID
+	} else {
+		tecnicoID, _ = middlewares.UsuarioIDDoContexto(c)
+	}
+	os, err := h.svc.AtribuirTecnico(id, tecnicoID)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, os)
+}
+
 func (h *OrdemServicoHandler) Listar(c *gin.Context) {
 	f := repositories.FiltroOrdemServico{
 		Status:    c.Query("status"),
@@ -104,6 +132,59 @@ func (h *OrdemServicoHandler) Listar(c *gin.Context) {
 		"pagina":  f.Pagina,
 		"tamanho": f.Tamanho,
 	})
+}
+
+// Exportar devolve os chamados (filtrados) em CSV.
+func (h *OrdemServicoHandler) Exportar(c *gin.Context) {
+	f := repositories.FiltroOrdemServico{
+		Status:    c.Query("status"),
+		TecnicoID: queryUint(c, "tecnico_id"),
+		De:        parseDataQuery(c.Query("de"), false),
+		Ate:       parseDataQuery(c.Query("ate"), true),
+		Pagina:    1,
+		Tamanho:   100000,
+	}
+	lista, _, err := h.svc.Listar(f)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.Header("Content-Disposition", "attachment; filename=\"chamados.csv\"")
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Writer.WriteString("\xEF\xBB\xBF") // BOM para acentos no Excel
+	w := csv.NewWriter(c.Writer)
+	_ = w.Write([]string{
+		"Numero", "Assunto/Equipamento", "Status", "Prioridade", "Categoria",
+		"Solicitante", "Tecnico", "Aberto em", "Concluido em",
+	})
+	fmtData := func(t interface{ Format(string) string }) string {
+		return t.Format("02/01/2006 15:04")
+	}
+	for i := range lista {
+		os := &lista[i]
+		categoria := ""
+		if os.CategoriaChamado != nil {
+			categoria = os.CategoriaChamado.Nome
+		}
+		solic := os.SolicitanteNomeSnapshot
+		if solic == "" && os.AbertoPor != nil {
+			solic = os.AbertoPor.Nome
+		}
+		tecnico := ""
+		if os.Tecnico != nil {
+			tecnico = os.Tecnico.Nome
+		}
+		concluido := ""
+		if os.DataConclusao != nil {
+			concluido = fmtData(os.DataConclusao)
+		}
+		_ = w.Write([]string{
+			os.Numero, os.EquipamentoSnapshot, string(os.Status),
+			string(os.Prioridade), categoria, solic, tecnico,
+			fmtData(&os.DataAbertura), concluido,
+		})
+	}
+	w.Flush()
 }
 
 func (h *OrdemServicoHandler) Dashboard(c *gin.Context) {

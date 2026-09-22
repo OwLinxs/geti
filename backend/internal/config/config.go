@@ -34,6 +34,14 @@ type Config struct {
 	LoginRateLimite int           // tentativas permitidas por janela, por IP
 	LoginRateJanela time.Duration // duração da janela
 
+	// Rate limiting geral das rotas autenticadas, por usuário (0 = desligado).
+	APIRateLimite int
+	APIRateJanela time.Duration
+
+	// Intervalo (minutos) do monitor de SLA que avisa chamados vencidos
+	// (0 = desligado).
+	SLACheckMinutos int
+
 	// Parametrização do termo de responsabilidade (PDF)
 	PrefeituraNome     string
 	PrefeituraDepto    string
@@ -92,6 +100,18 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("LOGIN_RATE_JANELA_SEG inválido: deve ser inteiro positivo")
 	}
 	cfg.LoginRateJanela = time.Duration(loginJanelaSeg) * time.Second
+
+	// Rate limit geral por usuário nas rotas autenticadas (0 = desabilitado).
+	apiLimite, _ := strconv.Atoi(getEnv("API_RATE_LIMITE", "300"))
+	cfg.APIRateLimite = apiLimite
+	apiJanelaSeg, _ := strconv.Atoi(getEnv("API_RATE_JANELA_SEG", "60"))
+	if apiJanelaSeg <= 0 {
+		apiJanelaSeg = 60
+	}
+	cfg.APIRateJanela = time.Duration(apiJanelaSeg) * time.Second
+
+	slaCheck, _ := strconv.Atoi(getEnv("SLA_CHECK_MINUTOS", "15"))
+	cfg.SLACheckMinutos = slaCheck
 
 	origins := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 	cfg.CORSAllowedOrigins = splitAndTrim(origins)

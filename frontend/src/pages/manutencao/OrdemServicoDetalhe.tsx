@@ -64,6 +64,25 @@ export default function OrdemServicoDetalhe() {
   const [passos, setPassos] = React.useState<PassoEdit[]>([]);
   const [salvandoPassos, setSalvandoPassos] = React.useState(false);
   const [mudandoStatus, setMudandoStatus] = React.useState(false);
+  const [atribuindo, setAtribuindo] = React.useState(false);
+
+  async function atribuirAMim() {
+    if (!os) return;
+    setAtribuindo(true);
+    try {
+      const at = await ordensServicoApi.atribuir(os.id);
+      setOs(at);
+      toast({ titulo: "Chamado atribuído a você.", variant: "success" });
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível atribuir",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setAtribuindo(false);
+    }
+  }
 
   const [eventos, setEventos] = React.useState<EventoChamado[]>([]);
   const [itens, setItens] = React.useState<Item[]>([]);
@@ -315,7 +334,23 @@ export default function OrdemServicoDetalhe() {
               {os.categoria_chamado?.nome ?? "—"}
             </Campo>
             <Campo rotulo="Departamento">{os.setor?.nome ?? "—"}</Campo>
-            <Campo rotulo="Técnico">{os.tecnico?.nome ?? "—"}</Campo>
+            <Campo rotulo="Técnico">
+              {os.tecnico?.nome ?? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7"
+                  onClick={atribuirAMim}
+                  disabled={atribuindo}
+                >
+                  {atribuindo ? (
+                    <Spinner className="h-3 w-3" />
+                  ) : (
+                    "Atribuir a mim"
+                  )}
+                </Button>
+              )}
+            </Campo>
             <Campo rotulo="Abertura">{formatarData(os.data_abertura)}</Campo>
             {os.data_conclusao && (
               <Campo rotulo="Conclusão">

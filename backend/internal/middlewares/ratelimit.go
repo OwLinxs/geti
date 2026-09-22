@@ -70,6 +70,32 @@ func (l *limitadorJanela) permitir(chave string) (bool, time.Duration) {
 	return true, 0
 }
 
+// RateLimitAutenticado limita requisições por USUÁRIO (cai no IP se anônimo)
+// nas rotas autenticadas — evita abuso sem penalizar usuários atrás do mesmo
+// IP (NAT da rede interna). limite <= 0 desativa.
+func RateLimitAutenticado(limite int, janela time.Duration) gin.HandlerFunc {
+	if limite <= 0 {
+		return func(c *gin.Context) { c.Next() }
+	}
+	l := novoLimitador(limite, janela)
+	return func(c *gin.Context) {
+		chave := c.ClientIP()
+		if id, ok := UsuarioIDDoContexto(c); ok {
+			chave = "u:" + strconv.FormatUint(uint64(id), 10)
+		}
+		permitido, esperar := l.permitir(chave)
+		if !permitido {
+			segundos := int(esperar.Seconds()) + 1
+			c.Header("Retry-After", strconv.Itoa(segundos))
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"erro": "Muitas requisições. Aguarde alguns instantes.",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 // RateLimitLogin limita tentativas de login por IP para mitigar força bruta.
 // Padrão sugerido: até `limite` tentativas por `janela` (ex.: 10 por minuto).
 func RateLimitLogin(limite int, janela time.Duration) gin.HandlerFunc {

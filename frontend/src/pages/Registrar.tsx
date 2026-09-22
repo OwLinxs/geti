@@ -30,7 +30,7 @@ export default function Registrar() {
     const novos: Record<string, string> = {};
     if (!nome.trim()) novos.nome = "Informe seu nome.";
     if (!email.trim()) novos.email = "Informe seu e-mail.";
-    if (senha.length < 6) novos.senha = "A senha deve ter ao menos 6 caracteres.";
+    if (senha.length < 8) novos.senha = "A senha deve ter ao menos 8 caracteres.";
     if (Object.keys(novos).length) {
       setErros(novos);
       return;
@@ -98,7 +98,7 @@ export default function Registrar() {
                 autoComplete="new-password"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres"
                 disabled={enviando}
               />
             </FormField>

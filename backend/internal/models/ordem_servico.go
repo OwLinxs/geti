@@ -133,6 +133,9 @@ type OrdemServico struct {
 	PrazoRespostaEm    *time.Time `gorm:"index" json:"prazo_resposta_em,omitempty"`
 	PrazoResolucaoEm   *time.Time `gorm:"index" json:"prazo_resolucao_em,omitempty"`
 	PrimeiraRespostaEm *time.Time `json:"primeira_resposta_em,omitempty"`
+	// Flags para o monitor de SLA não notificar o mesmo estouro repetidamente.
+	SLARespostaNotificada  bool `gorm:"not null;default:false" json:"-"`
+	SLAResolucaoNotificada bool `gorm:"not null;default:false" json:"-"`
 
 	// Avaliação do solicitante ao encerrar (nota 1–5 + comentário).
 	AvaliacaoNota       *int       `json:"avaliacao_nota,omitempty"`

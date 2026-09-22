@@ -46,6 +46,13 @@ services:
       LOGIN_RATE_LIMITE: "${LOGIN_RATE_LIMITE:-10}"
       LOGIN_RATE_JANELA_SEG: "${LOGIN_RATE_JANELA_SEG:-60}"
 
+      # Rate limit geral por usuário nas rotas autenticadas (0 = desligado).
+      API_RATE_LIMITE: "${API_RATE_LIMITE:-300}"
+      API_RATE_JANELA_SEG: "${API_RATE_JANELA_SEG:-60}"
+
+      # Monitor de SLA: intervalo em minutos p/ avisar chamados vencidos (0=off).
+      SLA_CHECK_MINUTOS: "${SLA_CHECK_MINUTOS:-15}"
+
       # --- CORS ---
       # Como o frontend acessa via mesmo host (Nginx proxy), normalmente o IP
       # do servidor. Ajuste no .env conforme o IP/hostname interno.

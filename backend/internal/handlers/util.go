@@ -3,9 +3,26 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
+
+// servirAnexo entrega um arquivo anexado com cabeçalhos de segurança:
+// nosniff sempre, e exibição inline apenas para imagem/PDF (demais tipos são
+// baixados como anexo, evitando execução/render de conteúdo no navegador).
+func servirAnexo(c *gin.Context, tipo, nome, caminho string) {
+	c.Header("X-Content-Type-Options", "nosniff")
+	if tipo != "" {
+		c.Header("Content-Type", tipo)
+	}
+	disp := "attachment"
+	if strings.HasPrefix(tipo, "image/") || tipo == "application/pdf" {
+		disp = "inline"
+	}
+	c.Header("Content-Disposition", disp+"; filename=\""+nome+"\"")
+	c.File(caminho)
+}
 
 // parseID extrai e valida um parâmetro de rota numérico.
 func parseID(c *gin.Context, nome string) (uint, bool) {

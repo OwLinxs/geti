@@ -48,6 +48,7 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 	// Rotas autenticadas.
 	auth := api.Group("")
 	auth.Use(middlewares.Autenticacao(ct.AuthService))
+	auth.Use(middlewares.RateLimitAutenticado(cfg.APIRateLimite, cfg.APIRateJanela))
 	{
 		// Disponível para qualquer perfil autenticado (inclusive solicitante).
 		auth.GET("/auth/eu", ct.AuthHandler.EuMesmo)
@@ -195,11 +196,13 @@ func registrarOrdensServico(g *gin.RouterGroup, ct *container.Container) {
 	o := g.Group("/ordens-servico")
 	o.GET("", ct.OrdemServicoHandler.Listar)
 	o.GET("/dashboard", ct.OrdemServicoHandler.Dashboard)
+	o.GET("/exportar", ct.OrdemServicoHandler.Exportar)
 	o.POST("", ct.OrdemServicoHandler.Criar)
 	o.GET("/:id", ct.OrdemServicoHandler.BuscarPorID)
 	o.GET("/:id/eventos", ct.OrdemServicoHandler.ListarEventos)
 	o.PUT("/:id", ct.OrdemServicoHandler.Atualizar)
 	o.PATCH("/:id/status", ct.OrdemServicoHandler.DefinirStatus)
+	o.PATCH("/:id/atribuir", ct.OrdemServicoHandler.AtribuirTecnico)
 	o.PUT("/:id/passos", ct.OrdemServicoHandler.SalvarPassos)
 	o.POST("/:id/documento", ct.OrdemServicoHandler.Documento)
 	o.DELETE("/:id", adminOnly(), ct.OrdemServicoHandler.Excluir)

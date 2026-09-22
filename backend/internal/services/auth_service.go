@@ -2,6 +2,8 @@ package services
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -11,6 +13,7 @@ import (
 // AuthService emite e valida tokens JWT.
 type AuthService struct {
 	usuarioService *UsuarioService
+	configSvc      *ConfiguracaoService
 	segredo        []byte
 	expiraEm       time.Duration
 }
@@ -21,6 +24,51 @@ func NewAuthService(usuarioService *UsuarioService, segredo string, expiraEm tim
 		segredo:        []byte(segredo),
 		expiraEm:       expiraEm,
 	}
+}
+
+// SetConfig liga a configuração (regras de auto-cadastro).
+func (s *AuthService) SetConfig(c *ConfiguracaoService) { s.configSvc = c }
+
+// validarAutoCadastro aplica as regras configuráveis: cadastro ligado/desligado
+// e restrição por domínio de e-mail.
+func (s *AuthService) validarAutoCadastro(email string) error {
+	if s.configSvc == nil {
+		return nil
+	}
+	cfg, err := s.configSvc.ObterChamados()
+	if err != nil {
+		return nil // fail-open apenas na leitura de config
+	}
+	if !cfg.AutoCadastroAtivo {
+		return fmt.Errorf("%w: o auto-cadastro está desabilitado. Procure o setor de T.I.", ErrRegraNegocio)
+	}
+	dominios := dominiosPermitidos(cfg.DominiosPermitidos)
+	if len(dominios) == 0 {
+		return nil
+	}
+	at := strings.LastIndex(email, "@")
+	dom := ""
+	if at >= 0 {
+		dom = strings.ToLower(strings.TrimSpace(email[at+1:]))
+	}
+	for _, d := range dominios {
+		if dom == d {
+			return nil
+		}
+	}
+	ev := NovoErroValidacao()
+	ev.Add("email", "E-mail não permitido para cadastro. Use o e-mail institucional.")
+	return ev
+}
+
+func dominiosPermitidos(csv string) []string {
+	var out []string
+	for _, p := range strings.Split(csv, ",") {
+		if p = strings.ToLower(strings.TrimSpace(p)); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // Claims carregadas no token. Mantemos o mínimo necessário (id, perfil, nome).
@@ -54,6 +102,9 @@ func (s *AuthService) Login(email, senha string) (*ResultadoLogin, error) {
 // Registrar cria uma conta de solicitante (auto-cadastro público) e já devolve
 // o token de sessão. O perfil é SEMPRE "solicitante" — nunca privilegiado.
 func (s *AuthService) Registrar(nome, email, senha string) (*ResultadoLogin, error) {
+	if err := s.validarAutoCadastro(email); err != nil {
+		return nil, err
+	}
 	u, err := s.usuarioService.Criar(EntradaUsuario{
 		Nome:   nome,
 		Email:  email,

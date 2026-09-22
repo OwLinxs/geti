@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, LayoutGrid, BarChart3 } from "lucide-react";
+import { Plus, LayoutGrid, BarChart3, FileSpreadsheet } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useReferencias } from "@/hooks/useReferencias";
-import { formatarData } from "@/lib/format";
+import { baixarBlob, formatarData } from "@/lib/format";
 import {
   STATUS_OS,
   rotuloPrioridadeOS,
@@ -50,6 +50,8 @@ export default function Manutencao() {
   const [total, setTotal] = React.useState(0);
   const [pagina, setPagina] = React.useState(1);
   const [statusFiltro, setStatusFiltro] = React.useState<string>(TODOS);
+  const [meus, setMeus] = React.useState(false);
+  const [exportando, setExportando] = React.useState(false);
   const [carregando, setCarregando] = React.useState(true);
 
   const [itens, setItens] = React.useState<Item[]>([]);
@@ -64,6 +66,7 @@ export default function Manutencao() {
       pagina,
       tamanho: TAMANHO,
       status: statusFiltro !== TODOS ? statusFiltro : undefined,
+      tecnico_id: meus && usuario ? usuario.id : undefined,
     };
     ordensServicoApi
       .listar(f)
@@ -79,9 +82,28 @@ export default function Manutencao() {
         })
       )
       .finally(() => setCarregando(false));
-  }, [pagina, statusFiltro, toast]);
+  }, [pagina, statusFiltro, meus, usuario, toast]);
 
   React.useEffect(carregar, [carregar]);
+
+  async function exportar() {
+    setExportando(true);
+    try {
+      const blob = await ordensServicoApi.exportar({
+        status: statusFiltro !== TODOS ? statusFiltro : undefined,
+        tecnico_id: meus && usuario ? usuario.id : undefined,
+      });
+      baixarBlob(blob, "chamados.csv");
+    } catch (err) {
+      toast({
+        titulo: "Erro ao exportar",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setExportando(false);
+    }
+  }
 
   // Referências para o formulário: itens do inventário (ativos) e, se admin,
   // a lista de técnicos (usuários).
@@ -110,6 +132,9 @@ export default function Manutencao() {
             </Button>
             <Button variant="outline" onClick={() => navigate("/manutencao/kanban")}>
               <LayoutGrid className="h-4 w-4" /> Kanban
+            </Button>
+            <Button variant="outline" onClick={exportar} disabled={exportando}>
+              <FileSpreadsheet className="h-4 w-4" /> Exportar
             </Button>
             <Button onClick={() => setFormAberto(true)}>
               <Plus className="h-4 w-4" /> Nova OS
@@ -141,6 +166,16 @@ export default function Manutencao() {
             {s.rotulo}
           </FiltroBotao>
         ))}
+        <span className="mx-1 w-px self-stretch bg-border" />
+        <FiltroBotao
+          ativo={meus}
+          onClick={() => {
+            setMeus((v) => !v);
+            setPagina(1);
+          }}
+        >
+          Meus chamados
+        </FiltroBotao>
       </div>
 
       <Card>

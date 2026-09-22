@@ -38,8 +38,8 @@ func (s *UsuarioService) Criar(in EntradaUsuario) (*models.Usuario, error) {
 	if !emailValido(in.Email) {
 		ev.Add("email", "Informe um e-mail válido.")
 	}
-	if len(in.Senha) < 6 {
-		ev.Add("senha", "A senha deve ter ao menos 6 caracteres.")
+	if len(in.Senha) < 8 {
+		ev.Add("senha", "A senha deve ter ao menos 8 caracteres.")
 	}
 	if !models.PerfilValido(in.Perfil) {
 		ev.Add("perfil", "Perfil inválido. Use 'administrador', 'operador' ou 'solicitante'.")
@@ -80,9 +80,9 @@ func (s *UsuarioService) Listar() ([]models.Usuario, error) {
 // RedefinirSenha troca a senha de um usuário (uso administrativo). Gera novo
 // hash bcrypt. Não revela se o usuário existe além do erro padrão.
 func (s *UsuarioService) RedefinirSenha(id uint, novaSenha string) (*models.Usuario, error) {
-	if len(novaSenha) < 6 {
+	if len(novaSenha) < 8 {
 		ev := NovoErroValidacao()
-		ev.Add("senha", "A nova senha deve ter ao menos 6 caracteres.")
+		ev.Add("senha", "A nova senha deve ter ao menos 8 caracteres.")
 		return nil, ev
 	}
 	u, err := s.repo.BuscarPorID(id)

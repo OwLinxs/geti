@@ -163,6 +163,21 @@ func (s *NotificacaoService) NotificarMensagem(os *models.OrdemServico, autorTip
 	}
 }
 
+// NotificarSLAEstourado avisa a equipe quando um chamado fura o prazo de SLA.
+func (s *NotificacaoService) NotificarSLAEstourado(os *models.OrdemServico, tipo string) {
+	if os == nil {
+		return
+	}
+	oque := "resolução"
+	if tipo == "resposta" {
+		oque = "resposta"
+	}
+	s.emitir(s.usuariosEquipe(0),
+		fmt.Sprintf("SLA estourado: chamado %s", os.Numero),
+		fmt.Sprintf("O prazo de %s foi ultrapassado.", oque),
+		models.NotifStatus, os.ID)
+}
+
 // NotificarReaberto avisa a equipe quando o solicitante reabre um chamado.
 func (s *NotificacaoService) NotificarReaberto(os *models.OrdemServico, motivo string) {
 	if os == nil {

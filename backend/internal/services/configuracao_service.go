@@ -30,6 +30,12 @@ type ConfigChamados struct {
 	SLAResolucaoAltaH   int `json:"sla_resolucao_alta_h"`
 	SLAResolucaoNormalH int `json:"sla_resolucao_normal_h"`
 	SLAResolucaoBaixaH  int `json:"sla_resolucao_baixa_h"`
+
+	// Auto-cadastro de solicitante. Ativo liga o cadastro público;
+	// DominiosPermitidos (separados por vírgula) restringe os e-mails aceitos
+	// (vazio = qualquer domínio).
+	AutoCadastroAtivo  bool   `json:"auto_cadastro_ativo"`
+	DominiosPermitidos string `json:"dominios_permitidos"`
 }
 
 // ConfigChamadosPadrao são os defaults (sino ligado, e-mail desligado).
@@ -46,6 +52,7 @@ func ConfigChamadosPadrao() ConfigChamados {
 		SLAResolucaoAltaH:            8,
 		SLAResolucaoNormalH:          24,
 		SLAResolucaoBaixaH:           72,
+		AutoCadastroAtivo:            true,
 	}
 }
 

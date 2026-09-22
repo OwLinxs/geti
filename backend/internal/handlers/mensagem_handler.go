@@ -71,10 +71,5 @@ func (h *MensagemHandler) BaixarAnexo(c *gin.Context) {
 		responderErro(c, err)
 		return
 	}
-	if m.AnexoTipo != "" {
-		c.Header("Content-Type", m.AnexoTipo)
-	}
-	// inline: permite visualizar imagens/pdf direto no navegador.
-	c.Header("Content-Disposition", "inline; filename=\""+m.AnexoNome+"\"")
-	c.File(m.AnexoCaminho)
+	servirAnexo(c, m.AnexoTipo, m.AnexoNome, m.AnexoCaminho)
 }

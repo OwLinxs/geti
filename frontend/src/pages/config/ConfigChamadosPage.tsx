@@ -327,6 +327,37 @@ function NotificacoesConfig() {
           )}
         </div>
 
+        {/* Auto-cadastro de solicitantes. */}
+        <div className="mt-4 space-y-3 border-t border-border pt-4">
+          <div className="flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2">
+            <div>
+              <p className="text-sm font-medium">
+                Permitir auto-cadastro de solicitantes
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Desligue para que só o T.I. crie contas de usuário.
+              </p>
+            </div>
+            <Switch
+              checked={cfg.auto_cadastro_ativo}
+              onCheckedChange={(v) =>
+                setCfg({ ...cfg, auto_cadastro_ativo: v })
+              }
+            />
+          </div>
+          {cfg.auto_cadastro_ativo && (
+            <FormField label="Domínios de e-mail permitidos (separados por vírgula)">
+              <Input
+                value={cfg.dominios_permitidos}
+                onChange={(e) =>
+                  setCfg({ ...cfg, dominios_permitidos: e.target.value })
+                }
+                placeholder="prefeitura.gov.br, saude.gov.br (vazio = qualquer)"
+              />
+            </FormField>
+          )}
+        </div>
+
         <div className="flex justify-end pt-2">
           <Button onClick={salvar} disabled={salvando}>
             {salvando ? <Spinner className="h-4 w-4" /> : "Salvar"}

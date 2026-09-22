@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -54,6 +55,31 @@ func (s *OrdemServicoService) ListarEventos(osID uint) ([]models.EventoChamado, 
 		return nil, nil
 	}
 	return s.eventoRepo.ListarPorOS(osID)
+}
+
+// VerificarSLA varre chamados que furaram o prazo (resposta e resolução), avisa
+// a equipe e marca como notificado (evita repetição). Executado por um job.
+func (s *OrdemServicoService) VerificarSLA() {
+	if s.notif == nil {
+		return
+	}
+	agora := time.Now().UTC()
+	for _, tipo := range []string{"resposta", "resolucao"} {
+		lista, err := s.repo.SLAEstourado(tipo, agora)
+		if err != nil {
+			log.Printf("[sla] falha ao buscar estourados (%s): %v", tipo, err)
+			continue
+		}
+		for i := range lista {
+			os := &lista[i]
+			s.notif.NotificarSLAEstourado(os, tipo)
+			s.registrarEvento(os.ID, "sla",
+				fmt.Sprintf("SLA de %s estourado", tipo), "")
+			if err := s.repo.MarcarSLANotificado(os.ID, tipo); err != nil {
+				log.Printf("[sla] falha ao marcar notificado: %v", err)
+			}
+		}
+	}
 }
 
 // SetNotificador liga o serviço de notificações (injeção pós-construção para
@@ -413,6 +439,37 @@ func (s *OrdemServicoService) DefinirStatus(id uint, status models.StatusOS) (*m
 			fmt.Sprintf("Status: %s → %s", statusAnterior, status), "")
 	}
 	return atualizada, nil
+}
+
+// AtribuirTecnico define (ou remove, com 0) o técnico responsável pelo chamado.
+func (s *OrdemServicoService) AtribuirTecnico(id, tecnicoID uint) (*models.OrdemServico, error) {
+	os, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	nome := ""
+	if tecnicoID != 0 {
+		u, err := s.usuarioRepo.BuscarPorID(tecnicoID)
+		if err != nil {
+			ev := NovoErroValidacao()
+			ev.Add("tecnico_id", "Técnico não encontrado.")
+			return nil, ev
+		}
+		nome = u.Nome
+		os.TecnicoID = &tecnicoID
+	} else {
+		os.TecnicoID = nil
+	}
+	limparAssociacoes(os)
+	if err := s.repo.Atualizar(os); err != nil {
+		return nil, err
+	}
+	if tecnicoID != 0 {
+		s.registrarEvento(id, "atribuicao", "Técnico atribuído: "+nome, "")
+	} else {
+		s.registrarEvento(id, "atribuicao", "Técnico removido", "")
+	}
+	return s.repo.BuscarPorID(id)
 }
 
 // Avaliar registra a avaliação do solicitante (nota 1–5 + comentário). Só é

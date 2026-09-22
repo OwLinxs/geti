@@ -65,7 +65,7 @@ func novoAmbiente(t *testing.T) *fixtures {
 	catSvc := services.NewCategoriaService(catRepo)
 
 	usuario, err := usrSvc.Criar(services.EntradaUsuario{
-		Nome: "Teste", Email: "teste@sige.local.br", Senha: "123456",
+		Nome: "Teste", Email: "teste@sige.local.br", Senha: "12345678",
 		Perfil: models.PerfilAdministrador, Ativo: true,
 	})
 	if err != nil {
