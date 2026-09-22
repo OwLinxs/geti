@@ -173,6 +173,12 @@ export interface OrdemServico extends Base {
   aberto_por?: Usuario | null;
   data_abertura: string;
   data_conclusao?: string | null;
+  prazo_resposta_em?: string | null;
+  prazo_resolucao_em?: string | null;
+  primeira_resposta_em?: string | null;
+  avaliacao_nota?: number | null;
+  avaliacao_comentario?: string;
+  avaliado_em?: string | null;
   passos?: OrdemServicoPasso[];
 }
 
@@ -195,6 +201,79 @@ export interface MensagemChamado extends Base {
   anexo_tipo?: string;
   anexo_tamanho?: number;
   enviada_em: string;
+}
+
+// ===== Dashboard / timeline de chamados =====
+
+export interface ContagemRotulo {
+  rotulo: string;
+  total: number;
+}
+
+export interface DashboardChamados {
+  abertos_total: number;
+  por_status: ContagemRotulo[];
+  por_prioridade: ContagemRotulo[];
+  por_categoria: ContagemRotulo[];
+  sem_tecnico: number;
+  resposta_atrasada: number;
+  resolucao_atrasada: number;
+  concluidos_ultimos_30: number;
+  tempo_medio_resolucao_horas: number;
+  nota_media: number;
+  total_avaliacoes: number;
+}
+
+export interface EventoChamado {
+  id: number;
+  ordem_servico_id: number;
+  tipo: string;
+  descricao: string;
+  autor_nome?: string;
+  criado_em: string;
+}
+
+// ===== Notificações / configuração =====
+
+export interface Notificacao extends Base {
+  usuario_id: number;
+  titulo: string;
+  mensagem?: string;
+  tipo: string;
+  recurso_id?: number | null;
+  lida: boolean;
+}
+
+export interface RespostaRapida extends Base {
+  titulo: string;
+  conteudo: string;
+  ordem: number;
+  ativo: boolean;
+}
+
+export interface RespostaRapidaPayload {
+  titulo: string;
+  conteudo: string;
+  ordem?: number;
+  ativo?: boolean;
+}
+
+export interface ConfigChamados {
+  notificar_equipe_novo_chamado: boolean;
+  notificar_solicitante_resposta: boolean;
+  notificar_solicitante_status: boolean;
+  email_ativo: boolean;
+  smtp_host: string;
+  smtp_porta: number;
+  smtp_usuario: string;
+  smtp_senha: string;
+  smtp_remetente: string;
+  sla_resposta_alta_h: number;
+  sla_resposta_normal_h: number;
+  sla_resposta_baixa_h: number;
+  sla_resolucao_alta_h: number;
+  sla_resolucao_normal_h: number;
+  sla_resolucao_baixa_h: number;
 }
 
 // ===== Base de conhecimento =====

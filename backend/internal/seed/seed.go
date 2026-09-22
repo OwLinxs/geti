@@ -28,6 +28,10 @@ func Executar(ct *container.Container) error {
 	if err := ct.CategoriaChamadoService.SemearPadrao(); err != nil {
 		return err
 	}
+	// Respostas rápidas padrão (idempotente).
+	if err := ct.RespostaRapidaService.SemearPadrao(); err != nil {
+		return err
+	}
 
 	// Seed demo só roda em desenvolvimento (SEED_DEMO=true). A validação de
 	// config já impede SEED_DEMO em produção.

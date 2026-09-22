@@ -21,8 +21,30 @@ type FiltroOrdemServico struct {
 	Tamanho            int
 }
 
+// ContagemRotulo é um par nome/total para agregações do dashboard.
+type ContagemRotulo struct {
+	Rotulo string `json:"rotulo"`
+	Total  int64  `json:"total"`
+}
+
+// DashboardChamados agrega indicadores do módulo de chamados.
+type DashboardChamados struct {
+	AbertosTotal             int64            `json:"abertos_total"`
+	PorStatus                []ContagemRotulo `json:"por_status"`
+	PorPrioridade            []ContagemRotulo `json:"por_prioridade"`
+	PorCategoria             []ContagemRotulo `json:"por_categoria"`
+	SemTecnico               int64            `json:"sem_tecnico"`
+	RespostaAtrasada         int64            `json:"resposta_atrasada"`
+	ResolucaoAtrasada        int64            `json:"resolucao_atrasada"`
+	ConcluidosUltimos30      int64            `json:"concluidos_ultimos_30"`
+	TempoMedioResolucaoHoras float64          `json:"tempo_medio_resolucao_horas"`
+	NotaMedia                float64          `json:"nota_media"`
+	TotalAvaliacoes          int64            `json:"total_avaliacoes"`
+}
+
 type OrdemServicoRepository interface {
 	CriarComTx(tx *gorm.DB, os *models.OrdemServico) error
+	Dashboard() (DashboardChamados, error)
 	Atualizar(os *models.OrdemServico) error
 	BuscarPorID(id uint) (*models.OrdemServico, error)
 	// BuscarPorReferenciaExterna localiza a OS pelo id do card externo (sync).
@@ -31,6 +53,8 @@ type OrdemServicoRepository interface {
 	Remover(id uint) error
 	// SubstituirPassos troca todos os passos de uma OS numa transação.
 	SubstituirPassos(osID uint, passos []models.OrdemServicoPasso) error
+	// DefinirPrimeiraResposta marca a 1ª resposta da equipe (só se ainda nula).
+	DefinirPrimeiraResposta(osID uint, t time.Time) error
 	// ProximoNumero gera o próximo número sequencial no formato OS-AAAA-NNNN.
 	ProximoNumero(tx *gorm.DB, ano int) (string, error)
 	DB() *gorm.DB
@@ -156,6 +180,101 @@ func (r *ordemServicoRepository) SubstituirPassos(osID uint, passos []models.Ord
 		}
 		return tx.Create(&passos).Error
 	})
+}
+
+func (r *ordemServicoRepository) Dashboard() (DashboardChamados, error) {
+	var d DashboardChamados
+	ativos := []models.StatusOS{models.OSAberta, models.OSEmAndamento, models.OSAguardandoPeca}
+	agora := time.Now().UTC()
+	base := func() *gorm.DB { return r.db.Model(&models.OrdemServico{}) }
+
+	base().Where("status IN ?", ativos).Count(&d.AbertosTotal)
+
+	// Por status (todos os status).
+	{
+		var rows []struct {
+			Status string
+			Total  int64
+		}
+		base().Select("status, count(*) as total").Group("status").Scan(&rows)
+		for _, x := range rows {
+			d.PorStatus = append(d.PorStatus, ContagemRotulo{Rotulo: x.Status, Total: x.Total})
+		}
+	}
+	// Por prioridade (apenas abertos).
+	{
+		var rows []struct {
+			Prioridade string
+			Total      int64
+		}
+		base().Select("prioridade, count(*) as total").
+			Where("status IN ?", ativos).Group("prioridade").Scan(&rows)
+		for _, x := range rows {
+			d.PorPrioridade = append(d.PorPrioridade, ContagemRotulo{Rotulo: x.Prioridade, Total: x.Total})
+		}
+	}
+	// Por categoria (abertos) — junta o nome.
+	{
+		var rows []struct {
+			Nome  string
+			Total int64
+		}
+		r.db.Model(&models.OrdemServico{}).
+			Select("COALESCE(categorias_chamado.nome, 'Sem categoria') as nome, count(*) as total").
+			Joins("LEFT JOIN categorias_chamado ON categorias_chamado.id = ordens_servico.categoria_chamado_id").
+			Where("ordens_servico.status IN ?", ativos).
+			Group("nome").Scan(&rows)
+		for _, x := range rows {
+			d.PorCategoria = append(d.PorCategoria, ContagemRotulo{Rotulo: x.Nome, Total: x.Total})
+		}
+	}
+
+	base().Where("status IN ? AND tecnico_id IS NULL", ativos).Count(&d.SemTecnico)
+	base().Where("status IN ? AND primeira_resposta_em IS NULL AND prazo_resposta_em IS NOT NULL AND prazo_resposta_em < ?", ativos, agora).
+		Count(&d.RespostaAtrasada)
+	base().Where("status IN ? AND prazo_resolucao_em IS NOT NULL AND prazo_resolucao_em < ?", ativos, agora).
+		Count(&d.ResolucaoAtrasada)
+
+	trintaDias := agora.Add(-30 * 24 * time.Hour)
+	base().Where("status = ? AND data_conclusao >= ?", models.OSConcluida, trintaDias).
+		Count(&d.ConcluidosUltimos30)
+
+	// Tempo médio de resolução (horas) dos concluídos com data de conclusão.
+	{
+		var concluidos []models.OrdemServico
+		r.db.Select("data_abertura, data_conclusao").
+			Where("status = ? AND data_conclusao IS NOT NULL", models.OSConcluida).
+			Find(&concluidos)
+		if len(concluidos) > 0 {
+			var soma float64
+			for _, os := range concluidos {
+				if os.DataConclusao != nil {
+					soma += os.DataConclusao.Sub(os.DataAbertura).Hours()
+				}
+			}
+			d.TempoMedioResolucaoHoras = soma / float64(len(concluidos))
+		}
+	}
+
+	// Avaliações.
+	base().Where("avaliacao_nota IS NOT NULL").Count(&d.TotalAvaliacoes)
+	if d.TotalAvaliacoes > 0 {
+		var media *float64
+		r.db.Model(&models.OrdemServico{}).
+			Where("avaliacao_nota IS NOT NULL").
+			Select("AVG(avaliacao_nota)").Scan(&media)
+		if media != nil {
+			d.NotaMedia = *media
+		}
+	}
+
+	return d, nil
+}
+
+func (r *ordemServicoRepository) DefinirPrimeiraResposta(osID uint, t time.Time) error {
+	return r.db.Model(&models.OrdemServico{}).
+		Where("id = ? AND primeira_resposta_em IS NULL", osID).
+		Update("primeira_resposta_em", t).Error
 }
 
 func (r *ordemServicoRepository) ProximoNumero(tx *gorm.DB, ano int) (string, error) {

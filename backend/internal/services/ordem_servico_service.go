@@ -19,8 +19,49 @@ type OrdemServicoService struct {
 	servRepo    repositories.ServidorRepository
 	usuarioRepo repositories.UsuarioRepository
 	catRepo     repositories.CategoriaChamadoRepository
+	eventoRepo  repositories.EventoChamadoRepository
+	notif       *NotificacaoService
+	configSvc   *ConfiguracaoService
 	cfg         *config.Config
 }
+
+// SetEventos liga o repositório de eventos (linha do tempo do chamado).
+func (s *OrdemServicoService) SetEventos(r repositories.EventoChamadoRepository) {
+	s.eventoRepo = r
+}
+
+// registrarEvento grava um evento na linha do tempo (best-effort).
+func (s *OrdemServicoService) registrarEvento(osID uint, tipo, desc, autor string) {
+	if s.eventoRepo == nil {
+		return
+	}
+	_ = s.eventoRepo.Criar(&models.EventoChamado{
+		OrdemServicoID: osID,
+		Tipo:           tipo,
+		Descricao:      desc,
+		AutorNome:      autor,
+	})
+}
+
+// Dashboard devolve os indicadores agregados dos chamados.
+func (s *OrdemServicoService) Dashboard() (repositories.DashboardChamados, error) {
+	return s.repo.Dashboard()
+}
+
+// ListarEventos devolve a linha do tempo de um chamado.
+func (s *OrdemServicoService) ListarEventos(osID uint) ([]models.EventoChamado, error) {
+	if s.eventoRepo == nil {
+		return nil, nil
+	}
+	return s.eventoRepo.ListarPorOS(osID)
+}
+
+// SetNotificador liga o serviço de notificações (injeção pós-construção para
+// evitar acoplamento no construtor).
+func (s *OrdemServicoService) SetNotificador(n *NotificacaoService) { s.notif = n }
+
+// SetConfig liga o serviço de configuração (para calcular prazos de SLA).
+func (s *OrdemServicoService) SetConfig(c *ConfiguracaoService) { s.configSvc = c }
 
 func NewOrdemServicoService(
 	repo repositories.OrdemServicoRepository,
@@ -205,6 +246,7 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 		Passos:                  passosPadrao(),
 	}
 	aplicarEquipamento(os, in, d.item)
+	s.aplicarPrazosSLA(os)
 
 	err = s.repo.DB().Transaction(func(tx *gorm.DB) error {
 		numero, err := s.repo.ProximoNumero(tx, time.Now().UTC().Year())
@@ -217,7 +259,15 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.BuscarPorID(os.ID)
+	criada, err := s.repo.BuscarPorID(os.ID)
+	if err != nil {
+		return nil, err
+	}
+	if s.notif != nil {
+		s.notif.NotificarNovoChamado(criada)
+	}
+	s.registrarEvento(criada.ID, "aberto", "Chamado aberto", criada.SolicitanteNomeSnapshot)
+	return criada, nil
 }
 
 // UpsertViaIntegracao cria ou atualiza uma OS a partir de um chamado externo.
@@ -251,6 +301,27 @@ func (s *OrdemServicoService) UpsertViaIntegracao(in EntradaOS) (*models.OrdemSe
 		return nil, false, err
 	}
 	return criada, true, nil
+}
+
+// aplicarPrazosSLA calcula os prazos de resposta/resolução a partir da
+// configuração e da data de abertura. Sem config ou horas 0 → sem prazo.
+func (s *OrdemServicoService) aplicarPrazosSLA(os *models.OrdemServico) {
+	if s.configSvc == nil {
+		return
+	}
+	cfg, err := s.configSvc.ObterChamados()
+	if err != nil {
+		return
+	}
+	respH, resolH := cfg.HorasSLA(string(os.Prioridade))
+	if respH > 0 {
+		t := os.DataAbertura.Add(time.Duration(respH) * time.Hour)
+		os.PrazoRespostaEm = &t
+	}
+	if resolH > 0 {
+		t := os.DataAbertura.Add(time.Duration(resolH) * time.Hour)
+		os.PrazoResolucaoEm = &t
+	}
 }
 
 // passosPadrao materializa o template em registros de checklist.
@@ -316,6 +387,7 @@ func (s *OrdemServicoService) DefinirStatus(id uint, status models.StatusOS) (*m
 	if err != nil {
 		return nil, traduzErroRepo(err)
 	}
+	statusAnterior := os.Status
 
 	os.Status = status
 	if status == models.OSConcluida {
@@ -329,7 +401,76 @@ func (s *OrdemServicoService) DefinirStatus(id uint, status models.StatusOS) (*m
 	if err := s.repo.Atualizar(os); err != nil {
 		return nil, err
 	}
+	atualizada, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, err
+	}
+	if s.notif != nil {
+		s.notif.NotificarStatus(atualizada)
+	}
+	if statusAnterior != status {
+		s.registrarEvento(id, "status",
+			fmt.Sprintf("Status: %s → %s", statusAnterior, status), "")
+	}
+	return atualizada, nil
+}
+
+// Avaliar registra a avaliação do solicitante (nota 1–5 + comentário). Só é
+// permitida em chamados concluídos.
+func (s *OrdemServicoService) Avaliar(id uint, nota int, comentario string) (*models.OrdemServico, error) {
+	os, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	if os.Status != models.OSConcluida {
+		return nil, fmt.Errorf("%w: só é possível avaliar um chamado concluído", ErrRegraNegocio)
+	}
+	if nota < 1 || nota > 5 {
+		ev := NovoErroValidacao()
+		ev.Add("nota", "A nota deve ser de 1 a 5.")
+		return nil, ev
+	}
+	n := nota
+	agora := time.Now().UTC()
+	os.AvaliacaoNota = &n
+	os.AvaliacaoComentario = strings.TrimSpace(comentario)
+	os.AvaliadoEm = &agora
+	limparAssociacoes(os)
+	if err := s.repo.Atualizar(os); err != nil {
+		return nil, err
+	}
+	s.registrarEvento(id, "avaliacao", fmt.Sprintf("Avaliado: %d de 5", nota), "")
 	return s.repo.BuscarPorID(id)
+}
+
+// Reabrir volta um chamado concluído para "aberta" (solicitante não resolveu).
+func (s *OrdemServicoService) Reabrir(id uint, motivo string) (*models.OrdemServico, error) {
+	os, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	if os.Status != models.OSConcluida {
+		return nil, fmt.Errorf("%w: só é possível reabrir um chamado concluído", ErrRegraNegocio)
+	}
+	os.Status = models.OSAberta
+	os.DataConclusao = nil
+	limparAssociacoes(os)
+	if err := s.repo.Atualizar(os); err != nil {
+		return nil, err
+	}
+	atualizada, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, err
+	}
+	if s.notif != nil {
+		s.notif.NotificarReaberto(atualizada, strings.TrimSpace(motivo))
+	}
+	desc := "Chamado reaberto"
+	if m := strings.TrimSpace(motivo); m != "" {
+		desc = "Reaberto: " + m
+	}
+	s.registrarEvento(id, "reaberto", desc, "")
+	return atualizada, nil
 }
 
 // PassoEntrada é um item do checklist recebido do cliente.

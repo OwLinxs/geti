@@ -29,6 +29,9 @@ type Container struct {
 	OrdemServicoService     *services.OrdemServicoService
 	MensagemService         *services.MensagemService
 	CategoriaChamadoService *services.CategoriaChamadoService
+	ConfiguracaoService     *services.ConfiguracaoService
+	NotificacaoService      *services.NotificacaoService
+	RespostaRapidaService   *services.RespostaRapidaService
 	ConhecimentoService     *services.ConhecimentoService
 	FornecedorService       *services.FornecedorService
 	ContratoService         *services.ContratoService
@@ -50,6 +53,9 @@ type Container struct {
 	MensagemHandler         *handlers.MensagemHandler
 	MeusChamadosHandler     *handlers.MeusChamadosHandler
 	CategoriaChamadoHandler *handlers.CategoriaChamadoHandler
+	ConfiguracaoHandler     *handlers.ConfiguracaoHandler
+	NotificacaoHandler      *handlers.NotificacaoHandler
+	RespostaRapidaHandler   *handlers.RespostaRapidaHandler
 	ConhecimentoHandler     *handlers.ConhecimentoHandler
 	FornecedorHandler       *handlers.FornecedorHandler
 	ContratoHandler         *handlers.ContratoHandler
@@ -70,6 +76,10 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	ordemServicoRepo := repositories.NewOrdemServicoRepository(db)
 	mensagemRepo := repositories.NewMensagemRepository(db)
 	categoriaChamadoRepo := repositories.NewCategoriaChamadoRepository(db)
+	configuracaoRepo := repositories.NewConfiguracaoRepository(db)
+	notificacaoRepo := repositories.NewNotificacaoRepository(db)
+	respostaRapidaRepo := repositories.NewRespostaRapidaRepository(db)
+	eventoChamadoRepo := repositories.NewEventoChamadoRepository(db)
 	conhecimentoRepo := repositories.NewConhecimentoRepository(db)
 	fornecedorRepo := repositories.NewFornecedorRepository(db)
 	contratoRepo := repositories.NewContratoRepository(db)
@@ -87,9 +97,20 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	relatorioSvc := services.NewRelatorioService(itemRepo, movRepo, cfg)
 	auditoriaSvc := services.NewAuditoriaService(auditoriaRepo)
 	categoriaChamadoSvc := services.NewCategoriaChamadoService(categoriaChamadoRepo)
+	configuracaoSvc := services.NewConfiguracaoService(configuracaoRepo)
+	notificacaoSvc := services.NewNotificacaoService(notificacaoRepo, usuarioRepo, configuracaoSvc)
+	respostaRapidaSvc := services.NewRespostaRapidaService(respostaRapidaRepo)
 	ordemServicoSvc := services.NewOrdemServicoService(ordemServicoRepo, itemRepo, setorRepo, servidorRepo, usuarioRepo, categoriaChamadoRepo, cfg)
 	mensagemSvc := services.NewMensagemService(mensagemRepo, ordemServicoRepo, cfg)
 	conhecimentoSvc := services.NewConhecimentoService(conhecimentoRepo)
+
+	// Liga o notificador aos serviços que emitem eventos de chamado.
+	ordemServicoSvc.SetNotificador(notificacaoSvc)
+	mensagemSvc.SetNotificador(notificacaoSvc)
+	// Liga a configuração ao serviço de OS (cálculo de prazos de SLA).
+	ordemServicoSvc.SetConfig(configuracaoSvc)
+	// Liga o log de eventos (linha do tempo do chamado).
+	ordemServicoSvc.SetEventos(eventoChamadoRepo)
 	fornecedorSvc := services.NewFornecedorService(fornecedorRepo)
 	contratoSvc := services.NewContratoService(contratoRepo, fornecedorRepo)
 	reservaSvc := services.NewReservaService(reservaRepo, itemRepo, servidorRepo)
@@ -111,6 +132,9 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		OrdemServicoService:     ordemServicoSvc,
 		MensagemService:         mensagemSvc,
 		CategoriaChamadoService: categoriaChamadoSvc,
+		ConfiguracaoService:     configuracaoSvc,
+		NotificacaoService:      notificacaoSvc,
+		RespostaRapidaService:   respostaRapidaSvc,
 		ConhecimentoService:     conhecimentoSvc,
 		FornecedorService:       fornecedorSvc,
 		ContratoService:         contratoSvc,
@@ -131,6 +155,9 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		MensagemHandler:         handlers.NewMensagemHandler(mensagemSvc),
 		MeusChamadosHandler:     handlers.NewMeusChamadosHandler(ordemServicoSvc, mensagemSvc),
 		CategoriaChamadoHandler: handlers.NewCategoriaChamadoHandler(categoriaChamadoSvc),
+		ConfiguracaoHandler:     handlers.NewConfiguracaoHandler(configuracaoSvc),
+		NotificacaoHandler:      handlers.NewNotificacaoHandler(notificacaoSvc),
+		RespostaRapidaHandler:   handlers.NewRespostaRapidaHandler(respostaRapidaSvc),
 		ConhecimentoHandler:     handlers.NewConhecimentoHandler(conhecimentoSvc),
 		FornecedorHandler:       handlers.NewFornecedorHandler(fornecedorSvc),
 		ContratoHandler:         handlers.NewContratoHandler(contratoSvc),

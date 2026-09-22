@@ -1,8 +1,8 @@
 import * as React from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,43 +25,38 @@ import { FormField } from "@/components/FormField";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
-import { categoriasChamadoApi } from "@/services/api";
+import { respostasRapidasApi } from "@/services/api";
 import { camposInvalidos, mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
-import type { CategoriaChamado, CategoriaChamadoPayload } from "@/types";
+import type { RespostaRapida, RespostaRapidaPayload } from "@/types";
 
-const VAZIO: CategoriaChamadoPayload = {
-  nome: "",
-  descricao: "",
+const VAZIO: RespostaRapidaPayload = {
+  titulo: "",
+  conteudo: "",
   ordem: 0,
   ativo: true,
 };
 
-export default function CategoriasChamado({
-  embutido = false,
-}: {
-  embutido?: boolean;
-}) {
+export default function RespostasRapidas() {
   const { toast } = useToast();
-  const [lista, setLista] = React.useState<CategoriaChamado[]>([]);
+  const [lista, setLista] = React.useState<RespostaRapida[]>([]);
   const [carregando, setCarregando] = React.useState(true);
-
   const [modalAberto, setModalAberto] = React.useState(false);
-  const [editando, setEditando] = React.useState<CategoriaChamado | null>(null);
-  const [form, setForm] = React.useState<CategoriaChamadoPayload>(VAZIO);
+  const [editando, setEditando] = React.useState<RespostaRapida | null>(null);
+  const [form, setForm] = React.useState<RespostaRapidaPayload>(VAZIO);
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [salvando, setSalvando] = React.useState(false);
-  const [removendo, setRemovendo] = React.useState<CategoriaChamado | null>(null);
-  const [processandoRemocao, setProcessandoRemocao] = React.useState(false);
+  const [removendo, setRemovendo] = React.useState<RespostaRapida | null>(null);
+  const [proc, setProc] = React.useState(false);
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
-    categoriasChamadoApi
+    respostasRapidasApi
       .listar()
       .then(setLista)
       .catch((err) =>
         toast({
-          titulo: "Erro ao carregar categorias",
+          titulo: "Erro ao carregar",
           descricao: mensagemErro(err),
           variant: "destructive",
         })
@@ -77,14 +72,13 @@ export default function CategoriasChamado({
     setErros({});
     setModalAberto(true);
   }
-
-  function abrirEdicao(c: CategoriaChamado) {
-    setEditando(c);
+  function abrirEdicao(r: RespostaRapida) {
+    setEditando(r);
     setForm({
-      nome: c.nome,
-      descricao: c.descricao ?? "",
-      ordem: c.ordem,
-      ativo: c.ativo,
+      titulo: r.titulo,
+      conteudo: r.conteudo,
+      ordem: r.ordem,
+      ativo: r.ativo,
     });
     setErros({});
     setModalAberto(true);
@@ -92,20 +86,19 @@ export default function CategoriasChamado({
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.nome.trim()) {
-      setErros({ nome: "Informe o nome." });
+    const novos: Record<string, string> = {};
+    if (!form.titulo.trim()) novos.titulo = "Informe o título.";
+    if (!form.conteudo.trim()) novos.conteudo = "Informe o texto.";
+    if (Object.keys(novos).length) {
+      setErros(novos);
       return;
     }
     setErros({});
     setSalvando(true);
     try {
-      if (editando) {
-        await categoriasChamadoApi.atualizar(editando.id, form);
-        toast({ titulo: "Categoria atualizada.", variant: "success" });
-      } else {
-        await categoriasChamadoApi.criar(form);
-        toast({ titulo: "Categoria criada.", variant: "success" });
-      }
+      if (editando) await respostasRapidasApi.atualizar(editando.id, form);
+      else await respostasRapidasApi.criar(form);
+      toast({ titulo: "Salvo.", variant: "success" });
       setModalAberto(false);
       carregar();
     } catch (err) {
@@ -124,10 +117,10 @@ export default function CategoriasChamado({
 
   async function confirmarRemocao() {
     if (!removendo) return;
-    setProcessandoRemocao(true);
+    setProc(true);
     try {
-      await categoriasChamadoApi.excluir(removendo.id);
-      toast({ titulo: "Categoria removida.", variant: "success" });
+      await respostasRapidasApi.excluir(removendo.id);
+      toast({ titulo: "Removida.", variant: "success" });
       setRemovendo(null);
       carregar();
     } catch (err) {
@@ -137,62 +130,50 @@ export default function CategoriasChamado({
         variant: "destructive",
       });
     } finally {
-      setProcessandoRemocao(false);
+      setProc(false);
     }
   }
 
   return (
     <div>
-      {embutido ? (
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Tipos de chamado usados na abertura e nos relatórios.
-          </p>
-          <Button onClick={abrirCriacao}>
-            <Plus className="h-4 w-4" /> Nova categoria
-          </Button>
-        </div>
-      ) : (
-        <PageHeader
-          titulo="Categorias de Chamado"
-          descricao="Tipos de chamado (rede, e-mail, impressora…) usados na abertura e nos relatórios."
-          acao={
-            <Button onClick={abrirCriacao}>
-              <Plus className="h-4 w-4" /> Nova categoria
-            </Button>
-          }
-        />
-      )}
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Textos-modelo que a equipe insere no chat com um clique.
+        </p>
+        <Button onClick={abrirCriacao}>
+          <Plus className="h-4 w-4" /> Nova resposta
+        </Button>
+      </div>
 
       <Card>
         <CardContent className="p-0">
           {carregando ? (
             <CarregandoTela />
           ) : lista.length === 0 ? (
-            <EstadoVazio descricao="Cadastre a primeira categoria de chamado." />
+            <EstadoVazio descricao="Cadastre a primeira resposta rápida." />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-16">Ordem</TableHead>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Descrição</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Texto</TableHead>
                   <TableHead>Situação</TableHead>
                   <TableHead className="w-24 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lista.map((c) => (
-                  <TableRow key={c.id}>
+                {lista.map((r) => (
+                  <TableRow key={r.id}>
                     <TableCell className="text-muted-foreground">
-                      {c.ordem}
+                      {r.ordem}
                     </TableCell>
-                    <TableCell className="font-medium">{c.nome}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {c.descricao || "—"}
+                    <TableCell className="font-medium">{r.titulo}</TableCell>
+                    <TableCell className="max-w-xs truncate text-muted-foreground">
+                      {r.conteudo}
                     </TableCell>
                     <TableCell>
-                      {c.ativo ? (
+                      {r.ativo ? (
                         <Badge variant="success">Ativa</Badge>
                       ) : (
                         <Badge variant="muted">Inativa</Badge>
@@ -203,7 +184,7 @@ export default function CategoriasChamado({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => abrirEdicao(c)}
+                          onClick={() => abrirEdicao(r)}
                           aria-label="Editar"
                         >
                           <Pencil className="h-4 w-4" />
@@ -211,7 +192,7 @@ export default function CategoriasChamado({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setRemovendo(c)}
+                          onClick={() => setRemovendo(r)}
                           aria-label="Remover"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -230,48 +211,50 @@ export default function CategoriasChamado({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editando ? "Editar categoria" : "Nova categoria"}
+              {editando ? "Editar resposta" : "Nova resposta"}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={salvar} className="space-y-4" noValidate>
-            <FormField label="Nome" htmlFor="nome" obrigatorio erro={erros.nome}>
+            <FormField label="Título" htmlFor="t" obrigatorio erro={erros.titulo}>
               <Input
-                id="nome"
-                value={form.nome}
-                onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                placeholder="Ex.: Rede"
+                id="t"
+                value={form.titulo}
+                onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                placeholder="Ex.: Recebido"
               />
             </FormField>
-            <FormField label="Descrição" htmlFor="descricao">
-              <Input
-                id="descricao"
-                value={form.descricao}
-                onChange={(e) =>
-                  setForm({ ...form, descricao: e.target.value })
-                }
+            <FormField
+              label="Texto da resposta"
+              htmlFor="c"
+              obrigatorio
+              erro={erros.conteudo}
+            >
+              <Textarea
+                id="c"
+                rows={4}
+                value={form.conteudo}
+                onChange={(e) => setForm({ ...form, conteudo: e.target.value })}
+                placeholder="Olá! Recebemos seu chamado…"
               />
             </FormField>
-            <FormField label="Ordem de exibição" htmlFor="ordem">
-              <Input
-                id="ordem"
-                type="number"
-                value={String(form.ordem ?? 0)}
-                onChange={(e) =>
-                  setForm({ ...form, ordem: Number(e.target.value) })
-                }
-              />
-            </FormField>
-            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-              <div>
-                <p className="text-sm font-medium">Ativa</p>
-                <p className="text-xs text-muted-foreground">
-                  Categorias inativas não aparecem na abertura de chamados.
-                </p>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Ordem" htmlFor="o">
+                <Input
+                  id="o"
+                  type="number"
+                  value={String(form.ordem ?? 0)}
+                  onChange={(e) =>
+                    setForm({ ...form, ordem: Number(e.target.value) })
+                  }
+                />
+              </FormField>
+              <div className="flex items-end justify-between rounded-md border border-border px-3 py-2">
+                <span className="text-sm font-medium">Ativa</span>
+                <Switch
+                  checked={form.ativo ?? true}
+                  onCheckedChange={(v) => setForm({ ...form, ativo: v })}
+                />
               </div>
-              <Switch
-                checked={form.ativo ?? true}
-                onCheckedChange={(v) => setForm({ ...form, ativo: v })}
-              />
             </div>
             <DialogFooter className="gap-2">
               <Button
@@ -291,11 +274,11 @@ export default function CategoriasChamado({
 
       <ConfirmDialog
         aberto={!!removendo}
-        titulo="Remover categoria"
-        descricao={`Deseja remover "${removendo?.nome}"?`}
+        titulo="Remover resposta"
+        descricao={`Remover "${removendo?.titulo}"?`}
         textoConfirmar="Remover"
         destrutivo
-        processando={processandoRemocao}
+        processando={proc}
         onConfirmar={confirmarRemocao}
         onCancelar={() => setRemovendo(null)}
       />

@@ -1,6 +1,7 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { LifeBuoy, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SinoNotificacoes } from "@/components/SinoNotificacoes";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Shell enxuto do portal do solicitante (usuário final). Sem a navegação
@@ -31,6 +32,10 @@ export function PortalShell() {
           </button>
 
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/ajuda")}>
+              Ajuda
+            </Button>
+            <SinoNotificacoes />
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {usuario?.nome}
             </span>

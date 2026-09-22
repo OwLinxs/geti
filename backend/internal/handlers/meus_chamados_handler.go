@@ -145,6 +145,48 @@ func (h *MeusChamadosHandler) EnviarMensagem(c *gin.Context) {
 	c.JSON(http.StatusCreated, msg)
 }
 
+type avaliacaoRequest struct {
+	Nota       int    `json:"nota"`
+	Comentario string `json:"comentario"`
+}
+
+func (h *MeusChamadosHandler) Avaliar(c *gin.Context) {
+	os, ok := h.carregarProprio(c)
+	if !ok {
+		return
+	}
+	var req avaliacaoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+	r, err := h.osSvc.Avaliar(os.ID, req.Nota, req.Comentario)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, r)
+}
+
+type reabrirRequest struct {
+	Motivo string `json:"motivo"`
+}
+
+func (h *MeusChamadosHandler) Reabrir(c *gin.Context) {
+	os, ok := h.carregarProprio(c)
+	if !ok {
+		return
+	}
+	var req reabrirRequest
+	_ = c.ShouldBindJSON(&req)
+	r, err := h.osSvc.Reabrir(os.ID, req.Motivo)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, r)
+}
+
 func (h *MeusChamadosHandler) BaixarAnexo(c *gin.Context) {
 	os, ok := h.carregarProprio(c)
 	if !ok {

@@ -128,6 +128,17 @@ type OrdemServico struct {
 	DataAbertura  time.Time  `gorm:"not null;index" json:"data_abertura"`
 	DataConclusao *time.Time `json:"data_conclusao,omitempty"`
 
+	// SLA (prazos calculados na abertura a partir da configuração; nil = sem
+	// SLA). PrimeiraRespostaEm marca quando a equipe respondeu pela 1ª vez.
+	PrazoRespostaEm    *time.Time `gorm:"index" json:"prazo_resposta_em,omitempty"`
+	PrazoResolucaoEm   *time.Time `gorm:"index" json:"prazo_resolucao_em,omitempty"`
+	PrimeiraRespostaEm *time.Time `json:"primeira_resposta_em,omitempty"`
+
+	// Avaliação do solicitante ao encerrar (nota 1–5 + comentário).
+	AvaliacaoNota       *int       `json:"avaliacao_nota,omitempty"`
+	AvaliacaoComentario string     `gorm:"size:1000" json:"avaliacao_comentario,omitempty"`
+	AvaliadoEm          *time.Time `json:"avaliado_em,omitempty"`
+
 	Passos []OrdemServicoPasso `gorm:"foreignKey:OrdemServicoID;constraint:OnDelete:CASCADE" json:"passos,omitempty"`
 
 	// Soft delete para correção de cadastro aberto por engano (admin), somente

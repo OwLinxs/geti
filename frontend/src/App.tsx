@@ -8,12 +8,15 @@ import Login from "@/pages/Login";
 import Registrar from "@/pages/Registrar";
 import PortalChamados from "@/pages/portal/PortalChamados";
 import PortalChamadoDetalhe from "@/pages/portal/PortalChamadoDetalhe";
+import PortalAjuda from "@/pages/portal/PortalAjuda";
+import PortalArtigo from "@/pages/portal/PortalArtigo";
 import Dashboard from "@/pages/Dashboard";
 import ItensLista from "@/pages/itens/ItensLista";
 import ItemDetalhe from "@/pages/itens/ItemDetalhe";
 import Movimentacoes from "@/pages/Movimentacoes";
 import Manutencao from "@/pages/manutencao/Manutencao";
 import KanbanManutencao from "@/pages/manutencao/KanbanManutencao";
+import DashboardChamados from "@/pages/manutencao/DashboardChamados";
 import OrdemServicoDetalhe from "@/pages/manutencao/OrdemServicoDetalhe";
 import Alertas from "@/pages/Alertas";
 import Termos from "@/pages/Termos";
@@ -27,7 +30,7 @@ import Fornecedores from "@/pages/cadastros/Fornecedores";
 import Contratos from "@/pages/cadastros/Contratos";
 import Reservas from "@/pages/Reservas";
 import Usuarios from "@/pages/cadastros/Usuarios";
-import CategoriasChamado from "@/pages/config/CategoriasChamado";
+import ConfigChamadosPage from "@/pages/config/ConfigChamadosPage";
 import Auditoria from "@/pages/Auditoria";
 import SemPermissao from "@/pages/SemPermissao";
 import NaoEncontrado from "@/pages/NaoEncontrado";
@@ -48,6 +51,8 @@ export default function App() {
           <Route element={<PortalShell />}>
             <Route path="/" element={<PortalChamados />} />
             <Route path="/chamado/:id" element={<PortalChamadoDetalhe />} />
+            <Route path="/ajuda" element={<PortalAjuda />} />
+            <Route path="/ajuda/:id" element={<PortalArtigo />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         ) : (
@@ -58,6 +63,7 @@ export default function App() {
           <Route path="/movimentacoes" element={<Movimentacoes />} />
           <Route path="/manutencao" element={<Manutencao />} />
           <Route path="/manutencao/kanban" element={<KanbanManutencao />} />
+          <Route path="/manutencao/dashboard" element={<DashboardChamados />} />
           <Route path="/manutencao/:id" element={<OrdemServicoDetalhe />} />
           <Route path="/reservas" element={<Reservas />} />
           <Route path="/alertas" element={<Alertas />} />
@@ -74,7 +80,7 @@ export default function App() {
           {/* Rotas exclusivas de administrador. */}
           <Route element={<ProtectedRoute somenteAdmin />}>
             <Route path="/usuarios" element={<Usuarios />} />
-            <Route path="/categorias-chamado" element={<CategoriasChamado />} />
+            <Route path="/config/chamados" element={<ConfigChamadosPage />} />
             <Route path="/auditoria" element={<Auditoria />} />
           </Route>
 

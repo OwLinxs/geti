@@ -1,11 +1,13 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Star, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConversaChamado } from "@/components/ConversaChamado";
-import { CarregandoTela } from "@/components/ui/spinner";
+import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { portalApi } from "@/services/api";
 import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
@@ -26,6 +28,47 @@ export default function PortalChamadoDetalhe() {
 
   const [os, setOs] = React.useState<OrdemServico | null>(null);
   const [carregando, setCarregando] = React.useState(true);
+  const [nota, setNota] = React.useState(0);
+  const [comentario, setComentario] = React.useState("");
+  const [motivo, setMotivo] = React.useState("");
+  const [acao, setAcao] = React.useState(false);
+
+  async function avaliar() {
+    if (!os || nota < 1) return;
+    setAcao(true);
+    try {
+      const at = await portalApi.avaliar(os.id, nota, comentario.trim());
+      setOs(at);
+      toast({ titulo: "Obrigado pela avaliação!", variant: "success" });
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível avaliar",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setAcao(false);
+    }
+  }
+
+  async function reabrir() {
+    if (!os) return;
+    setAcao(true);
+    try {
+      const at = await portalApi.reabrir(os.id, motivo.trim());
+      setOs(at);
+      setMotivo("");
+      toast({ titulo: "Chamado reaberto.", variant: "success" });
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível reabrir",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setAcao(false);
+    }
+  }
 
   React.useEffect(() => {
     setCarregando(true);
@@ -91,6 +134,88 @@ export default function PortalChamadoDetalhe() {
           </p>
         </CardContent>
       </Card>
+
+      {os.status === "concluida" && (
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle className="text-base">Atendimento concluído</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {os.avaliacao_nota ? (
+              <div>
+                <p className="text-sm text-muted-foreground">Sua avaliação:</p>
+                <div className="mt-1 flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star
+                      key={n}
+                      className={
+                        n <= (os.avaliacao_nota ?? 0)
+                          ? "h-5 w-5 fill-amber-400 text-amber-400"
+                          : "h-5 w-5 text-muted-foreground"
+                      }
+                    />
+                  ))}
+                </div>
+                {os.avaliacao_comentario && (
+                  <p className="mt-2 text-sm">{os.avaliacao_comentario}</p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-medium">Avalie o atendimento</p>
+                <div className="mt-1 flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setNota(n)}
+                      aria-label={`${n} estrelas`}
+                    >
+                      <Star
+                        className={
+                          n <= nota
+                            ? "h-7 w-7 fill-amber-400 text-amber-400"
+                            : "h-7 w-7 text-muted-foreground hover:text-amber-400"
+                        }
+                      />
+                    </button>
+                  ))}
+                </div>
+                <Textarea
+                  className="mt-2"
+                  value={comentario}
+                  onChange={(e) => setComentario(e.target.value)}
+                  placeholder="Comentário (opcional)"
+                />
+                <Button
+                  className="mt-2"
+                  onClick={avaliar}
+                  disabled={acao || nota < 1}
+                >
+                  {acao ? <Spinner className="h-4 w-4" /> : "Enviar avaliação"}
+                </Button>
+              </div>
+            )}
+
+            <div className="border-t border-border pt-3">
+              <p className="text-sm text-muted-foreground">
+                Não resolveu? Reabra o chamado.
+              </p>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  placeholder="Motivo da reabertura (opcional)"
+                  className="flex-1"
+                />
+                <Button variant="outline" onClick={reabrir} disabled={acao}>
+                  <RotateCcw className="h-4 w-4" /> Reabrir chamado
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

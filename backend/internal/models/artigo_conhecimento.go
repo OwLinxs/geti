@@ -14,7 +14,10 @@ type ArtigoConhecimento struct {
 	AutorID *uint    `gorm:"index" json:"autor_id,omitempty"`
 	Autor   *Usuario `gorm:"foreignKey:AutorID" json:"autor,omitempty"`
 
-	Publicado     bool `gorm:"not null;default:true;index" json:"publicado"`
+	// Sem default:true — com default o GORM ignora valores false no INSERT
+	// (envia DEFAULT), impossibilitando salvar rascunho. O default fica no
+	// handler (ausente = publicado).
+	Publicado     bool `gorm:"not null;index" json:"publicado"`
 	Visualizacoes int  `gorm:"not null;default:0" json:"visualizacoes"`
 
 	// Soft delete para correção/remoção sem perder rastreabilidade.

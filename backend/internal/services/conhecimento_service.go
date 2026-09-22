@@ -96,6 +96,31 @@ func (s *ConhecimentoService) Visualizar(id uint) (*models.ArtigoConhecimento, e
 	return artigo, nil
 }
 
+// ListarPublicados devolve apenas artigos publicados (portal do solicitante).
+func (s *ConhecimentoService) ListarPublicados(q string, pagina, tamanho int) ([]models.ArtigoConhecimento, int64, error) {
+	pub := true
+	return s.repo.Listar(repositories.FiltroConhecimento{
+		Q:         q,
+		Publicado: &pub,
+		Pagina:    pagina,
+		Tamanho:   tamanho,
+	})
+}
+
+// VisualizarPublicado lê um artigo apenas se publicado (senão, não encontrado).
+func (s *ConhecimentoService) VisualizarPublicado(id uint) (*models.ArtigoConhecimento, error) {
+	artigo, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	if !artigo.Publicado {
+		return nil, ErrNaoEncontrado
+	}
+	_ = s.repo.IncrementarVisualizacoes(id)
+	artigo.Visualizacoes++
+	return artigo, nil
+}
+
 func (s *ConhecimentoService) Excluir(id uint) error {
 	if _, err := s.repo.BuscarPorID(id); err != nil {
 		return traduzErroRepo(err)

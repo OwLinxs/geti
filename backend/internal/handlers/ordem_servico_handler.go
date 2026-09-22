@@ -106,6 +106,28 @@ func (h *OrdemServicoHandler) Listar(c *gin.Context) {
 	})
 }
 
+func (h *OrdemServicoHandler) Dashboard(c *gin.Context) {
+	d, err := h.svc.Dashboard()
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, d)
+}
+
+func (h *OrdemServicoHandler) ListarEventos(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	eventos, err := h.svc.ListarEventos(id)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, eventos)
+}
+
 func (h *OrdemServicoHandler) BuscarPorID(c *gin.Context) {
 	id, ok := parseID(c, "id")
 	if !ok {

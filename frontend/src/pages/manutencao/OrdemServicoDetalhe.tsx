@@ -35,13 +35,14 @@ import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useReferencias } from "@/hooks/useReferencias";
-import { baixarBlob, formatarData } from "@/lib/format";
+import { baixarBlob, formatarData, formatarDataHora } from "@/lib/format";
+import { estadoSLA } from "@/lib/sla";
 import {
   STATUS_OS,
   rotuloPrioridadeOS,
   variantePrioridadeOS,
 } from "@/lib/rotulos";
-import type { Item, OrdemServico, Usuario } from "@/types";
+import type { EventoChamado, Item, OrdemServico, Usuario } from "@/types";
 
 // Passo em edição no cliente (id opcional: novos passos ainda não persistidos).
 interface PassoEdit {
@@ -64,6 +65,7 @@ export default function OrdemServicoDetalhe() {
   const [salvandoPassos, setSalvandoPassos] = React.useState(false);
   const [mudandoStatus, setMudandoStatus] = React.useState(false);
 
+  const [eventos, setEventos] = React.useState<EventoChamado[]>([]);
   const [itens, setItens] = React.useState<Item[]>([]);
   const [tecnicos, setTecnicos] = React.useState<Usuario[]>([]);
   const [editAberto, setEditAberto] = React.useState(false);
@@ -93,6 +95,10 @@ export default function OrdemServicoDetalhe() {
         })
       )
       .finally(() => setCarregando(false));
+    ordensServicoApi
+      .eventos(osId)
+      .then(setEventos)
+      .catch(() => setEventos([]));
   }, [osId, toast]);
 
   React.useEffect(carregar, [carregar]);
@@ -274,6 +280,20 @@ export default function OrdemServicoDetalhe() {
                 {rotuloPrioridadeOS(os.prioridade)}
               </Badge>
             </Campo>
+            {(() => {
+              const sla = estadoSLA(os);
+              if (!sla) return null;
+              return (
+                <Campo rotulo="SLA">
+                  <Badge variant={sla.variante}>{sla.rotulo}</Badge>
+                </Campo>
+              );
+            })()}
+            {os.prazo_resolucao_em && (
+              <Campo rotulo="Prazo de resolução">
+                {formatarData(os.prazo_resolucao_em)}
+              </Campo>
+            )}
             <Campo rotulo="Equipamento">{os.equipamento_snapshot}</Campo>
             {os.patrimonio_snapshot && (
               <Campo rotulo="Patrimônio">{os.patrimonio_snapshot}</Campo>
@@ -303,6 +323,12 @@ export default function OrdemServicoDetalhe() {
               </Campo>
             )}
             <Campo rotulo="Aberta por">{os.aberto_por?.nome ?? "—"}</Campo>
+            {os.avaliacao_nota != null && (
+              <Campo rotulo="Avaliação">
+                {"★".repeat(os.avaliacao_nota)}
+                {"☆".repeat(5 - os.avaliacao_nota)} ({os.avaliacao_nota}/5)
+              </Campo>
+            )}
           </CardContent>
         </Card>
 
@@ -316,6 +342,12 @@ export default function OrdemServicoDetalhe() {
               <Texto rotulo="Defeito relatado" valor={os.defeito_relatado} />
               <Texto rotulo="Diagnóstico" valor={os.diagnostico} />
               <Texto rotulo="Solução aplicada" valor={os.solucao_aplicada} />
+              {os.avaliacao_comentario && (
+                <Texto
+                  rotulo="Comentário da avaliação"
+                  valor={os.avaliacao_comentario}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -387,6 +419,28 @@ export default function OrdemServicoDetalhe() {
               </Button>
             </CardContent>
           </Card>
+
+          {eventos.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Linha do tempo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ol className="relative space-y-4 border-l border-border pl-4">
+                  {eventos.map((ev) => (
+                    <li key={ev.id} className="relative">
+                      <span className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-primary" />
+                      <p className="text-sm text-foreground">{ev.descricao}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatarDataHora(ev.criado_em)}
+                        {ev.autor_nome ? ` · ${ev.autor_nome}` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

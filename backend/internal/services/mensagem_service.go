@@ -23,8 +23,12 @@ const tamanhoMaxAnexo = 10 << 20
 type MensagemService struct {
 	repo   repositories.MensagemRepository
 	osRepo repositories.OrdemServicoRepository
+	notif  *NotificacaoService
 	cfg    *config.Config
 }
+
+// SetNotificador liga o serviço de notificações (injeção pós-construção).
+func (s *MensagemService) SetNotificador(n *NotificacaoService) { s.notif = n }
 
 func NewMensagemService(
 	repo repositories.MensagemRepository,
@@ -118,6 +122,16 @@ func (s *MensagemService) Enviar(in EntradaMensagem) (*models.MensagemChamado, e
 
 	if err := s.repo.Criar(msg); err != nil {
 		return nil, err
+	}
+	// SLA: primeira resposta da equipe (mensagem pública) marca o tempo de
+	// resposta do chamado.
+	if autorTipo == models.AutorTecnico && !interna {
+		_ = s.osRepo.DefinirPrimeiraResposta(in.OrdemServicoID, time.Now().UTC())
+	}
+	if s.notif != nil {
+		if os, err := s.osRepo.BuscarPorID(in.OrdemServicoID); err == nil {
+			s.notif.NotificarMensagem(os, autorTipo, interna)
+		}
 	}
 	return s.repo.BuscarPorID(msg.ID)
 }

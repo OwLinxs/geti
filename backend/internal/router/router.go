@@ -56,9 +56,20 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 		// chamados + conversa. Acesso escopado ao próprio usuário nos handlers.
 		registrarMeusChamados(auth, ct)
 
+		// Base de conhecimento no portal (só artigos publicados).
+		pc := auth.Group("/portal/conhecimento")
+		pc.GET("", ct.ConhecimentoHandler.ListarPortal)
+		pc.GET("/:id", ct.ConhecimentoHandler.VisualizarPortal)
+
 		// Categorias de chamado: leitura para qualquer perfil (o solicitante
 		// precisa escolher ao abrir); escrita só administrador (configuração).
 		registrarCategoriasChamado(auth, ct)
+
+		// Notificações in-app: cada usuário vê as suas (qualquer perfil).
+		registrarNotificacoes(auth, ct)
+
+		// Configurações do módulo de chamados (somente administrador).
+		registrarConfiguracoes(auth, ct)
 
 		// Área da equipe de T.I. (administrador/operador). Solicitantes são
 		// barrados aqui.
@@ -77,6 +88,7 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 		registrarFornecedores(equipe, ct)
 		registrarContratos(equipe, ct)
 		registrarReservas(equipe, ct)
+		registrarRespostasRapidas(equipe, ct)
 	}
 
 	return r
@@ -182,8 +194,10 @@ func registrarOrdensServico(g *gin.RouterGroup, ct *container.Container) {
 	// (correção de OS aberta por engano) é exclusiva de administradores.
 	o := g.Group("/ordens-servico")
 	o.GET("", ct.OrdemServicoHandler.Listar)
+	o.GET("/dashboard", ct.OrdemServicoHandler.Dashboard)
 	o.POST("", ct.OrdemServicoHandler.Criar)
 	o.GET("/:id", ct.OrdemServicoHandler.BuscarPorID)
+	o.GET("/:id/eventos", ct.OrdemServicoHandler.ListarEventos)
 	o.PUT("/:id", ct.OrdemServicoHandler.Atualizar)
 	o.PATCH("/:id/status", ct.OrdemServicoHandler.DefinirStatus)
 	o.PUT("/:id/passos", ct.OrdemServicoHandler.SalvarPassos)
@@ -244,6 +258,29 @@ func registrarCategoriasChamado(g *gin.RouterGroup, ct *container.Container) {
 	c.DELETE("/:id", adminOnly(), ct.CategoriaChamadoHandler.Excluir)
 }
 
+func registrarNotificacoes(g *gin.RouterGroup, ct *container.Container) {
+	n := g.Group("/notificacoes")
+	n.GET("", ct.NotificacaoHandler.Listar)
+	n.GET("/nao-lidas", ct.NotificacaoHandler.ContarNaoLidas)
+	n.PATCH("/lidas", ct.NotificacaoHandler.MarcarTodasLidas)
+	n.PATCH("/:id/lida", ct.NotificacaoHandler.MarcarLida)
+}
+
+func registrarRespostasRapidas(g *gin.RouterGroup, ct *container.Container) {
+	// Leitura para a equipe (usada no chat); escrita só administrador.
+	r := g.Group("/respostas-rapidas")
+	r.GET("", ct.RespostaRapidaHandler.Listar)
+	r.POST("", adminOnly(), ct.RespostaRapidaHandler.Criar)
+	r.PUT("/:id", adminOnly(), ct.RespostaRapidaHandler.Atualizar)
+	r.DELETE("/:id", adminOnly(), ct.RespostaRapidaHandler.Excluir)
+}
+
+func registrarConfiguracoes(g *gin.RouterGroup, ct *container.Container) {
+	c := g.Group("/config", adminOnly())
+	c.GET("/chamados", ct.ConfiguracaoHandler.ObterChamados)
+	c.PUT("/chamados", ct.ConfiguracaoHandler.SalvarChamados)
+}
+
 func registrarMeusChamados(g *gin.RouterGroup, ct *container.Container) {
 	// Portal do solicitante. Ownership é garantido nos handlers (escopo ao
 	// próprio usuário). Qualquer perfil autenticado pode usar.
@@ -251,6 +288,8 @@ func registrarMeusChamados(g *gin.RouterGroup, ct *container.Container) {
 	m.GET("", ct.MeusChamadosHandler.Listar)
 	m.POST("", ct.MeusChamadosHandler.Abrir)
 	m.GET("/:id", ct.MeusChamadosHandler.BuscarPorID)
+	m.POST("/:id/avaliacao", ct.MeusChamadosHandler.Avaliar)
+	m.POST("/:id/reabrir", ct.MeusChamadosHandler.Reabrir)
 	m.GET("/:id/mensagens", ct.MeusChamadosHandler.ListarMensagens)
 	m.POST("/:id/mensagens", ct.MeusChamadosHandler.EnviarMensagem)
 	m.GET("/:id/mensagens/:msgId/anexo", ct.MeusChamadosHandler.BaixarAnexo)

@@ -47,8 +47,8 @@ const CADASTROS: ItemMenu[] = [
   { rotulo: "Fornecedores", para: "/fornecedores", icone: Truck },
   { rotulo: "Contratos", para: "/contratos", icone: ScrollText },
   {
-    rotulo: "Categorias de Chamado",
-    para: "/categorias-chamado",
+    rotulo: "Chamados (config)",
+    para: "/config/chamados",
     icone: Tag,
     somenteAdmin: true,
   },

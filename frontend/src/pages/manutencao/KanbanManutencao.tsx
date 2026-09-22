@@ -13,6 +13,7 @@ import {
   rotuloStatusOS,
   variantePrioridadeOS,
 } from "@/lib/rotulos";
+import { estadoSLA } from "@/lib/sla";
 import { cn } from "@/lib/utils";
 import type { OrdemServico, StatusOS } from "@/types";
 
@@ -161,6 +162,12 @@ export default function KanbanManutencao() {
                       </p>
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {(() => {
+                        const sla = estadoSLA(os);
+                        return sla && sla.codigo !== "no_prazo" ? (
+                          <Badge variant={sla.variante}>{sla.rotulo}</Badge>
+                        ) : null;
+                      })()}
                       {os.categoria_chamado?.nome && (
                         <Badge variant="outline">
                           {os.categoria_chamado.nome}

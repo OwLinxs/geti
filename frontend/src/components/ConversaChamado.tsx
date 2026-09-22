@@ -1,14 +1,18 @@
 import * as React from "react";
-import { Paperclip, Send, Lock, Download } from "lucide-react";
+import { Paperclip, Send, Lock, Download, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
-import { chamadoMensagensApi, type BaseChamado } from "@/services/api";
+import {
+  chamadoMensagensApi,
+  respostasRapidasApi,
+  type BaseChamado,
+} from "@/services/api";
 import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { formatarDataHora } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { MensagemChamado } from "@/types";
+import type { MensagemChamado, RespostaRapida } from "@/types";
 
 interface Props {
   osId: number;
@@ -29,6 +33,8 @@ export function ConversaChamado({ osId, modo }: Props) {
   const [enviando, setEnviando] = React.useState(false);
   // Cache de object URLs de anexos de imagem (id da msg -> url).
   const [imagens, setImagens] = React.useState<Record<number, string>>({});
+  const [respostas, setRespostas] = React.useState<RespostaRapida[]>([]);
+  const [mostrarRespostas, setMostrarRespostas] = React.useState(false);
   const fimRef = React.useRef<HTMLDivElement | null>(null);
 
   const carregar = React.useCallback(
@@ -61,6 +67,20 @@ export function ConversaChamado({ osId, modo }: Props) {
     const t = setInterval(() => carregar(false), 15000);
     return () => clearInterval(t);
   }, [carregar]);
+
+  // Respostas rápidas (só para a equipe).
+  React.useEffect(() => {
+    if (modo !== "equipe") return;
+    respostasRapidasApi
+      .listar(true)
+      .then(setRespostas)
+      .catch(() => setRespostas([]));
+  }, [modo]);
+
+  function inserirResposta(r: RespostaRapida) {
+    setTexto((t) => (t ? t + "\n" + r.conteudo : r.conteudo));
+    setMostrarRespostas(false);
+  }
 
   // Carrega miniaturas de anexos de imagem.
   React.useEffect(() => {
@@ -207,6 +227,34 @@ export function ConversaChamado({ osId, modo }: Props) {
             >
               remover
             </button>
+          </div>
+        )}
+        {modo === "equipe" && respostas.length > 0 && (
+          <div className="relative mb-2">
+            <button
+              type="button"
+              onClick={() => setMostrarRespostas((v) => !v)}
+              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-accent"
+            >
+              <Zap className="h-3.5 w-3.5" /> Respostas rápidas
+            </button>
+            {mostrarRespostas && (
+              <div className="absolute bottom-full z-20 mb-1 max-h-56 w-72 overflow-y-auto rounded-md border border-border bg-card shadow-lg">
+                {respostas.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => inserirResposta(r)}
+                    className="block w-full border-b border-border/60 px-3 py-2 text-left last:border-0 hover:bg-accent"
+                  >
+                    <span className="text-sm font-medium">{r.titulo}</span>
+                    <span className="line-clamp-1 text-xs text-muted-foreground">
+                      {r.conteudo}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         <div className="flex items-end gap-2">

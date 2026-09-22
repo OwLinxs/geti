@@ -108,6 +108,31 @@ func (h *ConhecimentoHandler) BuscarPorID(c *gin.Context) {
 	c.JSON(http.StatusOK, artigo)
 }
 
+// ListarPortal devolve só artigos publicados (portal do solicitante).
+func (h *ConhecimentoHandler) ListarPortal(c *gin.Context) {
+	lista, total, err := h.svc.ListarPublicados(
+		c.Query("q"), queryInt(c, "pagina", 1), queryInt(c, "tamanho", 20))
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"dados": lista, "total": total})
+}
+
+// VisualizarPortal lê um artigo publicado (senão 404).
+func (h *ConhecimentoHandler) VisualizarPortal(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	artigo, err := h.svc.VisualizarPublicado(id)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, artigo)
+}
+
 func (h *ConhecimentoHandler) Excluir(c *gin.Context) {
 	id, ok := parseID(c, "id")
 	if !ok {

@@ -8,6 +8,10 @@ import type {
   ArtigoConhecimentoPayload,
   CategoriaChamado,
   CategoriaChamadoPayload,
+  ConfigChamados,
+  Notificacao,
+  RespostaRapida,
+  RespostaRapidaPayload,
   EquipamentoReservavel,
   MensagemChamado,
   Contrato,
@@ -48,6 +52,47 @@ export const authApi = {
   euMesmo: () => api.get<Usuario>("/auth/eu").then((r) => r.data),
 };
 
+// ===== Notificações in-app (sino) =====
+export const notificacoesApi = {
+  listar: (apenasNaoLidas = false, limite = 30) =>
+    api
+      .get<{ dados: Notificacao[]; nao_lidas: number }>("/notificacoes", {
+        params: limpar({ nao_lidas: apenasNaoLidas ? "true" : "", limite }),
+      })
+      .then((r) => r.data),
+  contarNaoLidas: () =>
+    api
+      .get<{ nao_lidas: number }>("/notificacoes/nao-lidas")
+      .then((r) => r.data.nao_lidas),
+  marcarLida: (id: number) =>
+    api.patch(`/notificacoes/${id}/lida`).then(() => undefined),
+  marcarTodasLidas: () =>
+    api.patch("/notificacoes/lidas").then(() => undefined),
+};
+
+// ===== Configuração do módulo de chamados (admin) =====
+export const configChamadosApi = {
+  obter: () => api.get<ConfigChamados>("/config/chamados").then((r) => r.data),
+  salvar: (c: ConfigChamados) =>
+    api.put<ConfigChamados>("/config/chamados", c).then((r) => r.data),
+};
+
+// ===== Respostas rápidas (templates de chat) =====
+export const respostasRapidasApi = {
+  listar: (apenasAtivas = false) =>
+    api
+      .get<RespostaRapida[]>("/respostas-rapidas", {
+        params: apenasAtivas ? { ativas: "true" } : {},
+      })
+      .then((r) => r.data),
+  criar: (p: RespostaRapidaPayload) =>
+    api.post<RespostaRapida>("/respostas-rapidas", p).then((r) => r.data),
+  atualizar: (id: number, p: RespostaRapidaPayload) =>
+    api.put<RespostaRapida>(`/respostas-rapidas/${id}`, p).then((r) => r.data),
+  excluir: (id: number) =>
+    api.delete(`/respostas-rapidas/${id}`).then(() => undefined),
+};
+
 // ===== Categorias de chamado (configurável) =====
 export const categoriasChamadoApi = {
   listar: (apenasAtivas = false) =>
@@ -84,6 +129,26 @@ export const portalApi = {
     api.post<OrdemServico>("/meus-chamados", p).then((r) => r.data),
   buscarPorId: (id: number) =>
     api.get<OrdemServico>(`/meus-chamados/${id}`).then((r) => r.data),
+  // Base de conhecimento visível ao solicitante (só publicados).
+  ajudaListar: (q?: string) =>
+    api
+      .get<{ dados: ArtigoConhecimento[]; total: number }>(
+        "/portal/conhecimento",
+        { params: limpar({ q }) }
+      )
+      .then((r) => r.data),
+  ajudaArtigo: (id: number) =>
+    api
+      .get<ArtigoConhecimento>(`/portal/conhecimento/${id}`)
+      .then((r) => r.data),
+  avaliar: (id: number, nota: number, comentario: string) =>
+    api
+      .post<OrdemServico>(`/meus-chamados/${id}/avaliacao`, { nota, comentario })
+      .then((r) => r.data),
+  reabrir: (id: number, motivo: string) =>
+    api
+      .post<OrdemServico>(`/meus-chamados/${id}/reabrir`, { motivo })
+      .then((r) => r.data),
 };
 
 // ===== Conversa do chamado (equipe usa "ordens-servico"; solicitante "meus-chamados") =====
@@ -258,6 +323,14 @@ export const ordensServicoApi = {
   salvarPassos: (id: number, passos: PassoPayload[]) =>
     api
       .put<OrdemServico>(`/ordens-servico/${id}/passos`, { passos })
+      .then((r) => r.data),
+  dashboard: () =>
+    api
+      .get<import("@/types").DashboardChamados>("/ordens-servico/dashboard")
+      .then((r) => r.data),
+  eventos: (id: number) =>
+    api
+      .get<import("@/types").EventoChamado[]>(`/ordens-servico/${id}/eventos`)
       .then((r) => r.data),
   baixarDocumento: (id: number, passos_extra: string[] = []) =>
     api
