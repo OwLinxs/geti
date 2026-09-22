@@ -57,8 +57,8 @@ func (r *conhecimentoRepository) Listar(f FiltroConhecimento) ([]models.ArtigoCo
 	q := r.db.Model(&models.ArtigoConhecimento{})
 
 	if termo := strings.TrimSpace(f.Q); termo != "" {
-		like := "%" + termo + "%"
-		q = q.Where("titulo LIKE ? OR conteudo LIKE ?", like, like)
+		like := "%" + strings.ToLower(termo) + "%"
+		q = q.Where("LOWER(titulo) LIKE ? OR LOWER(conteudo) LIKE ?", like, like)
 	}
 	if f.Categoria != "" {
 		q = q.Where("categoria = ?", f.Categoria)

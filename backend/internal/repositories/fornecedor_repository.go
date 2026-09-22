@@ -47,8 +47,8 @@ func (r *fornecedorRepository) BuscarPorID(id uint) (*models.Fornecedor, error) 
 func (r *fornecedorRepository) Listar(q string) ([]models.Fornecedor, error) {
 	query := r.db.Model(&models.Fornecedor{})
 	if termo := strings.TrimSpace(q); termo != "" {
-		like := "%" + termo + "%"
-		query = query.Where("nome LIKE ? OR cnpj LIKE ?", like, like)
+		like := "%" + strings.ToLower(termo) + "%"
+		query = query.Where("LOWER(nome) LIKE ? OR LOWER(cnpj) LIKE ?", like, like)
 	}
 	var lista []models.Fornecedor
 	err := query.Order("nome ASC").Find(&lista).Error

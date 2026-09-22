@@ -1,81 +1,62 @@
 #!/usr/bin/env bash
 # ==========================================================================
-# SIGE-TI - Restauração do banco SQLite a partir de um backup
+# SIGE-TI - Restauração (PostgreSQL + anexos)
 #
-# ATENÇÃO: substitui o banco atual pelo conteúdo do backup. Pare a aplicação
-# antes de restaurar para evitar inconsistências.
+# ATENÇÃO: substitui o banco atual (o dump usa --clean). Pare o backend antes
+# para evitar escritas concorrentes.
 #
 # Uso:
-#   scripts/restore.sh <caminho-do-backup.db.gz | .db>
+#   scripts/restore.sh <backup.sql.gz> [anexos.tar.gz]
 #
-# Variáveis (opcional): SIGE_VOLUME, SIGE_DB_PATH (mesmos defaults do backup.sh)
+# Se o tar de anexos não for informado, procura o de mesmo timestamp ao lado.
 # ==========================================================================
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-  echo "Uso: $0 <arquivo-de-backup (.db ou .db.gz)>" >&2
+  echo "Uso: $0 <backup.sql.gz> [anexos.tar.gz]" >&2
   exit 1
 fi
 
-BACKUP_FILE="$1"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJ_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+env_get() {
+  local val; val="$(grep -E "^$1=" "$PROJ_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+  echo "${val:-$2}"
+}
+
+SQL_FILE="$1"
+ANEXOS_TAR="${2:-}"
+PG_CONTAINER="${PG_CONTAINER:-sige-ti-postgres}"
+PG_USER="$(env_get POSTGRES_USER sige)"
+PG_DB="$(env_get POSTGRES_DB sige_ti)"
 SIGE_VOLUME="${SIGE_VOLUME:-geti_sige_data}"
-SIGE_DB_PATH="${SIGE_DB_PATH:-/app/data/sige-ti.db}"
-DB_BASENAME="$(basename "$SIGE_DB_PATH")"
+ANEXOS_SUBDIR="${ANEXOS_SUBDIR:-anexos}"
 
-if [ ! -f "$BACKUP_FILE" ]; then
-  echo "[restore] ERRO: arquivo não encontrado: $BACKUP_FILE" >&2
-  exit 1
-fi
+[ -f "$SQL_FILE" ] || { echo "[restore] arquivo não encontrado: $SQL_FILE" >&2; exit 1; }
 
-# Descompacta para um temporário se necessário.
-TMP_DB="$(mktemp /tmp/sige-restore-XXXXXX.db)"
-trap 'rm -f "$TMP_DB"' EXIT
-case "$BACKUP_FILE" in
-  *.gz) gunzip -c "$BACKUP_FILE" > "$TMP_DB" ;;
-  *)    cp "$BACKUP_FILE" "$TMP_DB" ;;
-esac
-
-echo "[restore] PARE a aplicação antes de continuar (docker compose stop backend)."
-read -r -p "Continuar a restauração? (s/N) " RESP
+echo "[restore] PARE o backend antes (docker compose stop backend)."
+read -r -p "Continuar a restauração no banco '${PG_DB}'? (s/N) " RESP
 [ "$RESP" = "s" ] || [ "$RESP" = "S" ] || { echo "Cancelado."; exit 0; }
 
-if command -v docker >/dev/null 2>&1; then
-  docker run --rm \
-    -v "${SIGE_VOLUME}:/data" \
-    -v "${TMP_DB}:/restore.db:ro" \
-    alpine:3.20 sh -c "cp /restore.db '/data/${DB_BASENAME}' && rm -f '/data/${DB_BASENAME}-wal' '/data/${DB_BASENAME}-shm'"
-else
-  cp "$TMP_DB" "$SIGE_DB_PATH"
-  rm -f "${SIGE_DB_PATH}-wal" "${SIGE_DB_PATH}-shm"
-fi
-
+# ---- Banco ----
+gunzip -c "$SQL_FILE" | docker exec -i -e PGUSER="$PG_USER" "$PG_CONTAINER" psql -d "$PG_DB"
 echo "[restore] banco restaurado."
 
-# ---- Anexos: se existir um tar de anexos correspondente, restaura também ----
-# Procura sige-ti-anexos-<mesmo-timestamp>.tar.gz ao lado do backup do banco,
-# ou aceita como 2º argumento.
-ANEXOS_SUBDIR="${ANEXOS_SUBDIR:-anexos}"
-ANEXOS_TAR="${2:-}"
+# ---- Anexos ----
 if [ -z "$ANEXOS_TAR" ]; then
-  TS="$(basename "$BACKUP_FILE" | sed -n 's/^sige-ti-\([0-9]\{8\}-[0-9]\{6\}\)\.db.*/\1/p')"
-  CAND="$(dirname "$BACKUP_FILE")/sige-ti-anexos-${TS}.tar.gz"
+  TS="$(basename "$SQL_FILE" | sed -n 's/^sige-ti-\([0-9]\{8\}-[0-9]\{6\}\)\.sql.*/\1/p')"
+  CAND="$(dirname "$SQL_FILE")/sige-ti-anexos-${TS}.tar.gz"
   [ -n "$TS" ] && [ -f "$CAND" ] && ANEXOS_TAR="$CAND"
 fi
 if [ -n "$ANEXOS_TAR" ] && [ -f "$ANEXOS_TAR" ]; then
   echo "[restore] restaurando anexos de: $ANEXOS_TAR"
-  if command -v docker >/dev/null 2>&1; then
-    docker run --rm \
-      -v "${SIGE_VOLUME}:/data" \
-      -v "${ANEXOS_TAR}:/anexos.tar.gz:ro" \
-      alpine:3.20 sh -c "rm -rf '/data/${ANEXOS_SUBDIR}' && tar xzf /anexos.tar.gz -C /data"
-  else
-    DEST="$(dirname "$SIGE_DB_PATH")"
-    rm -rf "${DEST}/${ANEXOS_SUBDIR}"
-    tar xzf "$ANEXOS_TAR" -C "$DEST"
-  fi
+  docker run --rm \
+    -v "${SIGE_VOLUME}:/data" \
+    -v "${ANEXOS_TAR}:/anexos.tar.gz:ro" \
+    alpine:3.20 sh -c "rm -rf '/data/${ANEXOS_SUBDIR}' && tar xzf /anexos.tar.gz -C /data"
   echo "[restore] anexos restaurados."
 else
-  echo "[restore] (nenhum tar de anexos encontrado — só o banco foi restaurado)"
+  echo "[restore] (sem tar de anexos — só o banco foi restaurado)"
 fi
 
-echo "[restore] concluído. Suba a aplicação novamente (docker compose start backend)."
+echo "[restore] concluído. Suba o backend (docker compose start backend)."

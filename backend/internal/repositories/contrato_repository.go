@@ -60,8 +60,8 @@ func (r *contratoRepository) Listar(f FiltroContrato) ([]models.Contrato, int64,
 	q := r.db.Model(&models.Contrato{})
 
 	if termo := strings.TrimSpace(f.Q); termo != "" {
-		like := "%" + termo + "%"
-		q = q.Where("numero LIKE ? OR objeto LIKE ?", like, like)
+		like := "%" + strings.ToLower(termo) + "%"
+		q = q.Where("LOWER(numero) LIKE ? OR LOWER(objeto) LIKE ?", like, like)
 	}
 	if f.Status != "" {
 		q = q.Where("status = ?", f.Status)

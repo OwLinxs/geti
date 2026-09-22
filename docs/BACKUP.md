@@ -1,11 +1,11 @@
 # Backup e restauração — SIGE-TI
 
-O SIGE-TI guarda os dados em **um único volume Docker** (`sige_data`):
-- Banco **SQLite** (`/app/data/sige-ti.db`)
-- **Anexos** das mensagens de chamado (`/app/data/anexos/`)
+O SIGE-TI guarda os dados em dois lugares:
+- Banco **PostgreSQL** (serviço `postgres`, volume `sige_pgdata`)
+- **Anexos** das mensagens de chamado (volume `sige_data`, em `/app/data/anexos/`)
 
-Os scripts fazem backup consistente dos **dois** (banco via `.backup` do SQLite,
-que respeita o WAL; anexos via `tar`).
+Os scripts fazem backup dos **dois**: banco via `pg_dump` (dump lógico `.sql.gz`)
+e anexos via `tar`.
 
 ## Fazer backup
 
@@ -15,17 +15,18 @@ cd /opt/geti
 ```
 
 Gera em `./backups/`:
-- `sige-ti-AAAAMMDD-HHMMSS.db.gz` (banco)
+- `sige-ti-AAAAMMDD-HHMMSS.sql.gz` (banco PostgreSQL)
 - `sige-ti-anexos-AAAAMMDD-HHMMSS.tar.gz` (anexos)
 
-Retenção padrão: 14 dias (configurável).
+Retenção padrão: 14 dias (configurável). Requer o container `sige-ti-postgres`
+rodando (o script usa `pg_dump`). Credenciais lidas do `.env`.
 
 ### Variáveis (opcionais)
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `SIGE_VOLUME` | `geti_sige_data` | nome do volume Docker |
-| `SIGE_DB_PATH` | `/app/data/sige-ti.db` | caminho do `.db` no volume |
-| `ANEXOS_SUBDIR` | `anexos` | subpasta dos anexos no volume |
+| `PG_CONTAINER` | `sige-ti-postgres` | container do Postgres |
+| `SIGE_VOLUME` | `geti_sige_data` | volume dos anexos |
+| `ANEXOS_SUBDIR` | `anexos` | subpasta dos anexos |
 | `BACKUP_DIR` | `./backups` | destino |
 | `RETENCAO_DIAS` | `14` | dias a manter |
 
@@ -55,14 +56,14 @@ rsync -az /opt/geti/backups/ usuario@servidor-backup:/backups/sige-ti/
 ```bash
 cd /opt/geti
 docker compose stop backend
-./scripts/restore.sh backups/sige-ti-AAAAMMDD-HHMMSS.db.gz
+./scripts/restore.sh backups/sige-ti-AAAAMMDD-HHMMSS.sql.gz
 # (o tar de anexos do mesmo horário é restaurado automaticamente se estiver ao lado)
 docker compose start backend
 ```
 
 Restaurar anexos de um arquivo específico:
 ```bash
-./scripts/restore.sh backups/sige-ti-<ts>.db.gz backups/sige-ti-anexos-<ts>.tar.gz
+./scripts/restore.sh backups/sige-ti-<ts>.sql.gz backups/sige-ti-anexos-<ts>.tar.gz
 ```
 
 ## Teste periódico

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/pmfb/sige-ti/internal/models"
 	"gorm.io/gorm"
@@ -65,9 +66,10 @@ func (r *itemRepository) Listar(f FiltroItem) ([]models.Item, int64, error) {
 	q := r.db.Model(&models.Item{})
 
 	if f.Texto != "" {
-		like := "%" + f.Texto + "%"
+		// LOWER(...) para busca case-insensitive portável (SQLite e PostgreSQL).
+		like := "%" + strings.ToLower(f.Texto) + "%"
 		q = q.Where(
-			"descricao LIKE ? OR numero_patrimonio LIKE ? OR numero_serie LIKE ? OR marca LIKE ? OR modelo LIKE ?",
+			"LOWER(descricao) LIKE ? OR LOWER(numero_patrimonio) LIKE ? OR LOWER(numero_serie) LIKE ? OR LOWER(marca) LIKE ? OR LOWER(modelo) LIKE ?",
 			like, like, like, like, like,
 		)
 	}

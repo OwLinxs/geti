@@ -29,9 +29,10 @@ services:
       # release = produção (ativa as validações de segredos obrigatórios).
       GIN_MODE: "release"
 
-      # --- Banco de dados ---
-      DB_DRIVER: "${DB_DRIVER:-sqlite}"
-      DB_DSN: "${DB_DSN:-/app/data/sige-ti.db}"
+      # --- Banco de dados (PostgreSQL) ---
+      DB_DRIVER: "${DB_DRIVER:-postgres}"
+      # DSN montado a partir dos POSTGRES_* (host = nome do serviço "postgres").
+      DB_DSN: "${DB_DSN:-host=postgres user=${POSTGRES_USER:-sige} password=${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env} dbname=${POSTGRES_DB:-sige_ti} port=5432 sslmode=disable TimeZone=UTC}"
 
       # --- Segurança (OBRIGATÓRIOS em produção; vêm do .env) ---
       JWT_SECRET: "${JWT_SECRET:?defina JWT_SECRET no .env (mín. 16 caracteres)}"
@@ -78,7 +79,7 @@ services:
       TERMO_CABECALHO: "${TERMO_CABECALHO:-Termo de Responsabilidade de Equipamento}"
       TERMO_CIDADE_UF: "${TERMO_CIDADE_UF:-}"
     volumes:
-      # Persistência do banco SQLite (use para backup — ver scripts/backup.sh).
+      # Persistência dos ANEXOS das mensagens (o banco agora é o PostgreSQL).
       - sige_data:/app/data
       # Logo/brasão para o cabeçalho do termo (opcional).
       - ./backend/assets:/app/assets:ro
@@ -88,8 +89,9 @@ services:
       timeout: 3s
       start_period: 20s
       retries: 5
-    # depends_on:
-    #   - postgres   # descomente ao usar PostgreSQL
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # --- Frontend (React + Vite, servido por Nginx) --------------------------
   # O Nginx serve os arquivos estáticos e faz proxy de /api -> backend:8080.
@@ -108,25 +110,24 @@ services:
       backend:
         condition: service_healthy
 
-  # --- PostgreSQL (OPCIONAL) -----------------------------------------------
-  # Descomente todo o bloco abaixo para usar PostgreSQL no lugar do SQLite e
-  # ajuste DB_DRIVER/DB_DSN no .env.
-  # postgres:
-  #   image: postgres:16-alpine
-  #   container_name: sige-ti-postgres
-  #   restart: unless-stopped
-  #   environment:
-  #     POSTGRES_USER: "${POSTGRES_USER:-sige}"
-  #     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}"
-  #     POSTGRES_DB: "${POSTGRES_DB:-sige_ti}"
-  #   volumes:
-  #     - sige_pgdata:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U sige -d sige_ti"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  # --- PostgreSQL ----------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: sige-ti-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-sige}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}"
+      POSTGRES_DB: "${POSTGRES_DB:-sige_ti}"
+    volumes:
+      - sige_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sige} -d ${POSTGRES_DB:-sige_ti}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
-  sige_data:
-  # sige_pgdata:   # descomente ao usar PostgreSQL
+  sige_data:     # anexos das mensagens
+  sige_pgdata:   # dados do PostgreSQL

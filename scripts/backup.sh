@@ -1,79 +1,61 @@
 #!/usr/bin/env bash
 # ==========================================================================
-# SIGE-TI - Backup consistente do banco SQLite
+# SIGE-TI - Backup (PostgreSQL + anexos)
 #
-# Usa o comando ".backup" do sqlite3, que produz uma cópia consistente mesmo
-# com o banco em uso (respeita o WAL). NÃO copie o arquivo .db diretamente com
-# cp enquanto a aplicação roda — isso pode gerar uma cópia corrompida.
-#
-# Gera um arquivo com timestamp e aplica retenção (apaga backups antigos).
+# Faz dump lógico do PostgreSQL (pg_dump) e arquiva os anexos das mensagens
+# (que ficam no volume, fora do banco). Gera arquivos com timestamp e aplica
+# retenção.
 #
 # Uso:
 #   scripts/backup.sh
 #
-# Configuração por variáveis de ambiente (opcional):
-#   SIGE_VOLUME      Nome do volume Docker do banco (padrão: geti_sige_data)
-#   SIGE_DB_PATH     Caminho do .db DENTRO do volume/container (padrão: /app/data/sige-ti.db)
-#   BACKUP_DIR       Pasta de destino dos backups (padrão: ./backups)
-#   RETENCAO_DIAS    Dias a manter (padrão: 14)
+# Variáveis (opcionais):
+#   PG_CONTAINER   Container do Postgres (padrão: sige-ti-postgres)
+#   SIGE_VOLUME    Volume Docker dos anexos (padrão: geti_sige_data)
+#   ANEXOS_SUBDIR  Subpasta dos anexos no volume (padrão: anexos)
+#   BACKUP_DIR     Destino (padrão: ./backups)
+#   RETENCAO_DIAS  Dias a manter (padrão: 14)
 #
-# Pré-requisito: Docker (o script usa um container efêmero com sqlite3, então
-# não é preciso instalar sqlite3 no host). Para instalação direta (sem Docker),
-# defere para o modo local — veja a seção "MODO LOCAL" abaixo.
+# As credenciais (POSTGRES_USER/DB) são lidas do .env do projeto.
 # ==========================================================================
 set -euo pipefail
 
-# Resolve a raiz do projeto (pasta-pai deste script).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJ_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Lê uma variável do .env (com fallback).
+env_get() {
+  local chave="$1" padrao="$2"
+  local val
+  val="$(grep -E "^${chave}=" "$PROJ_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+  echo "${val:-$padrao}"
+}
+
+PG_CONTAINER="${PG_CONTAINER:-sige-ti-postgres}"
+PG_USER="$(env_get POSTGRES_USER sige)"
+PG_DB="$(env_get POSTGRES_DB sige_ti)"
 SIGE_VOLUME="${SIGE_VOLUME:-geti_sige_data}"
-SIGE_DB_PATH="${SIGE_DB_PATH:-/app/data/sige-ti.db}"
+ANEXOS_SUBDIR="${ANEXOS_SUBDIR:-anexos}"
 BACKUP_DIR="${BACKUP_DIR:-$PROJ_DIR/backups}"
 RETENCAO_DIAS="${RETENCAO_DIAS:-14}"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
-ARQUIVO="$BACKUP_DIR/sige-ti-${TIMESTAMP}.db"
+SQL_GZ="$BACKUP_DIR/sige-ti-${TIMESTAMP}.sql.gz"
+ANEXOS_TAR="$BACKUP_DIR/sige-ti-anexos-${TIMESTAMP}.tar.gz"
 
 mkdir -p "$BACKUP_DIR"
+echo "[backup] iniciando (${TIMESTAMP})..."
 
-echo "[backup] iniciando backup do SQLite (${TIMESTAMP})..."
-
-# ---- MODO DOCKER (padrão) ----
-# Sobe um container efêmero (alpine + sqlite) com o volume do banco montado e
-# o diretório de backup do host, e executa o ".backup" para um arquivo.
-if command -v docker >/dev/null 2>&1; then
-  # Dentro do container, o volume é montado em /data; o .db é o basename do
-  # caminho configurado (ex.: sige-ti.db).
-  DB_BASENAME="$(basename "$SIGE_DB_PATH")"
-  docker run --rm \
-    -v "${SIGE_VOLUME}:/data:ro" \
-    -v "${BACKUP_DIR}:/backup" \
-    alpine:3.20 sh -c "
-      set -e
-      apk add --no-cache sqlite >/dev/null 2>&1
-      sqlite3 '/data/${DB_BASENAME}' \".backup '/backup/$(basename "$ARQUIVO")'\"
-    "
-else
-  # ---- MODO LOCAL (sem Docker) ----
-  # Requer sqlite3 instalado no host e SIGE_DB_PATH apontando para o arquivo
-  # real no disco (ex.: /var/lib/sige-ti/sige-ti.db).
-  if ! command -v sqlite3 >/dev/null 2>&1; then
-    echo "[backup] ERRO: nem docker nem sqlite3 disponíveis no host." >&2
-    exit 1
-  fi
-  sqlite3 "$SIGE_DB_PATH" ".backup '$ARQUIVO'"
+# ---- Banco: pg_dump do container do Postgres ----
+if ! docker ps --format '{{.Names}}' | grep -q "^${PG_CONTAINER}$"; then
+  echo "[backup] ERRO: container ${PG_CONTAINER} não está rodando." >&2
+  exit 1
 fi
+docker exec -e PGUSER="$PG_USER" "$PG_CONTAINER" \
+  pg_dump -d "$PG_DB" --clean --if-exists | gzip > "$SQL_GZ"
+echo "[backup] banco: $SQL_GZ"
 
-# Compacta o backup para economizar espaço.
-gzip -f "$ARQUIVO"
-ARQUIVO="${ARQUIVO}.gz"
-echo "[backup] banco: $ARQUIVO"
-
-# ---- Anexos (arquivos das mensagens de chamado) ----
-# Ficam no mesmo volume, em /data/${ANEXOS_SUBDIR}. São estáticos: tar é seguro.
-ANEXOS_SUBDIR="${ANEXOS_SUBDIR:-anexos}"
-ANEXOS_TAR="$BACKUP_DIR/sige-ti-anexos-${TIMESTAMP}.tar.gz"
+# ---- Anexos: tar do volume ----
 if command -v docker >/dev/null 2>&1; then
   docker run --rm \
     -v "${SIGE_VOLUME}:/data:ro" \
@@ -82,20 +64,15 @@ if command -v docker >/dev/null 2>&1; then
       if [ -d '/data/${ANEXOS_SUBDIR}' ]; then
         tar czf '/backup/$(basename "$ANEXOS_TAR")' -C /data '${ANEXOS_SUBDIR}'
       else
-        echo '[backup] sem diretório de anexos (nada a arquivar).'
+        echo '[backup] sem diretório de anexos.'
       fi
     "
-else
-  ANEXOS_DIR_LOCAL="$(dirname "$SIGE_DB_PATH")/${ANEXOS_SUBDIR}"
-  if [ -d "$ANEXOS_DIR_LOCAL" ]; then
-    tar czf "$ANEXOS_TAR" -C "$(dirname "$ANEXOS_DIR_LOCAL")" "${ANEXOS_SUBDIR}"
-  fi
 fi
 [ -f "$ANEXOS_TAR" ] && echo "[backup] anexos: $ANEXOS_TAR"
 
-# ---- Retenção: remove backups com mais de RETENCAO_DIAS dias ----
-echo "[backup] aplicando retenção de ${RETENCAO_DIAS} dias..."
-find "$BACKUP_DIR" -name 'sige-ti-*.db.gz' -type f -mtime +"$RETENCAO_DIAS" -print -delete || true
-find "$BACKUP_DIR" -name 'sige-ti-anexos-*.tar.gz' -type f -mtime +"$RETENCAO_DIAS" -print -delete || true
+# ---- Retenção ----
+echo "[backup] retenção de ${RETENCAO_DIAS} dias..."
+find "$BACKUP_DIR" -name 'sige-ti-*.sql.gz' -type f -mtime +"$RETENCAO_DIAS" -delete || true
+find "$BACKUP_DIR" -name 'sige-ti-anexos-*.tar.gz' -type f -mtime +"$RETENCAO_DIAS" -delete || true
 
 echo "[backup] concluído."
