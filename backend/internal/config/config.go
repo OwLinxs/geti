@@ -58,6 +58,13 @@ type Config struct {
 
 	// Diretório onde os anexos das mensagens de chamado são guardados.
 	AnexosDir string
+
+	// Integração de SAÍDA com o ZapGov (envio de mensagem ao WhatsApp).
+	// Vazio = envio desabilitado (a mensagem fica só registrada no SIGE-TI).
+	ZapGovBaseURL    string
+	ZapGovEmail      string
+	ZapGovSenha      string
+	ZapGovSubdominio string
 }
 
 // Load lê as variáveis de ambiente e devolve a configuração validada.
@@ -81,6 +88,10 @@ func Load() (*Config, error) {
 		TermoCidadeUF:      getEnv("TERMO_CIDADE_UF", ""),
 		IntegracaoAPIKey:   strings.TrimSpace(getEnv("INTEGRACAO_API_KEY", "")),
 		AnexosDir:          getEnv("ANEXOS_DIR", "data/anexos"),
+		ZapGovBaseURL:      strings.TrimRight(getEnv("ZAPGOV_BASE_URL", ""), "/"),
+		ZapGovEmail:        getEnv("ZAPGOV_EMAIL", ""),
+		ZapGovSenha:        getEnv("ZAPGOV_SENHA", ""),
+		ZapGovSubdominio:   getEnv("ZAPGOV_SUBDOMINIO", ""),
 	}
 
 	expHours, err := strconv.Atoi(getEnv("JWT_EXPIRES_HOURS", "8"))

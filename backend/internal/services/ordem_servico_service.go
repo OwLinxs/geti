@@ -273,6 +273,11 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 	}
 	aplicarEquipamento(os, in, d.item)
 	s.aplicarPrazosSLA(os)
+	// Chamado externo (WhatsApp): a pessoa acabou de escrever → janela 24h aberta.
+	if os.Origem != "interno" {
+		agora := time.Now().UTC()
+		os.UltimaMsgSolicitanteEm = &agora
+	}
 
 	err = s.repo.DB().Transaction(func(tx *gorm.DB) error {
 		numero, err := s.repo.ProximoNumero(tx, time.Now().UTC().Year())
@@ -563,6 +568,16 @@ func (s *OrdemServicoService) SalvarPassos(id uint, entradas []PassoEntrada) (*m
 		return nil, err
 	}
 	return s.repo.BuscarPorID(id)
+}
+
+// BuscarPorReferenciaExterna / BuscarAbertaPorContato: usados pela integração
+// para achar o chamado ao receber uma mensagem do WhatsApp.
+func (s *OrdemServicoService) BuscarPorReferenciaExterna(ref string) (*models.OrdemServico, error) {
+	return s.repo.BuscarPorReferenciaExterna(ref)
+}
+
+func (s *OrdemServicoService) BuscarAbertaPorContato(contato string) (*models.OrdemServico, error) {
+	return s.repo.BuscarAbertaPorContato(contato)
 }
 
 func (s *OrdemServicoService) BuscarPorID(id uint) (*models.OrdemServico, error) {

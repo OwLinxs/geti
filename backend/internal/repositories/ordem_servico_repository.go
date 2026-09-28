@@ -49,6 +49,11 @@ type OrdemServicoRepository interface {
 	BuscarPorID(id uint) (*models.OrdemServico, error)
 	// BuscarPorReferenciaExterna localiza a OS pelo id do card externo (sync).
 	BuscarPorReferenciaExterna(ref string) (*models.OrdemServico, error)
+	// BuscarAbertaPorContato acha o chamado ATIVO mais recente de um telefone.
+	BuscarAbertaPorContato(contato string) (*models.OrdemServico, error)
+	// MarcarMsgSolicitante registra o momento da última mensagem do solicitante
+	// (abre a janela de 24h).
+	MarcarMsgSolicitante(osID uint, t time.Time) error
 	Listar(f FiltroOrdemServico) ([]models.OrdemServico, int64, error)
 	Remover(id uint) error
 	// SubstituirPassos troca todos os passos de uma OS numa transação.
@@ -119,6 +124,29 @@ func (r *ordemServicoRepository) BuscarPorReferenciaExterna(ref string) (*models
 		return nil, err
 	}
 	return &os, nil
+}
+
+func (r *ordemServicoRepository) BuscarAbertaPorContato(contato string) (*models.OrdemServico, error) {
+	if contato == "" {
+		return nil, ErrNaoEncontrado
+	}
+	ativos := []models.StatusOS{models.OSAberta, models.OSEmAndamento, models.OSAguardandoPeca}
+	var os models.OrdemServico
+	err := r.preloads(r.db).
+		Where("solicitante_contato = ? AND status IN ?", contato, ativos).
+		Order("data_abertura DESC, id DESC").First(&os).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNaoEncontrado
+		}
+		return nil, err
+	}
+	return &os, nil
+}
+
+func (r *ordemServicoRepository) MarcarMsgSolicitante(osID uint, t time.Time) error {
+	return r.db.Model(&models.OrdemServico{}).Where("id = ?", osID).
+		Update("ultima_msg_solicitante_em", t).Error
 }
 
 func (r *ordemServicoRepository) Listar(f FiltroOrdemServico) ([]models.OrdemServico, int64, error) {

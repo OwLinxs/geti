@@ -248,6 +248,7 @@ func registrarIntegracao(api *gin.RouterGroup, cfg *config.Config, ct *container
 	// Chamados (mapeiam para ordens de serviço). Sync completo: criar/atualizar
 	// (idempotente por referencia_externa), ler o board e mover de coluna.
 	g.POST("/ordens-servico", ct.IntegracaoHandler.Criar)
+	g.POST("/mensagens", ct.IntegracaoHandler.ReceberMensagem)
 	g.GET("/ordens-servico", ct.IntegracaoHandler.Listar)
 	g.GET("/ordens-servico/:id", ct.IntegracaoHandler.BuscarPorID)
 	g.PATCH("/ordens-servico/:id/status", ct.IntegracaoHandler.DefinirStatus)

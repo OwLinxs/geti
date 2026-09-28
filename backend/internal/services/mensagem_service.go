@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -35,10 +36,14 @@ type MensagemService struct {
 	osRepo repositories.OrdemServicoRepository
 	notif  *NotificacaoService
 	cfg    *config.Config
+	zap    *ZapGovClient
 }
 
 // SetNotificador liga o serviço de notificações (injeção pós-construção).
 func (s *MensagemService) SetNotificador(n *NotificacaoService) { s.notif = n }
+
+// SetZapGov liga o cliente de envio ao WhatsApp (injeção pós-construção).
+func (s *MensagemService) SetZapGov(z *ZapGovClient) { s.zap = z }
 
 func NewMensagemService(
 	repo repositories.MensagemRepository,
@@ -138,12 +143,55 @@ func (s *MensagemService) Enviar(in EntradaMensagem) (*models.MensagemChamado, e
 	if autorTipo == models.AutorTecnico && !interna {
 		_ = s.osRepo.DefinirPrimeiraResposta(in.OrdemServicoID, time.Now().UTC())
 	}
-	if s.notif != nil {
-		if os, err := s.osRepo.BuscarPorID(in.OrdemServicoID); err == nil {
+	if os, err := s.osRepo.BuscarPorID(in.OrdemServicoID); err == nil {
+		if s.notif != nil {
 			s.notif.NotificarMensagem(os, autorTipo, interna)
+		}
+		// Saída para o WhatsApp: só resposta pública da equipe em chamado de
+		// origem WhatsApp, quando o ZapGov está configurado.
+		if autorTipo == models.AutorTecnico && !interna && os.Origem == "whatsapp" {
+			s.enviarWhatsApp(os, msg.ID, texto)
 		}
 	}
 	return s.repo.BuscarPorID(msg.ID)
+}
+
+// enviarWhatsApp entrega a resposta da equipe ao contato via ZapGov (best-effort,
+// assíncrono). Dentro da janela de 24h envia texto livre; fora dela marca a
+// mensagem como falha (é preciso um template aprovado). Nunca quebra o fluxo.
+func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msgID uint, texto string) {
+	if s.zap == nil || !s.zap.Configurado() {
+		return
+	}
+	contato := strings.TrimSpace(os.SolicitanteContato)
+	if contato == "" || strings.TrimSpace(texto) == "" {
+		return
+	}
+	dentroJanela := os.UltimaMsgSolicitanteEm != nil &&
+		time.Since(*os.UltimaMsgSolicitanteEm) < 24*time.Hour
+
+	go func() {
+		if !dentroJanela {
+			log.Printf("[zapgov] janela fechada na OS %s; mensagem %d não enviada (use template)", os.Numero, msgID)
+			_ = s.repo.AtualizarEnvioExterno(msgID, "", models.MsgFalhou)
+			return
+		}
+		res, err := s.zap.Enviar(contato, texto, "")
+		if err != nil {
+			if err == ErrJanelaFechada {
+				log.Printf("[zapgov] janela fechada (OS %s); mensagem %d requer template", os.Numero, msgID)
+			} else {
+				log.Printf("[zapgov] falha ao enviar mensagem %d: %v", msgID, err)
+			}
+			_ = s.repo.AtualizarEnvioExterno(msgID, "", models.MsgFalhou)
+			return
+		}
+		idExterno := ""
+		if res != nil {
+			idExterno = res.WaMessageID
+		}
+		_ = s.repo.AtualizarEnvioExterno(msgID, idExterno, models.MsgEnviada)
+	}()
 }
 
 // anexar valida e grava o arquivo em disco, preenchendo os campos de anexo.
@@ -210,6 +258,125 @@ func (s *MensagemService) anexar(msg *models.MensagemChamado, fh *multipart.File
 	msg.AnexoCaminho = caminho
 	msg.AnexoTamanho = tam
 	return nil
+}
+
+// RegistrarEntradaExterna grava uma mensagem recebida do solicitante via
+// integração (WhatsApp): direção "entrada", autor servidor, sem usuário. Abre a
+// janela de 24h e notifica a equipe. Mídia (se houver) é baixada da URL.
+func (s *MensagemService) RegistrarEntradaExterna(osID uint, autorNome, texto, midiaURL, idExterno string) (*models.MensagemChamado, error) {
+	texto = strings.TrimSpace(texto)
+	idExterno = strings.TrimSpace(idExterno)
+	// Dedup: mesma mensagem pode chegar pelo webhook e pelo SSE.
+	if idExterno != "" {
+		if existe, _ := s.repo.ExistePorIdExterno(idExterno); existe {
+			return nil, ErrDuplicado
+		}
+	}
+	if texto == "" && midiaURL == "" {
+		texto = "(mensagem sem conteúdo)"
+	}
+	msg := &models.MensagemChamado{
+		OrdemServicoID: osID,
+		Direcao:        models.MsgEntrada,
+		AutorTipo:      models.AutorServidor,
+		AutorNome:      strings.TrimSpace(autorNome),
+		Texto:          texto,
+		Status:         models.MsgRecebida,
+		IdExterno:      strings.TrimSpace(idExterno),
+		EnviadaEm:      time.Now().UTC(),
+	}
+	if midiaURL != "" {
+		if err := s.baixarAnexoDeURL(msg, midiaURL); err != nil {
+			log.Printf("[msg] falha ao baixar mídia (%s): %v", midiaURL, err)
+		}
+	}
+	if err := s.repo.Criar(msg); err != nil {
+		return nil, err
+	}
+	// Abre a janela de 24h e avisa a equipe.
+	_ = s.osRepo.MarcarMsgSolicitante(osID, time.Now().UTC())
+	if s.notif != nil {
+		if os, err := s.osRepo.BuscarPorID(osID); err == nil {
+			s.notif.NotificarMensagem(os, models.AutorServidor, false)
+		}
+	}
+	return s.repo.BuscarPorID(msg.ID)
+}
+
+// baixarAnexoDeURL busca a mídia da URL (timeout curto), valida tipo/tamanho e
+// grava em disco.
+func (s *MensagemService) baixarAnexoDeURL(msg *models.MensagemChamado, url string) error {
+	cliente := &http.Client{Timeout: 20 * time.Second}
+	resp, err := cliente.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("status %d ao baixar mídia", resp.StatusCode)
+	}
+
+	cabeca := make([]byte, 512)
+	n, _ := io.ReadFull(resp.Body, cabeca)
+	tipoReal := http.DetectContentType(cabeca[:n])
+	if !tipoAnexoPermitido(tipoReal) {
+		return fmt.Errorf("tipo não permitido: %s", tipoReal)
+	}
+
+	dir := s.cfg.AnexosDir
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	nome, err := nomeAleatorio(extPorTipo(tipoReal))
+	if err != nil {
+		return err
+	}
+	caminho := filepath.Join(dir, nome)
+	dst, err := os.Create(caminho)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	// Escreve o que já foi lido + o resto, com teto de tamanho.
+	if _, err := dst.Write(cabeca[:n]); err != nil {
+		os.Remove(caminho)
+		return err
+	}
+	escrito, err := io.Copy(dst, io.LimitReader(resp.Body, tamanhoMaxAnexo+1))
+	if err != nil {
+		os.Remove(caminho)
+		return err
+	}
+	total := int64(n) + escrito
+	if total > tamanhoMaxAnexo {
+		os.Remove(caminho)
+		return fmt.Errorf("mídia excede o limite")
+	}
+	msg.AnexoNome = "anexo" + extPorTipo(tipoReal)
+	msg.AnexoTipo = tipoReal
+	msg.AnexoCaminho = caminho
+	msg.AnexoTamanho = total
+	return nil
+}
+
+// extPorTipo devolve uma extensão simples para o tipo detectado.
+func extPorTipo(tipo string) string {
+	switch {
+	case strings.HasPrefix(tipo, "image/jpeg"):
+		return ".jpg"
+	case strings.HasPrefix(tipo, "image/png"):
+		return ".png"
+	case strings.HasPrefix(tipo, "image/gif"):
+		return ".gif"
+	case strings.HasPrefix(tipo, "image/webp"):
+		return ".webp"
+	case tipo == "application/pdf":
+		return ".pdf"
+	case strings.HasPrefix(tipo, "text/plain"):
+		return ".txt"
+	}
+	return ""
 }
 
 // BuscarAnexo devolve os metadados + caminho do anexo de uma mensagem, validando

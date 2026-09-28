@@ -131,8 +131,10 @@ func (s *NotificacaoService) NotificarNovoChamado(os *models.OrdemServico) {
 	if os == nil || !s.config().NotificarEquipeNovoChamado {
 		return
 	}
+	// Só exclui o autor quando ele é um técnico de verdade (chamado interno).
+	// Em chamado externo (WhatsApp) o autor é o admin fallback → notifica todos.
 	var autor uint
-	if os.AbertoPorID != 0 {
+	if os.Origem == "interno" {
 		autor = os.AbertoPorID
 	}
 	titulo := fmt.Sprintf("Novo chamado %s", os.Numero)
@@ -149,8 +151,8 @@ func (s *NotificacaoService) NotificarMensagem(os *models.OrdemServico, autorTip
 		return
 	}
 	if autorTipo == models.AutorServidor {
-		// Solicitante escreveu → avisa a equipe.
-		s.emitir(s.usuariosEquipe(os.AbertoPorID),
+		// Solicitante escreveu → avisa toda a equipe (não exclui ninguém).
+		s.emitir(s.usuariosEquipe(0),
 			fmt.Sprintf("Nova mensagem no chamado %s", os.Numero),
 			"O solicitante respondeu.", models.NotifMensagem, os.ID)
 		return

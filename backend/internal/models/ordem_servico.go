@@ -137,6 +137,10 @@ type OrdemServico struct {
 	SLARespostaNotificada  bool `gorm:"not null;default:false" json:"-"`
 	SLAResolucaoNotificada bool `gorm:"not null;default:false" json:"-"`
 
+	// Última mensagem do solicitante (WhatsApp): abre a janela de 24h em que a
+	// equipe pode responder com texto livre; fora dela exige template.
+	UltimaMsgSolicitanteEm *time.Time `json:"ultima_msg_solicitante_em,omitempty"`
+
 	// Avaliação do solicitante ao encerrar (nota 1–5 + comentário).
 	AvaliacaoNota       *int       `json:"avaliacao_nota,omitempty"`
 	AvaliacaoComentario string     `gorm:"size:1000" json:"avaliacao_comentario,omitempty"`

@@ -36,6 +36,7 @@ type Container struct {
 	FornecedorService       *services.FornecedorService
 	ContratoService         *services.ContratoService
 	ReservaService          *services.ReservaService
+	ZapGovConsumidor        *services.ZapGovConsumidor
 
 	// Handlers.
 	HealthHandler           *handlers.HealthHandler
@@ -104,9 +105,16 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	mensagemSvc := services.NewMensagemService(mensagemRepo, ordemServicoRepo, cfg)
 	conhecimentoSvc := services.NewConhecimentoService(conhecimentoRepo)
 
+	// Cliente e consumidor do ZapGov (envio + recebimento de WhatsApp). Ficam
+	// inertes quando não há credenciais configuradas.
+	zapGovCli := services.NewZapGovClient(cfg)
+	zapGovConsumidor := services.NewZapGovConsumidor(zapGovCli, ordemServicoSvc, mensagemSvc)
+
 	// Liga o notificador aos serviços que emitem eventos de chamado.
 	ordemServicoSvc.SetNotificador(notificacaoSvc)
 	mensagemSvc.SetNotificador(notificacaoSvc)
+	// Liga o envio ao WhatsApp (saída da equipe → contato).
+	mensagemSvc.SetZapGov(zapGovCli)
 	// Liga a configuração ao serviço de OS (cálculo de prazos de SLA).
 	ordemServicoSvc.SetConfig(configuracaoSvc)
 	// Liga o log de eventos (linha do tempo do chamado).
@@ -141,6 +149,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		FornecedorService:       fornecedorSvc,
 		ContratoService:         contratoSvc,
 		ReservaService:          reservaSvc,
+		ZapGovConsumidor:        zapGovConsumidor,
 
 		HealthHandler:           handlers.NewHealthHandler(db),
 		AuthHandler:             handlers.NewAuthHandler(authSvc, usuarioSvc),
@@ -164,6 +173,6 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		FornecedorHandler:       handlers.NewFornecedorHandler(fornecedorSvc),
 		ContratoHandler:         handlers.NewContratoHandler(contratoSvc),
 		ReservaHandler:          handlers.NewReservaHandler(reservaSvc),
-		IntegracaoHandler:       handlers.NewIntegracaoHandler(ordemServicoSvc),
+		IntegracaoHandler:       handlers.NewIntegracaoHandler(ordemServicoSvc, mensagemSvc, zapGovConsumidor),
 	}
 }

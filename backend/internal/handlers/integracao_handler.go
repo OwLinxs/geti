@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,11 +13,13 @@ import (
 // IntegracaoHandler expõe a API de chamados para sistemas externos (ex.: a
 // plataforma de WhatsApp). Autenticação por chave de API (middleware).
 type IntegracaoHandler struct {
-	svc *services.OrdemServicoService
+	svc        *services.OrdemServicoService
+	msgSvc     *services.MensagemService
+	consumidor *services.ZapGovConsumidor
 }
 
-func NewIntegracaoHandler(svc *services.OrdemServicoService) *IntegracaoHandler {
-	return &IntegracaoHandler{svc: svc}
+func NewIntegracaoHandler(svc *services.OrdemServicoService, msgSvc *services.MensagemService, consumidor *services.ZapGovConsumidor) *IntegracaoHandler {
+	return &IntegracaoHandler{svc: svc, msgSvc: msgSvc, consumidor: consumidor}
 }
 
 type chamadoExternoRequest struct {
@@ -68,6 +71,44 @@ func (h *IntegracaoHandler) Criar(c *gin.Context) {
 		status = http.StatusCreated
 	}
 	c.JSON(status, os)
+}
+
+type mensagemExternaRequest struct {
+	ReferenciaExterna string `json:"referencia_externa"`
+	Telefone          string `json:"telefone"`
+	Nome              string `json:"nome"`
+	Texto             string `json:"texto"`
+	MidiaURL          string `json:"midia_url"`
+	IdExterno         string `json:"id_externo"`
+}
+
+// ReceberMensagem processa uma mensagem recebida do WhatsApp (entrada). Acha o
+// chamado por referencia_externa, senão por telefone (chamado aberto), senão
+// cria um novo. Depois anexa a mensagem na conversa.
+func (h *IntegracaoHandler) ReceberMensagem(c *gin.Context) {
+	var req mensagemExternaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+
+	os, msg, err := h.consumidor.ProcessarEntrada(
+		req.ReferenciaExterna, req.Telefone, req.Nome,
+		req.Texto, req.MidiaURL, req.IdExterno)
+	if err != nil {
+		// Mensagem repetida (mesmo id_externo): idempotente, responde OK.
+		if errors.Is(err, services.ErrDuplicado) {
+			c.JSON(http.StatusOK, gin.H{"duplicada": true})
+			return
+		}
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"ordem_servico_id": os.ID,
+		"numero":           os.Numero,
+		"mensagem_id":      msg.ID,
+	})
 }
 
 // Listar devolve o board (chamados) para o sistema externo sincronizar.

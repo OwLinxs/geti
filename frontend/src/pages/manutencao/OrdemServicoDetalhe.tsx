@@ -1,6 +1,14 @@
 import * as React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Pencil, Printer, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Pencil,
+  Printer,
+  Plus,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +73,7 @@ export default function OrdemServicoDetalhe() {
   const [salvandoPassos, setSalvandoPassos] = React.useState(false);
   const [mudandoStatus, setMudandoStatus] = React.useState(false);
   const [atribuindo, setAtribuindo] = React.useState(false);
+  const [checklistAberto, setChecklistAberto] = React.useState(false);
 
   async function atribuirAMim() {
     if (!os) return;
@@ -388,21 +397,39 @@ export default function OrdemServicoDetalhe() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">
-                Checklist de procedimentos
-              </CardTitle>
-              <Button
-                size="sm"
-                onClick={salvarChecklist}
-                disabled={salvandoPassos}
+              <button
+                type="button"
+                onClick={() => setChecklistAberto((v) => !v)}
+                className="flex items-center gap-2 text-left"
+                aria-expanded={checklistAberto}
               >
-                {salvandoPassos ? (
-                  <Spinner className="h-4 w-4" />
+                {checklistAberto ? (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                 ) : (
-                  "Salvar checklist"
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 )}
-              </Button>
+                <CardTitle className="text-base">
+                  Checklist de procedimentos
+                </CardTitle>
+                <span className="text-xs text-muted-foreground">
+                  ({passos.filter((p) => p.concluido).length}/{passos.length})
+                </span>
+              </button>
+              {checklistAberto && (
+                <Button
+                  size="sm"
+                  onClick={salvarChecklist}
+                  disabled={salvandoPassos}
+                >
+                  {salvandoPassos ? (
+                    <Spinner className="h-4 w-4" />
+                  ) : (
+                    "Salvar checklist"
+                  )}
+                </Button>
+              )}
             </CardHeader>
+            {checklistAberto && (
             <CardContent className="space-y-2">
               {passos.length === 0 && (
                 <p className="text-sm text-muted-foreground">
@@ -453,6 +480,7 @@ export default function OrdemServicoDetalhe() {
                 <Plus className="h-4 w-4" /> Adicionar passo
               </Button>
             </CardContent>
+            )}
           </Card>
 
           {eventos.length > 0 && (
@@ -484,6 +512,9 @@ export default function OrdemServicoDetalhe() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {os.origem && os.origem !== "interno" && (
+                <JanelaWhatsApp em={os.ultima_msg_solicitante_em} />
+              )}
               <ConversaChamado osId={os.id} modo="equipe" />
             </CardContent>
           </Card>
@@ -622,6 +653,43 @@ function Campo({
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-2 last:border-0">
       <span className="text-muted-foreground">{rotulo}</span>
       <span className="text-right font-medium text-foreground">{children}</span>
+    </div>
+  );
+}
+
+// JanelaWhatsApp mostra se a janela de 24h do WhatsApp está aberta (texto livre)
+// ou fechada (exige template aprovado).
+function JanelaWhatsApp({ em }: { em?: string | null }) {
+  const aberta = em
+    ? Date.now() < new Date(em).getTime() + 24 * 60 * 60 * 1000
+    : false;
+  const expira = em
+    ? new Date(new Date(em).getTime() + 24 * 60 * 60 * 1000)
+    : null;
+  return (
+    <div
+      className={
+        aberta
+          ? "mb-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800"
+          : "mb-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-800"
+      }
+    >
+      {aberta ? (
+        <>
+          🟢 Janela do WhatsApp <strong>aberta</strong>
+          {expira &&
+            ` até ${expira.toLocaleTimeString("pt-BR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}`}{" "}
+          — pode responder com texto livre.
+        </>
+      ) : (
+        <>
+          🟡 Fora da janela de 24h — o WhatsApp só aceita <strong>template
+          aprovado</strong> até a pessoa responder de novo.
+        </>
+      )}
     </div>
   );
 }

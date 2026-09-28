@@ -14,6 +14,7 @@ var (
 	ErrCredenciaisInvalidas = errors.New("e-mail ou senha inválidos")
 	ErrNaoAutorizado        = errors.New("acesso não autorizado")
 	ErrRegraNegocio         = errors.New("operação não permitida pelas regras de negócio")
+	ErrDuplicado            = errors.New("registro duplicado (já processado)")
 )
 
 // ErroValidacao agrega mensagens de validação por campo, em português.

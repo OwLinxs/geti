@@ -77,6 +77,12 @@ func main() {
 		}()
 	}
 
+	// Consumo de WhatsApp (SSE do ZapGov): recebe mensagens do contato e as
+	// registra no chamado. Inerte quando o ZapGov não está configurado.
+	ctxConsumo, cancelConsumo := context.WithCancel(context.Background())
+	defer cancelConsumo()
+	ct.ZapGovConsumidor.Iniciar(ctxConsumo)
+
 	engine := router.Setup(cfg, ct)
 
 	srv := &http.Server{
@@ -98,6 +104,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println("[server] encerrando...")
+	cancelConsumo()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

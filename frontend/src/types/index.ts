@@ -179,6 +179,7 @@ export interface OrdemServico extends Base {
   avaliacao_nota?: number | null;
   avaliacao_comentario?: string;
   avaliado_em?: string | null;
+  ultima_msg_solicitante_em?: string | null;
   passos?: OrdemServicoPasso[];
 }
 
