@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -319,8 +320,14 @@ func (z *ZapGovClient) StreamEventos(ctx context.Context, onEvento func(EventoZa
 			if bruto == "" || bruto == ":" {
 				continue
 			}
+			// DEBUG temporário: SSE cru para ajustar o parser ao schema real.
+			log.Printf("[zapgov][sse] %s", bruto)
 			var ev EventoZapGov
 			if err := json.Unmarshal([]byte(bruto), &ev); err == nil {
+				// Guarda o payload cru quando não veio embrulhado em message/data.
+				if len(ev.Message) == 0 && len(ev.Data) == 0 {
+					ev.Data = json.RawMessage(bruto)
+				}
 				onEvento(ev)
 			}
 			continue

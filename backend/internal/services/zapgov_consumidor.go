@@ -114,6 +114,12 @@ func (c *ZapGovConsumidor) loop(ctx context.Context) {
 
 func (c *ZapGovConsumidor) onEvento(ev EventoZapGov) {
 	tipo := strings.ToLower(ev.Type + ev.Event)
+	// DEBUG temporário: mostra o evento cru para ajustar o parser ao schema real.
+	msgRaw := ev.Message
+	if len(msgRaw) == 0 {
+		msgRaw = ev.Data
+	}
+	log.Printf("[zapgov][debug] evento type=%q event=%q payload=%s", ev.Type, ev.Event, string(msgRaw))
 	// Ignora eventos que claramente não são mensagem recebida.
 	if tipo != "" && !strings.Contains(tipo, "mensag") && !strings.Contains(tipo, "message") {
 		return
