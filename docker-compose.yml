@@ -104,15 +104,11 @@ services:
         VITE_API_BASE_URL: ""
     container_name: sige-ti-frontend
     restart: unless-stopped
-    # Acesso via Nginx Proxy Manager (rede "proxy") — o NPM encaminha o domínio
-    # para sige-ti-frontend:80 e cuida do HTTPS. Sem publicar porta no host
-    # (evita conflito com o 80/443 do NPM).
-    # Para acesso DIRETO por IP (sem o NPM), descomente as portas abaixo:
-    # ports:
-    #   - "80:80"
-    networks:
-      - default
-      - proxy
+    # O Nginx Proxy Manager roda em OUTRA VM e encaminha o domínio para
+    # http://IP-DESTA-VM:PORTA (define abaixo). Publicamos a porta no host.
+    # SIGE_HTTP_PORT permite trocar 80 caso já esteja em uso (ex.: 8081).
+    ports:
+      - "${SIGE_HTTP_PORT:-80}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -134,16 +130,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-
-networks:
-  # Rede interna do stack (backend + postgres + frontend).
-  default:
-  # Rede compartilhada com o Nginx Proxy Manager. Deve JÁ EXISTIR (criada pelo
-  # NPM). Confirme o nome com "docker network ls" e ajuste PROXY_NETWORK no .env
-  # se for diferente de "npm_default".
-  proxy:
-    external: true
-    name: ${PROXY_NETWORK:-npm_default}
 
 volumes:
   sige_data:     # anexos das mensagens
