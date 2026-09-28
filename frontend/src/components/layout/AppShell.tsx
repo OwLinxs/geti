@@ -2,10 +2,13 @@ import * as React from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { WidgetConversasWhatsApp } from "@/components/WidgetConversasWhatsApp";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Casca institucional: sidebar fixa em desktop, drawer em mobile.
 export function AppShell() {
   const [menuAberto, setMenuAberto] = React.useState(false);
+  const { ehEquipe } = useAuth();
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -28,6 +31,9 @@ export function AppShell() {
           </div>
         </main>
       </div>
+
+      {/* Widget flutuante de conversas do WhatsApp (só para a equipe de T.I.). */}
+      {ehEquipe && <WidgetConversasWhatsApp />}
     </div>
   );
 }
