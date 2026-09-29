@@ -118,6 +118,11 @@ func (h *IntegracaoHandler) ReceberMensagem(c *gin.Context) {
 		responderErro(c, err)
 		return
 	}
+	// Sem chamado aberto na conversa: mensagem ignorada (só o bot cria chamado).
+	if os == nil || msg == nil {
+		c.JSON(http.StatusOK, gin.H{"ignorada": true})
+		return
+	}
 	c.JSON(http.StatusCreated, gin.H{
 		"ordem_servico_id": os.ID,
 		"numero":           os.Numero,

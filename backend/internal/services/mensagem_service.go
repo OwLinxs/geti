@@ -194,6 +194,23 @@ func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msgID uint, te
 	}()
 }
 
+// EnviarSistema registra uma mensagem automática da equipe (ex.: aviso de
+// encerramento) e a entrega ao WhatsApp quando aplicável. Best-effort.
+func (s *MensagemService) EnviarSistema(osID uint, texto string) {
+	if strings.TrimSpace(texto) == "" {
+		return
+	}
+	_, err := s.Enviar(EntradaMensagem{
+		OrdemServicoID: osID,
+		AutorNome:      "Sistema",
+		AutorTipo:      models.AutorTecnico,
+		Texto:          texto,
+	})
+	if err != nil {
+		log.Printf("[msg] falha ao enviar mensagem de sistema (os %d): %v", osID, err)
+	}
+}
+
 // anexar valida e grava o arquivo em disco, preenchendo os campos de anexo.
 func (s *MensagemService) anexar(msg *models.MensagemChamado, fh *multipart.FileHeader) error {
 	if fh.Size > tamanhoMaxAnexo {

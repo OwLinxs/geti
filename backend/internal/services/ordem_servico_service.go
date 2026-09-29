@@ -24,7 +24,12 @@ type OrdemServicoService struct {
 	notif       *NotificacaoService
 	configSvc   *ConfiguracaoService
 	cfg         *config.Config
+	mensageiro  *MensagemService
 }
+
+// SetMensageiro liga o serviço de mensagens (para avisar o contato no WhatsApp
+// quando o chamado é encerrado).
+func (s *OrdemServicoService) SetMensageiro(m *MensagemService) { s.mensageiro = m }
 
 // SetEventos liga o repositório de eventos (linha do tempo do chamado).
 func (s *OrdemServicoService) SetEventos(r repositories.EventoChamadoRepository) {
@@ -458,8 +463,23 @@ func (s *OrdemServicoService) DefinirStatus(id uint, status models.StatusOS) (*m
 	if statusAnterior != status {
 		s.registrarEvento(id, "status",
 			fmt.Sprintf("Status: %s → %s", statusAnterior, status), "")
+		// Ao encerrar um chamado de WhatsApp, avisa o contato e encerra a
+		// conversa no mensageiro (mensagem de saída).
+		encerrou := status == models.OSConcluida || status == models.OSCancelada
+		if encerrou && atualizada.Origem == "whatsapp" && s.mensageiro != nil {
+			texto := s.textoEncerramento(atualizada)
+			s.mensageiro.EnviarSistema(atualizada.ID, texto)
+		}
 	}
 	return atualizada, nil
+}
+
+// textoEncerramento monta a mensagem enviada ao contato ao encerrar o chamado.
+func (s *OrdemServicoService) textoEncerramento(os *models.OrdemServico) string {
+	if os.Status == models.OSCancelada {
+		return fmt.Sprintf("Seu chamado %s foi cancelado. Se precisar, é só chamar novamente. Atenciosamente, Suporte de T.I.", os.Numero)
+	}
+	return fmt.Sprintf("✅ Seu chamado %s foi resolvido e encerrado. Obrigado pelo contato! Suporte de T.I.", os.Numero)
 }
 
 // AtribuirTecnico define (ou remove, com 0) o técnico responsável pelo chamado.

@@ -42,8 +42,9 @@ func primeiroNaoVazio(vals ...string) string {
 // (chamado aberto), senão abre um novo; depois registra a mensagem. Devolve
 // ErrDuplicado quando a mensagem (id_externo) já foi processada.
 func (c *ZapGovConsumidor) ProcessarEntrada(ref, telefone, nome, texto, midia, idExterno string) (*models.OrdemServico, *models.MensagemChamado, error) {
-	// Reusa o chamado ABERTO da conversa; se todos estiverem encerrados, abre um
-	// novo (histórico de vários chamados por pessoa).
+	// Só o bot cria chamado (via POST). A mensagem do WhatsApp só entra num
+	// chamado JÁ ABERTO da conversa; se não houver aberto (usuário ainda no menu
+	// do bot, ou tudo encerrado), a mensagem é ignorada — devolve (nil,nil,nil).
 	var os *models.OrdemServico
 	if ref != "" {
 		if o, err := c.osSvc.BuscarAbertaPorReferencia(ref); err == nil {
@@ -56,18 +57,7 @@ func (c *ZapGovConsumidor) ProcessarEntrada(ref, telefone, nome, texto, midia, i
 		}
 	}
 	if os == nil {
-		novo, err := c.osSvc.AbrirNovoViaIntegracao(EntradaOS{
-			ReferenciaExterna:  ref,
-			Origem:             "whatsapp",
-			DefeitoRelatado:    primeiroNaoVazio(texto, "Mensagem recebida via WhatsApp"),
-			SolicitanteNome:    nome,
-			SolicitanteContato: telefone,
-			Prioridade:         "normal",
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-		os = novo
+		return nil, nil, nil // sem chamado aberto → ignora
 	}
 	// Backfill: chamado achado por referência pode ter vindo de um evento sem
 	// telefone; garante o contato para a equipe conseguir responder.

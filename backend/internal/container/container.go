@@ -115,6 +115,8 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	mensagemSvc.SetNotificador(notificacaoSvc)
 	// Liga o envio ao WhatsApp (saída da equipe → contato).
 	mensagemSvc.SetZapGov(zapGovCli)
+	// Liga o mensageiro ao serviço de OS (aviso de encerramento no WhatsApp).
+	ordemServicoSvc.SetMensageiro(mensagemSvc)
 	// Liga a configuração ao serviço de OS (cálculo de prazos de SLA).
 	ordemServicoSvc.SetConfig(configuracaoSvc)
 	// Liga o log de eventos (linha do tempo do chamado).
