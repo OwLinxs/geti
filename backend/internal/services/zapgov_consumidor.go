@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pmfb/sige-ti/internal/models"
@@ -19,6 +20,9 @@ type ZapGovConsumidor struct {
 	cli    *ZapGovClient
 	osSvc  *OrdemServicoService
 	msgSvc *MensagemService
+
+	mu          sync.Mutex
+	ultimoFetch map[int64]time.Time
 }
 
 func NewZapGovConsumidor(cli *ZapGovClient, osSvc *OrdemServicoService, msgSvc *MensagemService) *ZapGovConsumidor {
@@ -63,6 +67,9 @@ func (c *ZapGovConsumidor) ProcessarEntrada(ref, telefone, nome, texto, midia, i
 		}
 		os = novo
 	}
+	// Backfill: chamado achado por referência pode ter vindo de um evento sem
+	// telefone; garante o contato para a equipe conseguir responder.
+	c.osSvc.GarantirContato(os.ID, telefone, nome)
 	msg, err := c.msgSvc.RegistrarEntradaExterna(os.ID, nome, texto, midia, idExterno)
 	if err != nil {
 		return os, nil, err
@@ -112,43 +119,72 @@ func (c *ZapGovConsumidor) loop(ctx context.Context) {
 	}
 }
 
+// onEvento trata um evento do SSE. O evento é só um AVISO (traz conversation_id
+// e, às vezes, um preview) — a mensagem real é buscada no endpoint da conversa.
 func (c *ZapGovConsumidor) onEvento(ev EventoZapGov) {
 	tipo := strings.ToLower(ev.Type + ev.Event)
-	// DEBUG temporário: mostra o evento cru para ajustar o parser ao schema real.
-	msgRaw := ev.Message
-	if len(msgRaw) == 0 {
-		msgRaw = ev.Data
-	}
-	log.Printf("[zapgov][debug] evento type=%q event=%q payload=%s", ev.Type, ev.Event, string(msgRaw))
-	// Ignora eventos que claramente não são mensagem recebida.
-	if tipo != "" && !strings.Contains(tipo, "mensag") && !strings.Contains(tipo, "message") {
-		return
+	if !strings.Contains(tipo, "mensag") && !strings.Contains(tipo, "message") {
+		return // status, presença etc.
 	}
 	bruto := ev.Message
 	if len(bruto) == 0 {
 		bruto = ev.Data
 	}
-	if len(bruto) == 0 {
+	var cab struct {
+		ConversationID int64  `json:"conversation_id"`
+		Name           string `json:"name"`
+	}
+	_ = json.Unmarshal(bruto, &cab)
+	if cab.ConversationID == 0 {
 		return
 	}
-	var m MensagemZapGov
-	if err := json.Unmarshal(bruto, &m); err != nil {
+	// Debounce: eventos chegam em rajada para a mesma conversa.
+	if !c.podeSincronizar(cab.ConversationID) {
 		return
 	}
-	if !m.Recebida() {
-		return // mensagem de saída (eco da própria equipe)
+	c.sincronizarConversa(cab.ConversationID, cab.Name)
+}
+
+// podeSincronizar limita a 1 busca por conversa a cada 2s (anti-rajada).
+func (c *ZapGovConsumidor) podeSincronizar(convID int64) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.ultimoFetch == nil {
+		c.ultimoFetch = map[int64]time.Time{}
 	}
-	ref := ""
-	if m.ConversationID != 0 {
-		ref = "zap:" + strconv.FormatInt(m.ConversationID, 10)
+	agora := time.Now()
+	if t, ok := c.ultimoFetch[convID]; ok && agora.Sub(t) < 2*time.Second {
+		return false
 	}
-	idExterno := m.WaMessageID
-	if idExterno == "" {
-		idExterno = m.ID
+	c.ultimoFetch[convID] = agora
+	return true
+}
+
+// sincronizarConversa busca as mensagens não-lidas da conversa e registra as
+// que vieram do contato (entrada), com dedup por id externo.
+func (c *ZapGovConsumidor) sincronizarConversa(convID int64, nomeFallback string) {
+	msgs, err := c.cli.MensagensConversa(convID, 50, true)
+	if err != nil {
+		log.Printf("[zapgov] falha ao buscar conversa %d: %v", convID, err)
+		return
 	}
-	_, _, err := c.ProcessarEntrada(ref, m.TelefoneContato(), m.NomeContato(),
-		m.Conteudo(), m.Midia(), idExterno)
-	if err != nil && !errors.Is(err, ErrDuplicado) {
-		log.Printf("[zapgov] falha ao processar entrada: %v", err)
+	ref := "zap:" + strconv.FormatInt(convID, 10)
+	for _, m := range msgs {
+		if !m.Recebida() {
+			continue // eco de mensagem da equipe
+		}
+		idExterno := m.WaMessageID
+		if idExterno == "" {
+			idExterno = m.ID
+		}
+		nome := m.NomeContato()
+		if nome == "" {
+			nome = nomeFallback
+		}
+		_, _, err := c.ProcessarEntrada(ref, m.TelefoneContato(), nome,
+			m.Conteudo(), m.Midia(), idExterno)
+		if err != nil && !errors.Is(err, ErrDuplicado) {
+			log.Printf("[zapgov] falha ao processar entrada (conv %d): %v", convID, err)
+		}
 	}
 }

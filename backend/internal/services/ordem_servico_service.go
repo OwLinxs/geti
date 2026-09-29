@@ -588,6 +588,31 @@ func (s *OrdemServicoService) BuscarPorID(id uint) (*models.OrdemServico, error)
 	return os, nil
 }
 
+// GarantirContato preenche telefone/nome do solicitante num chamado que ainda
+// não os tem (ex.: chamado de WhatsApp criado por um evento sem telefone).
+// Necessário para a resposta da equipe conseguir voltar ao contato.
+func (s *OrdemServicoService) GarantirContato(osID uint, telefone, nome string) {
+	if strings.TrimSpace(telefone) == "" {
+		return
+	}
+	os, err := s.repo.BuscarPorID(osID)
+	if err != nil {
+		return
+	}
+	mudou := false
+	if strings.TrimSpace(os.SolicitanteContato) == "" {
+		os.SolicitanteContato = strings.TrimSpace(telefone)
+		mudou = true
+	}
+	if strings.TrimSpace(os.SolicitanteNomeSnapshot) == "" && strings.TrimSpace(nome) != "" {
+		os.SolicitanteNomeSnapshot = strings.TrimSpace(nome)
+		mudou = true
+	}
+	if mudou {
+		_ = s.repo.Atualizar(os)
+	}
+}
+
 func (s *OrdemServicoService) Listar(f repositories.FiltroOrdemServico) ([]models.OrdemServico, int64, error) {
 	return s.repo.Listar(f)
 }

@@ -260,6 +260,8 @@ func (z *ZapGovClient) MensagensConversa(convID int64, limite int, apenasNaoLida
 	}
 	// Aceita tanto um array puro quanto {data:[...]} ou {messages:[...]}.
 	raw, _ := io.ReadAll(resp.Body)
+	// DEBUG temporário: payload cru da conversa para ajustar os nomes de campo.
+	log.Printf("[zapgov][conv %d] %s", convID, string(raw))
 	var arr []MensagemZapGov
 	if err := json.Unmarshal(raw, &arr); err == nil && arr != nil {
 		return arr, nil
@@ -320,8 +322,6 @@ func (z *ZapGovClient) StreamEventos(ctx context.Context, onEvento func(EventoZa
 			if bruto == "" || bruto == ":" {
 				continue
 			}
-			// DEBUG temporário: SSE cru para ajustar o parser ao schema real.
-			log.Printf("[zapgov][sse] %s", bruto)
 			var ev EventoZapGov
 			if err := json.Unmarshal([]byte(bruto), &ev); err == nil {
 				// Guarda o payload cru quando não veio embrulhado em message/data.
