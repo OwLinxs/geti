@@ -42,9 +42,11 @@ func primeiroNaoVazio(vals ...string) string {
 // (chamado aberto), senão abre um novo; depois registra a mensagem. Devolve
 // ErrDuplicado quando a mensagem (id_externo) já foi processada.
 func (c *ZapGovConsumidor) ProcessarEntrada(ref, telefone, nome, texto, midia, idExterno string) (*models.OrdemServico, *models.MensagemChamado, error) {
+	// Reusa o chamado ABERTO da conversa; se todos estiverem encerrados, abre um
+	// novo (histórico de vários chamados por pessoa).
 	var os *models.OrdemServico
 	if ref != "" {
-		if o, err := c.osSvc.BuscarPorReferenciaExterna(ref); err == nil {
+		if o, err := c.osSvc.BuscarAbertaPorReferencia(ref); err == nil {
 			os = o
 		}
 	}
@@ -54,7 +56,7 @@ func (c *ZapGovConsumidor) ProcessarEntrada(ref, telefone, nome, texto, midia, i
 		}
 	}
 	if os == nil {
-		novo, _, err := c.osSvc.UpsertViaIntegracao(EntradaOS{
+		novo, err := c.osSvc.AbrirNovoViaIntegracao(EntradaOS{
 			ReferenciaExterna:  ref,
 			Origem:             "whatsapp",
 			DefeitoRelatado:    primeiroNaoVazio(texto, "Mensagem recebida via WhatsApp"),

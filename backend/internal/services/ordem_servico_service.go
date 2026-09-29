@@ -305,22 +305,13 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 // Idempotência: se ReferenciaExterna já existe, atualiza; senão, cria. Devolve
 // também se foi criada (para o handler responder 201 vs 200).
 func (s *OrdemServicoService) UpsertViaIntegracao(in EntradaOS) (*models.OrdemServico, bool, error) {
-	if in.Origem == "" {
-		in.Origem = "externo"
-	}
-	// Chamado externo não tem usuário autor: usa o administrador do sistema,
-	// preservando NOT NULL e a foreign key de aberto_por_id.
-	if in.AbertoPorID == 0 {
-		admin, err := s.usuarioRepo.PrimeiroAdministrador()
-		if err != nil {
-			return nil, false, err
-		}
-		in.AbertoPorID = admin.ID
-	}
+	in = s.prepararIntegracao(in)
+	// Reusa o chamado ABERTO da mesma referência (conversa); se não houver
+	// aberto, abre um novo — permitindo histórico de vários chamados por pessoa.
 	if ref := strings.TrimSpace(in.ReferenciaExterna); ref != "" {
-		existente, err := s.repo.BuscarPorReferenciaExterna(ref)
-		if err == nil && existente != nil {
-			atualizada, err := s.Atualizar(existente.ID, in)
+		aberta, err := s.repo.BuscarAbertaPorReferencia(ref)
+		if err == nil && aberta != nil {
+			atualizada, err := s.Atualizar(aberta.ID, in)
 			if err != nil {
 				return nil, false, err
 			}
@@ -332,6 +323,31 @@ func (s *OrdemServicoService) UpsertViaIntegracao(in EntradaOS) (*models.OrdemSe
 		return nil, false, err
 	}
 	return criada, true, nil
+}
+
+// AbrirNovoViaIntegracao cria SEMPRE um chamado novo (não reaproveita aberto),
+// usado quando a mensagem chega e não há chamado aberto na conversa.
+func (s *OrdemServicoService) AbrirNovoViaIntegracao(in EntradaOS) (*models.OrdemServico, error) {
+	return s.Criar(s.prepararIntegracao(in))
+}
+
+// BuscarAbertaPorReferencia devolve o chamado ativo mais recente da referência.
+func (s *OrdemServicoService) BuscarAbertaPorReferencia(ref string) (*models.OrdemServico, error) {
+	return s.repo.BuscarAbertaPorReferencia(ref)
+}
+
+// prepararIntegracao aplica defaults comuns a chamados vindos da integração
+// (origem e autor administrador quando não há usuário).
+func (s *OrdemServicoService) prepararIntegracao(in EntradaOS) EntradaOS {
+	if in.Origem == "" {
+		in.Origem = "externo"
+	}
+	if in.AbertoPorID == 0 {
+		if admin, err := s.usuarioRepo.PrimeiroAdministrador(); err == nil {
+			in.AbertoPorID = admin.ID
+		}
+	}
+	return in
 }
 
 // aplicarPrazosSLA calcula os prazos de resposta/resolução a partir da

@@ -15,6 +15,7 @@ type FiltroOrdemServico struct {
 	TecnicoID          *uint
 	CategoriaChamadoID *uint
 	AbertoPorID        *uint // filtra pelos chamados abertos por um usuário (portal)
+	ReferenciaExterna  string
 	De                 *time.Time
 	Ate                *time.Time
 	Pagina             int
@@ -51,6 +52,9 @@ type OrdemServicoRepository interface {
 	BuscarPorReferenciaExterna(ref string) (*models.OrdemServico, error)
 	// BuscarAbertaPorContato acha o chamado ATIVO mais recente de um telefone.
 	BuscarAbertaPorContato(contato string) (*models.OrdemServico, error)
+	// BuscarAbertaPorReferencia acha o chamado ATIVO mais recente de uma
+	// referência externa (ex.: conversa do WhatsApp).
+	BuscarAbertaPorReferencia(ref string) (*models.OrdemServico, error)
 	// MarcarMsgSolicitante registra o momento da última mensagem do solicitante
 	// (abre a janela de 24h).
 	MarcarMsgSolicitante(osID uint, t time.Time) error
@@ -144,6 +148,24 @@ func (r *ordemServicoRepository) BuscarAbertaPorContato(contato string) (*models
 	return &os, nil
 }
 
+func (r *ordemServicoRepository) BuscarAbertaPorReferencia(ref string) (*models.OrdemServico, error) {
+	if ref == "" {
+		return nil, ErrNaoEncontrado
+	}
+	ativos := []models.StatusOS{models.OSAberta, models.OSEmAndamento, models.OSAguardandoPeca}
+	var os models.OrdemServico
+	err := r.preloads(r.db).
+		Where("referencia_externa = ? AND status IN ?", ref, ativos).
+		Order("data_abertura DESC, id DESC").First(&os).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNaoEncontrado
+		}
+		return nil, err
+	}
+	return &os, nil
+}
+
 func (r *ordemServicoRepository) MarcarMsgSolicitante(osID uint, t time.Time) error {
 	return r.db.Model(&models.OrdemServico{}).Where("id = ?", osID).
 		Update("ultima_msg_solicitante_em", t).Error
@@ -160,6 +182,9 @@ func (r *ordemServicoRepository) Listar(f FiltroOrdemServico) ([]models.OrdemSer
 	}
 	if f.AbertoPorID != nil {
 		q = q.Where("aberto_por_id = ?", *f.AbertoPorID)
+	}
+	if f.ReferenciaExterna != "" {
+		q = q.Where("referencia_externa = ?", f.ReferenciaExterna)
 	}
 	if f.CategoriaChamadoID != nil {
 		q = q.Where("categoria_chamado_id = ?", *f.CategoriaChamadoID)
