@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -149,63 +149,78 @@ func (z *ZapGovClient) Enviar(to, body, replyTo string) (*ResultadoEnvio, error)
 // ---- Entrada (SIGE puxa as mensagens recebidas do WhatsApp) ----
 
 // MensagemZapGov representa uma mensagem de uma conversa no ZapGov.
+// Schema real: id (número), wa_message_id, conversation_id, direction
+// ("in"/"out"/"evento"), body, media_*, created_at.
 type MensagemZapGov struct {
-	ID             string `json:"id"`
+	ID             int64  `json:"id"`
 	WaMessageID    string `json:"wa_message_id"`
 	ConversationID int64  `json:"conversation_id"`
-	// direction/from: "in" (do contato) ou "out" (da equipe). Aceita variações.
-	Direction string `json:"direction"`
-	From      string `json:"from"`
-	Telefone  string `json:"telefone"`
-	To        string `json:"to"`
-	Nome      string `json:"nome"`
-	ContatoNome string `json:"contato_nome"`
-	Body      string `json:"body"`
-	Texto     string `json:"texto"`
-	MediaURL  string `json:"media_url"`
-	MidiaURL  string `json:"midia_url"`
-	CriadoEm  string `json:"created_at"`
+	Direction      string `json:"direction"`
+	Body           string `json:"body"`
+	MediaType      string `json:"media_type"`
+	CriadoEm       string `json:"created_at"`
 }
 
-// Recebida indica se a mensagem veio do contato (entrada), e não da equipe.
+// Recebida indica se a mensagem veio do contato (entrada). Só "in" conta —
+// "out" é da equipe/bot e "evento" é log interno do ZapGov.
 func (m MensagemZapGov) Recebida() bool {
-	d := strings.ToLower(strings.TrimSpace(m.Direction + m.From))
-	// Considera entrada quando marcada como "in"/"inbound"/"contato"; mensagens
-	// de saída trazem "out"/"outbound"/"agent".
-	if strings.Contains(d, "out") || strings.Contains(d, "agent") || strings.Contains(d, "equipe") {
-		return false
-	}
-	return true
+	return strings.EqualFold(strings.TrimSpace(m.Direction), "in")
 }
 
 func (m MensagemZapGov) Conteudo() string {
-	if strings.TrimSpace(m.Body) != "" {
-		return m.Body
-	}
-	return m.Texto
+	return m.Body
 }
 
-func (m MensagemZapGov) Midia() string {
-	if strings.TrimSpace(m.MediaURL) != "" {
-		return m.MediaURL
+// Instante devolve o created_at parseado (zero se inválido).
+func (m MensagemZapGov) Instante() time.Time {
+	t, err := time.Parse(time.RFC3339, m.CriadoEm)
+	if err != nil {
+		return time.Time{}
 	}
-	return m.MidiaURL
+	return t
 }
 
-func (m MensagemZapGov) TelefoneContato() string {
-	for _, v := range []string{m.Telefone, m.From} {
-		if s := strings.TrimSpace(v); s != "" && !strings.Contains(strings.ToLower(s), "out") {
-			return s
+// Telefone extrai o número do contato de dentro do wa_message_id. O padrão do
+// WhatsApp Cloud (wamid.<base64>) embute o telefone como uma sequência de
+// dígitos ASCII no conteúdo decodificado. Devolve "" se não achar algo plausível.
+func (m MensagemZapGov) Telefone() string {
+	return telefoneDoWamid(m.WaMessageID)
+}
+
+func telefoneDoWamid(wamid string) string {
+	i := strings.Index(wamid, ".")
+	if i < 0 {
+		return ""
+	}
+	seg := wamid[i+1:]
+	// Base64 pode vir sem padding; completa para múltiplo de 4.
+	if r := len(seg) % 4; r != 0 {
+		seg += strings.Repeat("=", 4-r)
+	}
+	dados, err := base64.StdEncoding.DecodeString(seg)
+	if err != nil {
+		return ""
+	}
+	// Pega a maior sequência de dígitos (o telefone tem 10–15 dígitos).
+	melhor, atual := "", ""
+	flush := func() {
+		if len(atual) > len(melhor) {
+			melhor = atual
+		}
+		atual = ""
+	}
+	for _, b := range dados {
+		if b >= '0' && b <= '9' {
+			atual += string(b)
+		} else {
+			flush()
 		}
 	}
-	return strings.TrimSpace(m.To)
-}
-
-func (m MensagemZapGov) NomeContato() string {
-	if strings.TrimSpace(m.Nome) != "" {
-		return m.Nome
+	flush()
+	if len(melhor) < 10 || len(melhor) > 15 {
+		return ""
 	}
-	return m.ContatoNome
+	return melhor
 }
 
 func (z *ZapGovClient) getAutenticado(caminho string) (*http.Response, error) {
@@ -260,8 +275,6 @@ func (z *ZapGovClient) MensagensConversa(convID int64, limite int, apenasNaoLida
 	}
 	// Aceita tanto um array puro quanto {data:[...]} ou {messages:[...]}.
 	raw, _ := io.ReadAll(resp.Body)
-	// DEBUG temporário: payload cru da conversa para ajustar os nomes de campo.
-	log.Printf("[zapgov][conv %d] %s", convID, string(raw))
 	var arr []MensagemZapGov
 	if err := json.Unmarshal(raw, &arr); err == nil && arr != nil {
 		return arr, nil

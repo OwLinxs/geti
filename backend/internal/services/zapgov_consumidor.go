@@ -160,29 +160,31 @@ func (c *ZapGovConsumidor) podeSincronizar(convID int64) bool {
 	return true
 }
 
-// sincronizarConversa busca as mensagens não-lidas da conversa e registra as
-// que vieram do contato (entrada), com dedup por id externo.
+// janelaImportacao limita o que entra: só mensagens recentes (uma mensagem viva
+// dispara o SSE em segundos). Evita importar todo o histórico da conversa.
+const janelaImportacao = 15 * time.Minute
+
+// sincronizarConversa busca as mensagens da conversa e registra as recentes que
+// vieram do contato (entrada), com dedup por wa_message_id. O endpoint devolve
+// o histórico inteiro, então filtramos por horário.
 func (c *ZapGovConsumidor) sincronizarConversa(convID int64, nomeFallback string) {
-	msgs, err := c.cli.MensagensConversa(convID, 50, true)
+	msgs, err := c.cli.MensagensConversa(convID, 200, true)
 	if err != nil {
 		log.Printf("[zapgov] falha ao buscar conversa %d: %v", convID, err)
 		return
 	}
 	ref := "zap:" + strconv.FormatInt(convID, 10)
+	corte := time.Now().Add(-janelaImportacao)
 	for _, m := range msgs {
 		if !m.Recebida() {
-			continue // eco de mensagem da equipe
+			continue // "out" (equipe/bot) ou "evento" (log interno)
 		}
-		idExterno := m.WaMessageID
-		if idExterno == "" {
-			idExterno = m.ID
+		if t := m.Instante(); !t.IsZero() && t.Before(corte) {
+			continue // histórico antigo — ignora
 		}
-		nome := m.NomeContato()
-		if nome == "" {
-			nome = nomeFallback
-		}
-		_, _, err := c.ProcessarEntrada(ref, m.TelefoneContato(), nome,
-			m.Conteudo(), m.Midia(), idExterno)
+		// O payload não traz telefone/nome; nome vem do evento e o telefone é
+		// extraído do wa_message_id (para a equipe conseguir responder).
+		_, _, err := c.ProcessarEntrada(ref, m.Telefone(), nomeFallback, m.Conteudo(), "", m.WaMessageID)
 		if err != nil && !errors.Is(err, ErrDuplicado) {
 			log.Printf("[zapgov] falha ao processar entrada (conv %d): %v", convID, err)
 		}
