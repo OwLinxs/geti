@@ -35,6 +35,7 @@ import { ConversaChamado } from "@/components/ConversaChamado";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { OrdemServicoForm } from "./OrdemServicoForm";
 import {
+  categoriasChamadoApi,
   itensApi,
   ordensServicoApi,
   usuariosApi,
@@ -46,11 +47,16 @@ import { useReferencias } from "@/hooks/useReferencias";
 import { baixarBlob, formatarData, formatarDataHora } from "@/lib/format";
 import { estadoSLA } from "@/lib/sla";
 import {
+  PRIORIDADES_OS,
   STATUS_OS,
-  rotuloPrioridadeOS,
-  variantePrioridadeOS,
 } from "@/lib/rotulos";
-import type { EventoChamado, Item, OrdemServico, Usuario } from "@/types";
+import type {
+  CategoriaChamado,
+  EventoChamado,
+  Item,
+  OrdemServico,
+  Usuario,
+} from "@/types";
 
 // Passo em edição no cliente (id opcional: novos passos ainda não persistidos).
 interface PassoEdit {
@@ -74,6 +80,44 @@ export default function OrdemServicoDetalhe() {
   const [mudandoStatus, setMudandoStatus] = React.useState(false);
   const [atribuindo, setAtribuindo] = React.useState(false);
   const [checklistAberto, setChecklistAberto] = React.useState(false);
+  const [catsChamado, setCatsChamado] = React.useState<CategoriaChamado[]>([]);
+  const [classificando, setClassificando] = React.useState(false);
+
+  React.useEffect(() => {
+    categoriasChamadoApi
+      .listar(true)
+      .then(setCatsChamado)
+      .catch(() => setCatsChamado([]));
+  }, []);
+
+  // Define departamento/categoria do chamado (dropdowns inline). Sentinela "0"
+  // = sem valor.
+  async function classificar(
+    campo: "setor" | "categoria" | "prioridade",
+    valor: string
+  ) {
+    if (!os) return;
+    setClassificando(true);
+    try {
+      const num = valor === "0" ? null : Number(valor);
+      const dados =
+        campo === "setor"
+          ? { setor_id: num }
+          : campo === "categoria"
+            ? { categoria_chamado_id: num }
+            : { prioridade: valor };
+      const atualizada = await ordensServicoApi.classificar(os.id, dados);
+      setOs(atualizada);
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível atualizar",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setClassificando(false);
+    }
+  }
 
   async function atribuirAMim() {
     if (!os) return;
@@ -304,9 +348,22 @@ export default function OrdemServicoDetalhe() {
               </div>
             </Campo>
             <Campo rotulo="Prioridade">
-              <Badge variant={variantePrioridadeOS(os.prioridade)}>
-                {rotuloPrioridadeOS(os.prioridade)}
-              </Badge>
+              <Select
+                value={os.prioridade}
+                onValueChange={(v) => classificar("prioridade", v)}
+                disabled={classificando}
+              >
+                <SelectTrigger className="h-8 w-44">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORIDADES_OS.map((p) => (
+                    <SelectItem key={p.valor} value={p.valor}>
+                      {p.rotulo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Campo>
             {(() => {
               const sla = estadoSLA(os);
@@ -340,9 +397,43 @@ export default function OrdemServicoDetalhe() {
               {os.solicitante?.nome ?? os.solicitante_nome_snapshot ?? "—"}
             </Campo>
             <Campo rotulo="Categoria">
-              {os.categoria_chamado?.nome ?? "—"}
+              <Select
+                value={os.categoria_chamado_id?.toString() ?? "0"}
+                onValueChange={(v) => classificar("categoria", v)}
+                disabled={classificando}
+              >
+                <SelectTrigger className="h-8 w-44">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">—</SelectItem>
+                  {catsChamado.map((c) => (
+                    <SelectItem key={c.id} value={c.id.toString()}>
+                      {c.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Campo>
-            <Campo rotulo="Departamento">{os.setor?.nome ?? "—"}</Campo>
+            <Campo rotulo="Departamento">
+              <Select
+                value={os.setor_id?.toString() ?? "0"}
+                onValueChange={(v) => classificar("setor", v)}
+                disabled={classificando}
+              >
+                <SelectTrigger className="h-8 w-44">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">—</SelectItem>
+                  {setores.map((s) => (
+                    <SelectItem key={s.id} value={s.id.toString()}>
+                      {s.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Campo>
             <Campo rotulo="Técnico">
               {os.tecnico?.nome ?? (
                 <Button

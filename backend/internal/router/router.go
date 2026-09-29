@@ -203,6 +203,7 @@ func registrarOrdensServico(g *gin.RouterGroup, ct *container.Container) {
 	o.PUT("/:id", ct.OrdemServicoHandler.Atualizar)
 	o.PATCH("/:id/status", ct.OrdemServicoHandler.DefinirStatus)
 	o.PATCH("/:id/atribuir", ct.OrdemServicoHandler.AtribuirTecnico)
+	o.PATCH("/:id/classificacao", ct.OrdemServicoHandler.Classificar)
 	o.PUT("/:id/passos", ct.OrdemServicoHandler.SalvarPassos)
 	o.POST("/:id/documento", ct.OrdemServicoHandler.Documento)
 	o.DELETE("/:id", adminOnly(), ct.OrdemServicoHandler.Excluir)

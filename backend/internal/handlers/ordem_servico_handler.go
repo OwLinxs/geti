@@ -112,6 +112,31 @@ func (h *OrdemServicoHandler) AtribuirTecnico(c *gin.Context) {
 	c.JSON(http.StatusOK, os)
 }
 
+type classificarRequest struct {
+	SetorID            *uint   `json:"setor_id"`
+	CategoriaChamadoID *uint   `json:"categoria_chamado_id"`
+	Prioridade         *string `json:"prioridade"`
+}
+
+// Classificar define o departamento e a categoria do chamado.
+func (h *OrdemServicoHandler) Classificar(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	var req classificarRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+	os, err := h.svc.Classificar(id, req.SetorID, req.CategoriaChamadoID, req.Prioridade)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, os)
+}
+
 func (h *OrdemServicoHandler) Listar(c *gin.Context) {
 	f := repositories.FiltroOrdemServico{
 		Status:    c.Query("status"),

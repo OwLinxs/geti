@@ -324,6 +324,17 @@ export const ordensServicoApi = {
     api
       .patch<OrdemServico>(`/ordens-servico/${id}/atribuir`, { tecnico_id })
       .then((r) => r.data),
+  classificar: (
+    id: number,
+    dados: {
+      setor_id?: number | null;
+      categoria_chamado_id?: number | null;
+      prioridade?: string;
+    }
+  ) =>
+    api
+      .patch<OrdemServico>(`/ordens-servico/${id}/classificacao`, dados)
+      .then((r) => r.data),
   exportar: (f: FiltroOrdensServico = {}) =>
     api
       .get("/ordens-servico/exportar", {

@@ -477,6 +477,54 @@ func (s *OrdemServicoService) AtribuirTecnico(id, tecnicoID uint) (*models.Ordem
 	return s.repo.BuscarPorID(id)
 }
 
+// Classificar define departamento (setor), categoria e/ou prioridade do
+// chamado. Campos nil não são alterados; setor/categoria com zero limpam.
+func (s *OrdemServicoService) Classificar(id uint, setorID, categoriaID *uint, prioridade *string) (*models.OrdemServico, error) {
+	os, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	if prioridade != nil {
+		p := models.PrioridadeOS(*prioridade)
+		if p != models.PrioridadeBaixa && p != models.PrioridadeNormal && p != models.PrioridadeAlta {
+			ev := NovoErroValidacao()
+			ev.Add("prioridade", "Prioridade inválida.")
+			return nil, ev
+		}
+		os.Prioridade = p
+	}
+	if setorID != nil {
+		if *setorID == 0 {
+			os.SetorID = nil
+		} else {
+			if _, err := s.setorRepo.BuscarPorID(*setorID); err != nil {
+				ev := NovoErroValidacao()
+				ev.Add("setor_id", "Departamento não encontrado.")
+				return nil, ev
+			}
+			os.SetorID = setorID
+		}
+	}
+	if categoriaID != nil {
+		if *categoriaID == 0 {
+			os.CategoriaChamadoID = nil
+		} else if s.catRepo != nil {
+			if _, err := s.catRepo.BuscarPorID(*categoriaID); err != nil {
+				ev := NovoErroValidacao()
+				ev.Add("categoria_chamado_id", "Categoria não encontrada.")
+				return nil, ev
+			}
+			os.CategoriaChamadoID = categoriaID
+		}
+	}
+	limparAssociacoes(os)
+	if err := s.repo.Atualizar(os); err != nil {
+		return nil, err
+	}
+	s.registrarEvento(id, "classificacao", "Departamento/Categoria atualizados", "")
+	return s.repo.BuscarPorID(id)
+}
+
 // Avaliar registra a avaliação do solicitante (nota 1–5 + comentário). Só é
 // permitida em chamados concluídos.
 func (s *OrdemServicoService) Avaliar(id uint, nota int, comentario string) (*models.OrdemServico, error) {
