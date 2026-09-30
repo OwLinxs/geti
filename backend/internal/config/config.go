@@ -59,12 +59,14 @@ type Config struct {
 	// Diretório onde os anexos das mensagens de chamado são guardados.
 	AnexosDir string
 
-	// Integração de SAÍDA com o ZapGov (envio de mensagem ao WhatsApp).
+	// Integração com o ZapGov (gateway de WhatsApp). Autenticação por API key.
 	// Vazio = envio desabilitado (a mensagem fica só registrada no SIGE-TI).
-	ZapGovBaseURL    string
-	ZapGovEmail      string
-	ZapGovSenha      string
-	ZapGovSubdominio string
+	ZapGovBaseURL string
+	ZapGovAPIKey  string
+
+	// Segredo HMAC-SHA256 para validar a assinatura (X-Signature) dos webhooks
+	// recebidos do ZapGov. Vazio = validação de assinatura desligada.
+	IntegracaoHMACSecret string
 }
 
 // Load lê as variáveis de ambiente e devolve a configuração validada.
@@ -88,10 +90,9 @@ func Load() (*Config, error) {
 		TermoCidadeUF:      getEnv("TERMO_CIDADE_UF", ""),
 		IntegracaoAPIKey:   strings.TrimSpace(getEnv("INTEGRACAO_API_KEY", "")),
 		AnexosDir:          getEnv("ANEXOS_DIR", "data/anexos"),
-		ZapGovBaseURL:      strings.TrimRight(getEnv("ZAPGOV_BASE_URL", ""), "/"),
-		ZapGovEmail:        getEnv("ZAPGOV_EMAIL", ""),
-		ZapGovSenha:        getEnv("ZAPGOV_SENHA", ""),
-		ZapGovSubdominio:   getEnv("ZAPGOV_SUBDOMINIO", ""),
+		ZapGovBaseURL:        strings.TrimRight(getEnv("ZAPGOV_BASE_URL", ""), "/"),
+		ZapGovAPIKey:         getEnv("ZAPGOV_API_KEY", ""),
+		IntegracaoHMACSecret: getEnv("INTEGRACAO_HMAC_SECRET", ""),
 	}
 
 	expHours, err := strconv.Atoi(getEnv("JWT_EXPIRES_HOURS", "8"))

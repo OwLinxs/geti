@@ -63,13 +63,12 @@ services:
       # Vazio = integração desabilitada. Defina no .env para habilitar.
       INTEGRACAO_API_KEY: "${INTEGRACAO_API_KEY:-}"
 
-      # --- ZapGov (WhatsApp) ---
-      # Vazio = envio/recebimento de WhatsApp desabilitado (mensagens só ficam
-      # registradas no SIGE-TI). Credenciais só no servidor.
+      # --- ZapGov (gateway de WhatsApp) ---
+      # Vazio = WhatsApp desabilitado (mensagens só ficam registradas no SIGE).
       ZAPGOV_BASE_URL: "${ZAPGOV_BASE_URL:-}"
-      ZAPGOV_EMAIL: "${ZAPGOV_EMAIL:-}"
-      ZAPGOV_SENHA: "${ZAPGOV_SENHA:-}"
-      ZAPGOV_SUBDOMINIO: "${ZAPGOV_SUBDOMINIO:-}"
+      ZAPGOV_API_KEY: "${ZAPGOV_API_KEY:-}"
+      # Segredo HMAC p/ validar a assinatura dos webhooks recebidos do ZapGov.
+      INTEGRACAO_HMAC_SECRET: "${INTEGRACAO_HMAC_SECRET:-}"
 
       # --- Anexos das mensagens de chamado (persistem no volume de dados) ---
       ANEXOS_DIR: "/app/data/anexos"

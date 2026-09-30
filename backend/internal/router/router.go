@@ -45,6 +45,17 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 	// por chave de API — fora do fluxo de login por JWT.
 	registrarIntegracao(api, cfg, ct)
 
+	// ZapGov (gateway de WhatsApp): webhook de eventos + listagem por telefone.
+	// Ficam fora de /api/v1 para casar exatamente com o contrato do gateway.
+	r.GET("/v1/chamados",
+		middlewares.ChaveAPIIntegracao(cfg.IntegracaoAPIKey),
+		ct.ZapGovHandler.ListarChamados,
+	)
+	r.POST("/integracao/zapgov/eventos",
+		middlewares.WebhookZapGov(cfg.IntegracaoAPIKey, cfg.IntegracaoHMACSecret),
+		ct.ZapGovHandler.Eventos,
+	)
+
 	// Rotas autenticadas.
 	auth := api.Group("")
 	auth.Use(middlewares.Autenticacao(ct.AuthService))
@@ -249,7 +260,6 @@ func registrarIntegracao(api *gin.RouterGroup, cfg *config.Config, ct *container
 	// Chamados (mapeiam para ordens de serviço). Sync completo: criar/atualizar
 	// (idempotente por referencia_externa), ler o board e mover de coluna.
 	g.POST("/ordens-servico", ct.IntegracaoHandler.Criar)
-	g.POST("/mensagens", ct.IntegracaoHandler.ReceberMensagem)
 	g.GET("/ordens-servico", ct.IntegracaoHandler.Listar)
 	g.GET("/ordens-servico/:id", ct.IntegracaoHandler.BuscarPorID)
 	g.PATCH("/ordens-servico/:id/status", ct.IntegracaoHandler.DefinirStatus)

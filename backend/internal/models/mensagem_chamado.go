@@ -50,6 +50,11 @@ type MensagemChamado struct {
 	Interna bool           `gorm:"not null;default:false;index" json:"interna"`
 	Status  StatusMensagem `gorm:"size:12;not null;default:enviado" json:"status"`
 
+	// Tipo da mensagem no WhatsApp: texto, imagem, audio, documento, video.
+	Tipo string `gorm:"size:20;not null;default:texto" json:"tipo"`
+	// MidiaURL guarda a URL da mídia recebida (pode ser temporária/assinada).
+	MidiaURL string `gorm:"size:600" json:"midia_url,omitempty"`
+
 	// Correlação com a plataforma externa (id da mensagem no WhatsApp/mensageiro).
 	IdExterno string `gorm:"size:120;index" json:"id_externo,omitempty"`
 

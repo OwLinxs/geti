@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,23 +9,20 @@ import (
 	"github.com/pmfb/sige-ti/internal/services"
 )
 
-// IntegracaoHandler expõe a API de chamados para sistemas externos (ex.: a
-// plataforma de WhatsApp). Autenticação por chave de API (middleware).
+// IntegracaoHandler expõe endpoints genéricos de sincronização de chamados para
+// sistemas externos (autenticados por chave de API). O fluxo de WhatsApp em si
+// vive em ZapGovHandler (webhooks + /v1/chamados).
 type IntegracaoHandler struct {
-	svc        *services.OrdemServicoService
-	msgSvc     *services.MensagemService
-	consumidor *services.ZapGovConsumidor
+	svc *services.OrdemServicoService
 }
 
-func NewIntegracaoHandler(svc *services.OrdemServicoService, msgSvc *services.MensagemService, consumidor *services.ZapGovConsumidor) *IntegracaoHandler {
-	return &IntegracaoHandler{svc: svc, msgSvc: msgSvc, consumidor: consumidor}
+func NewIntegracaoHandler(svc *services.OrdemServicoService) *IntegracaoHandler {
+	return &IntegracaoHandler{svc: svc}
 }
 
 type chamadoExternoRequest struct {
 	ReferenciaExterna        string `json:"referencia_externa"`
 	Origem                   string `json:"origem"`
-	// AbrirChamado vem do menu do bot: true = "Abrir Chamado" (força um chamado
-	// NOVO, mesmo com um aberto); false/ausente = "Retomar" (reusa o aberto).
 	AbrirChamado             bool   `json:"abrir_chamado"`
 	ItemID                   uint   `json:"item_id"`
 	EquipamentoDescricao     string `json:"equipamento_descricao"`
@@ -57,15 +53,14 @@ func (r chamadoExternoRequest) toEntrada() services.EntradaOS {
 	}
 }
 
-// Criar cria ou atualiza (idempotente por referencia_externa) um chamado.
+// Criar cria/atualiza um chamado. abrir_chamado=true força um chamado novo;
+// caso contrário reusa o chamado aberto da referência (idempotente).
 func (h *IntegracaoHandler) Criar(c *gin.Context) {
 	var req chamadoExternoRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		erroBind(c, err)
 		return
 	}
-	// "Abrir Chamado" (true) força um chamado novo; "Retomar" (false) reusa o
-	// chamado aberto da conversa, se houver.
 	if req.AbrirChamado {
 		os, err := h.svc.AbrirNovoViaIntegracao(req.toEntrada())
 		if err != nil {
@@ -87,55 +82,11 @@ func (h *IntegracaoHandler) Criar(c *gin.Context) {
 	c.JSON(status, os)
 }
 
-type mensagemExternaRequest struct {
-	ReferenciaExterna string `json:"referencia_externa"`
-	Telefone          string `json:"telefone"`
-	Nome              string `json:"nome"`
-	Texto             string `json:"texto"`
-	MidiaURL          string `json:"midia_url"`
-	IdExterno         string `json:"id_externo"`
-}
-
-// ReceberMensagem processa uma mensagem recebida do WhatsApp (entrada). Acha o
-// chamado por referencia_externa, senão por telefone (chamado aberto), senão
-// cria um novo. Depois anexa a mensagem na conversa.
-func (h *IntegracaoHandler) ReceberMensagem(c *gin.Context) {
-	var req mensagemExternaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		erroBind(c, err)
-		return
-	}
-
-	os, msg, err := h.consumidor.ProcessarEntrada(
-		req.ReferenciaExterna, req.Telefone, req.Nome,
-		req.Texto, req.MidiaURL, req.IdExterno)
-	if err != nil {
-		// Mensagem repetida (mesmo id_externo): idempotente, responde OK.
-		if errors.Is(err, services.ErrDuplicado) {
-			c.JSON(http.StatusOK, gin.H{"duplicada": true})
-			return
-		}
-		responderErro(c, err)
-		return
-	}
-	// Sem chamado aberto na conversa: mensagem ignorada (só o bot cria chamado).
-	if os == nil || msg == nil {
-		c.JSON(http.StatusOK, gin.H{"ignorada": true})
-		return
-	}
-	c.JSON(http.StatusCreated, gin.H{
-		"ordem_servico_id": os.ID,
-		"numero":           os.Numero,
-		"mensagem_id":      msg.ID,
-	})
-}
-
-// Listar devolve o board (chamados) para o sistema externo sincronizar. Aceita
-// `conversa` (id da conversa do WhatsApp) ou `referencia_externa` para listar o
-// histórico de uma pessoa (usado no menu "Retomar chamado" do bot).
+// Listar devolve o board (chamados) para o sistema externo sincronizar.
 func (h *IntegracaoHandler) Listar(c *gin.Context) {
 	f := repositories.FiltroOrdemServico{
 		Status:  c.Query("status"),
+		Contato: c.Query("telefone"),
 		Pagina:  queryInt(c, "pagina", 1),
 		Tamanho: queryInt(c, "tamanho", 50),
 	}
@@ -170,8 +121,7 @@ func (h *IntegracaoHandler) BuscarPorID(c *gin.Context) {
 	c.JSON(http.StatusOK, os)
 }
 
-// DefinirStatus move o chamado de coluna (sincroniza o kanban do sistema
-// externo com o daqui).
+// DefinirStatus move o chamado de coluna (sync do kanban externo).
 func (h *IntegracaoHandler) DefinirStatus(c *gin.Context) {
 	id, ok := parseID(c, "id")
 	if !ok {

@@ -13,6 +13,10 @@ type CategoriaChamado struct {
 	Ordem     int    `gorm:"not null;default:0;index" json:"ordem"`
 	Ativo     bool   `gorm:"not null;index" json:"ativo"`
 
+	// ChecklistPadrao é o modelo de checklist aplicado aos chamados desta
+	// categoria (uma etapa por item). Guardado como JSON.
+	ChecklistPadrao []string `gorm:"serializer:json" json:"checklist_padrao,omitempty"`
+
 	DeletadoEm gorm.DeletedAt `gorm:"index" json:"-"`
 }
 

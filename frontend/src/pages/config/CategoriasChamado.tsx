@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,6 +50,7 @@ export default function CategoriasChamado({
   const [modalAberto, setModalAberto] = React.useState(false);
   const [editando, setEditando] = React.useState<CategoriaChamado | null>(null);
   const [form, setForm] = React.useState<CategoriaChamadoPayload>(VAZIO);
+  const [checklistTexto, setChecklistTexto] = React.useState("");
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [salvando, setSalvando] = React.useState(false);
   const [removendo, setRemovendo] = React.useState<CategoriaChamado | null>(null);
@@ -74,6 +76,7 @@ export default function CategoriasChamado({
   function abrirCriacao() {
     setEditando(null);
     setForm({ ...VAZIO, ordem: lista.length + 1 });
+    setChecklistTexto("");
     setErros({});
     setModalAberto(true);
   }
@@ -86,6 +89,7 @@ export default function CategoriasChamado({
       ordem: c.ordem,
       ativo: c.ativo,
     });
+    setChecklistTexto((c.checklist_padrao ?? []).join("\n"));
     setErros({});
     setModalAberto(true);
   }
@@ -98,12 +102,19 @@ export default function CategoriasChamado({
     }
     setErros({});
     setSalvando(true);
+    const payload: CategoriaChamadoPayload = {
+      ...form,
+      checklist_padrao: checklistTexto
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean),
+    };
     try {
       if (editando) {
-        await categoriasChamadoApi.atualizar(editando.id, form);
+        await categoriasChamadoApi.atualizar(editando.id, payload);
         toast({ titulo: "Categoria atualizada.", variant: "success" });
       } else {
-        await categoriasChamadoApi.criar(form);
+        await categoriasChamadoApi.criar(payload);
         toast({ titulo: "Categoria criada.", variant: "success" });
       }
       setModalAberto(false);
@@ -260,6 +271,22 @@ export default function CategoriasChamado({
                   setForm({ ...form, ordem: Number(e.target.value) })
                 }
               />
+            </FormField>
+            <FormField
+              label="Checklist padrão (uma etapa por linha)"
+              htmlFor="checklist"
+            >
+              <Textarea
+                id="checklist"
+                rows={5}
+                value={checklistTexto}
+                onChange={(e) => setChecklistTexto(e.target.value)}
+                placeholder={"Verificar cabo de rede\nTestar ping no gateway\nReiniciar o roteador"}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aplicado automaticamente ao classificar um chamado nesta
+                categoria (se o checklist ainda estiver em branco).
+              </p>
             </FormField>
             <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
               <div>

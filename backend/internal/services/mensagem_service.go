@@ -150,7 +150,7 @@ func (s *MensagemService) Enviar(in EntradaMensagem) (*models.MensagemChamado, e
 		// Saída para o WhatsApp: só resposta pública da equipe em chamado de
 		// origem WhatsApp, quando o ZapGov está configurado.
 		if autorTipo == models.AutorTecnico && !interna && os.Origem == "whatsapp" {
-			s.enviarWhatsApp(os, msg.ID, texto)
+			s.enviarWhatsApp(os, msg.ID, texto, in.AutorNome)
 		}
 	}
 	return s.repo.BuscarPorID(msg.ID)
@@ -159,13 +159,19 @@ func (s *MensagemService) Enviar(in EntradaMensagem) (*models.MensagemChamado, e
 // enviarWhatsApp entrega a resposta da equipe ao contato via ZapGov (best-effort,
 // assíncrono). Dentro da janela de 24h envia texto livre; fora dela marca a
 // mensagem como falha (é preciso um template aprovado). Nunca quebra o fluxo.
-func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msgID uint, texto string) {
+func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msgID uint, texto, autorNome string) {
 	if s.zap == nil || !s.zap.Configurado() {
 		return
 	}
 	contato := strings.TrimSpace(os.SolicitanteContato)
 	if contato == "" || strings.TrimSpace(texto) == "" {
 		return
+	}
+	// Prefixa com o nome do técnico (negrito no WhatsApp) para o contato saber
+	// quem respondeu. Mensagens automáticas ("Sistema") vão sem prefixo.
+	corpo := texto
+	if nome := strings.TrimSpace(autorNome); nome != "" && nome != "Sistema" {
+		corpo = "*" + nome + "* (T.I.):\n" + texto
 	}
 	dentroJanela := os.UltimaMsgSolicitanteEm != nil &&
 		time.Since(*os.UltimaMsgSolicitanteEm) < 24*time.Hour
@@ -176,7 +182,7 @@ func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msgID uint, te
 			_ = s.repo.AtualizarEnvioExterno(msgID, "", models.MsgFalhou)
 			return
 		}
-		res, err := s.zap.Enviar(contato, texto, "")
+		waID, err := s.zap.EnviarTexto(contato, corpo)
 		if err != nil {
 			if err == ErrJanelaFechada {
 				log.Printf("[zapgov] janela fechada (OS %s); mensagem %d requer template", os.Numero, msgID)
@@ -186,11 +192,8 @@ func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msgID uint, te
 			_ = s.repo.AtualizarEnvioExterno(msgID, "", models.MsgFalhou)
 			return
 		}
-		idExterno := ""
-		if res != nil {
-			idExterno = res.WaMessageID
-		}
-		_ = s.repo.AtualizarEnvioExterno(msgID, idExterno, models.MsgEnviada)
+		log.Printf("[zapgov] mensagem %d enviada ao WhatsApp (%s)", msgID, contato)
+		_ = s.repo.AtualizarEnvioExterno(msgID, waID, models.MsgEnviada)
 	}()
 }
 
@@ -277,47 +280,92 @@ func (s *MensagemService) anexar(msg *models.MensagemChamado, fh *multipart.File
 	return nil
 }
 
-// RegistrarEntradaExterna grava uma mensagem recebida do solicitante via
-// integração (WhatsApp): direção "entrada", autor servidor, sem usuário. Abre a
-// janela de 24h e notifica a equipe. Mídia (se houver) é baixada da URL.
-func (s *MensagemService) RegistrarEntradaExterna(osID uint, autorNome, texto, midiaURL, idExterno string) (*models.MensagemChamado, error) {
-	texto = strings.TrimSpace(texto)
-	idExterno = strings.TrimSpace(idExterno)
-	// Dedup: mesma mensagem pode chegar pelo webhook e pelo SSE.
+// EntradaRecebida reúne os dados de uma mensagem recebida do WhatsApp (webhook
+// do ZapGov).
+type EntradaRecebida struct {
+	OrdemServicoID uint
+	AutorNome      string
+	Tipo           string // texto, imagem, audio, documento, video
+	Texto          string
+	MidiaURL       string
+	MidiaMime      string
+	IdExterno      string // wa_message_id
+	Quando         time.Time
+}
+
+// RegistrarRecebida grava uma mensagem recebida do solicitante via webhook
+// (WhatsApp): direção "entrada", autor servidor. Faz dedup por wa_message_id,
+// abre a janela de 24h e notifica a equipe. Guarda a midia_url e tenta baixar o
+// arquivo (best-effort) para manter histórico. Devolve (msg, duplicada, erro).
+func (s *MensagemService) RegistrarRecebida(in EntradaRecebida) (*models.MensagemChamado, bool, error) {
+	idExterno := strings.TrimSpace(in.IdExterno)
 	if idExterno != "" {
 		if existe, _ := s.repo.ExistePorIdExterno(idExterno); existe {
-			return nil, ErrDuplicado
+			return nil, true, nil // já processada
 		}
 	}
-	if texto == "" && midiaURL == "" {
+	texto := strings.TrimSpace(in.Texto)
+	if texto == "" && in.MidiaURL == "" {
 		texto = "(mensagem sem conteúdo)"
 	}
+	tipo := strings.TrimSpace(in.Tipo)
+	if tipo == "" {
+		tipo = "texto"
+	}
+	quando := in.Quando
+	if quando.IsZero() {
+		quando = time.Now().UTC()
+	}
 	msg := &models.MensagemChamado{
-		OrdemServicoID: osID,
+		OrdemServicoID: in.OrdemServicoID,
 		Direcao:        models.MsgEntrada,
 		AutorTipo:      models.AutorServidor,
-		AutorNome:      strings.TrimSpace(autorNome),
+		AutorNome:      strings.TrimSpace(in.AutorNome),
+		Tipo:           tipo,
 		Texto:          texto,
+		MidiaURL:       strings.TrimSpace(in.MidiaURL),
 		Status:         models.MsgRecebida,
-		IdExterno:      strings.TrimSpace(idExterno),
-		EnviadaEm:      time.Now().UTC(),
+		IdExterno:      idExterno,
+		EnviadaEm:      quando.UTC(),
 	}
-	if midiaURL != "" {
-		if err := s.baixarAnexoDeURL(msg, midiaURL); err != nil {
-			log.Printf("[msg] falha ao baixar mídia (%s): %v", midiaURL, err)
+	if in.MidiaURL != "" {
+		// A URL é temporária/assinada: baixa para manter histórico (best-effort).
+		if err := s.baixarAnexoDeURL(msg, in.MidiaURL); err != nil {
+			log.Printf("[msg] falha ao baixar mídia (%s): %v", in.MidiaURL, err)
 		}
 	}
 	if err := s.repo.Criar(msg); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	// Abre a janela de 24h e avisa a equipe.
-	_ = s.osRepo.MarcarMsgSolicitante(osID, time.Now().UTC())
+	_ = s.osRepo.MarcarMsgSolicitante(in.OrdemServicoID, quando.UTC())
 	if s.notif != nil {
-		if os, err := s.osRepo.BuscarPorID(osID); err == nil {
+		if os, err := s.osRepo.BuscarPorID(in.OrdemServicoID); err == nil {
 			s.notif.NotificarMensagem(os, models.AutorServidor, false)
 		}
 	}
-	return s.repo.BuscarPorID(msg.ID)
+	m, err := s.repo.BuscarPorID(msg.ID)
+	return m, false, err
+}
+
+// AtualizarStatusExterno atualiza o status de entrega de uma mensagem de saída
+// pelo wa_message_id (webhook mensagem.status).
+func (s *MensagemService) AtualizarStatusExterno(waMessageID string, status models.StatusMensagem) error {
+	return s.repo.AtualizarStatusPorIdExterno(waMessageID, status)
+}
+
+// EncerrarRelayWhatsApp tira a conversa do modo relay no ZapGov (best-effort,
+// assíncrono): a próxima mensagem da pessoa volta a cair no menu do bot.
+func (s *MensagemService) EncerrarRelayWhatsApp(telefone string) {
+	telefone = strings.TrimSpace(telefone)
+	if s.zap == nil || !s.zap.Configurado() || telefone == "" {
+		return
+	}
+	go func() {
+		if err := s.zap.RelayEncerrar(telefone); err != nil {
+			log.Printf("[zapgov] relay/encerrar falhou (%s): %v", telefone, err)
+		}
+	}()
 }
 
 // baixarAnexoDeURL busca a mídia da URL (timeout curto), valida tipo/tamanho e

@@ -62,6 +62,16 @@ func queryIntPtr(c *gin.Context, nome string) *int {
 	return &v
 }
 
+// primeiroNaoVazio devolve o primeiro valor não vazio da lista.
+func primeiroNaoVazio(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // queryInt lê um parâmetro de query como int com valor padrão.
 func queryInt(c *gin.Context, nome string, padrao int) int {
 	raw := c.Query(nome)

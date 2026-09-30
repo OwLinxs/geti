@@ -36,7 +36,6 @@ type Container struct {
 	FornecedorService       *services.FornecedorService
 	ContratoService         *services.ContratoService
 	ReservaService          *services.ReservaService
-	ZapGovConsumidor        *services.ZapGovConsumidor
 
 	// Handlers.
 	HealthHandler           *handlers.HealthHandler
@@ -62,6 +61,7 @@ type Container struct {
 	ContratoHandler         *handlers.ContratoHandler
 	ReservaHandler          *handlers.ReservaHandler
 	IntegracaoHandler       *handlers.IntegracaoHandler
+	ZapGovHandler           *handlers.ZapGovHandler
 }
 
 func New(cfg *config.Config, db *gorm.DB) *Container {
@@ -105,10 +105,8 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	mensagemSvc := services.NewMensagemService(mensagemRepo, ordemServicoRepo, cfg)
 	conhecimentoSvc := services.NewConhecimentoService(conhecimentoRepo)
 
-	// Cliente e consumidor do ZapGov (envio + recebimento de WhatsApp). Ficam
-	// inertes quando não há credenciais configuradas.
+	// Cliente do ZapGov (gateway de WhatsApp). Inerte sem credenciais.
 	zapGovCli := services.NewZapGovClient(cfg)
-	zapGovConsumidor := services.NewZapGovConsumidor(zapGovCli, ordemServicoSvc, mensagemSvc)
 
 	// Liga o notificador aos serviços que emitem eventos de chamado.
 	ordemServicoSvc.SetNotificador(notificacaoSvc)
@@ -151,7 +149,6 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		FornecedorService:       fornecedorSvc,
 		ContratoService:         contratoSvc,
 		ReservaService:          reservaSvc,
-		ZapGovConsumidor:        zapGovConsumidor,
 
 		HealthHandler:           handlers.NewHealthHandler(db),
 		AuthHandler:             handlers.NewAuthHandler(authSvc, usuarioSvc),
@@ -175,6 +172,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		FornecedorHandler:       handlers.NewFornecedorHandler(fornecedorSvc),
 		ContratoHandler:         handlers.NewContratoHandler(contratoSvc),
 		ReservaHandler:          handlers.NewReservaHandler(reservaSvc),
-		IntegracaoHandler:       handlers.NewIntegracaoHandler(ordemServicoSvc, mensagemSvc, zapGovConsumidor),
+		IntegracaoHandler:       handlers.NewIntegracaoHandler(ordemServicoSvc),
+		ZapGovHandler:           handlers.NewZapGovHandler(ordemServicoSvc, mensagemSvc),
 	}
 }

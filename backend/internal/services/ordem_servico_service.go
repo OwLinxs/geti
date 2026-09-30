@@ -276,6 +276,12 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 		DataAbertura:            time.Now().UTC(),
 		Passos:                  passosPadrao(),
 	}
+	// Se a categoria tem checklist modelo, usa-o em vez do padrão genérico.
+	if in.CategoriaChamadoID != nil {
+		if tp := s.passosDaCategoria(*in.CategoriaChamadoID); len(tp) > 0 {
+			os.Passos = tp
+		}
+	}
 	aplicarEquipamento(os, in, d.item)
 	s.aplicarPrazosSLA(os)
 	// Chamado externo (WhatsApp): a pessoa acabou de escrever → janela 24h aberta.
@@ -466,9 +472,17 @@ func (s *OrdemServicoService) DefinirStatus(id uint, status models.StatusOS) (*m
 		// Ao encerrar um chamado de WhatsApp, avisa o contato e encerra a
 		// conversa no mensageiro (mensagem de saída).
 		encerrou := status == models.OSConcluida || status == models.OSCancelada
-		if encerrou && atualizada.Origem == "whatsapp" && s.mensageiro != nil {
-			texto := s.textoEncerramento(atualizada)
-			s.mensageiro.EnviarSistema(atualizada.ID, texto)
+		if encerrou {
+			if atualizada.Origem == "whatsapp" && s.mensageiro != nil {
+				log.Printf("[zapgov] encerramento OS %s: enviando aviso ao contato", atualizada.Numero)
+				texto := s.textoEncerramento(atualizada)
+				s.mensageiro.EnviarSistema(atualizada.ID, texto)
+				// Tira a conversa do modo relay: próxima msg volta ao bot.
+				s.mensageiro.EncerrarRelayWhatsApp(atualizada.SolicitanteContato)
+			} else {
+				log.Printf("[zapgov] encerramento OS %s NÃO enviado: origem=%q mensageiro=%v",
+					atualizada.Numero, atualizada.Origem, s.mensageiro != nil)
+			}
 		}
 	}
 	return atualizada, nil
@@ -558,7 +572,53 @@ func (s *OrdemServicoService) Classificar(id uint, setorID, categoriaID *uint, p
 		return nil, err
 	}
 	s.registrarEvento(id, "classificacao", "Departamento/Categoria atualizados", "")
+	// Aplica o checklist padrão da categoria (se a OS ainda não tiver passos).
+	if os.CategoriaChamadoID != nil {
+		s.aplicarChecklistCategoria(id, *os.CategoriaChamadoID)
+	}
 	return s.repo.BuscarPorID(id)
+}
+
+// passosDaCategoria devolve o checklist modelo da categoria como passos novos
+// (vazio se a categoria não tem modelo).
+func (s *OrdemServicoService) passosDaCategoria(categoriaID uint) []models.OrdemServicoPasso {
+	if s.catRepo == nil {
+		return nil
+	}
+	cat, err := s.catRepo.BuscarPorID(categoriaID)
+	if err != nil || len(cat.ChecklistPadrao) == 0 {
+		return nil
+	}
+	passos := make([]models.OrdemServicoPasso, 0, len(cat.ChecklistPadrao))
+	for i, desc := range cat.ChecklistPadrao {
+		passos = append(passos, models.OrdemServicoPasso{Ordem: i + 1, Descricao: desc})
+	}
+	return passos
+}
+
+// checklistIntocado indica que a equipe ainda não mexeu no checklist (nenhum
+// passo concluído nem com observação) — seguro para substituir pelo modelo.
+func checklistIntocado(passos []models.OrdemServicoPasso) bool {
+	for _, p := range passos {
+		if p.Concluido || strings.TrimSpace(p.Observacao) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// aplicarChecklistCategoria troca o checklist da OS pelo modelo da categoria,
+// desde que a equipe ainda não tenha mexido nele.
+func (s *OrdemServicoService) aplicarChecklistCategoria(osID, categoriaID uint) {
+	passos := s.passosDaCategoria(categoriaID)
+	if len(passos) == 0 {
+		return
+	}
+	os, err := s.repo.BuscarPorID(osID)
+	if err != nil || !checklistIntocado(os.Passos) {
+		return
+	}
+	_ = s.repo.SubstituirPassos(osID, passos)
 }
 
 // Avaliar registra a avaliação do solicitante (nota 1–5 + comentário). Só é
@@ -662,6 +722,20 @@ func (s *OrdemServicoService) BuscarPorReferenciaExterna(ref string) (*models.Or
 
 func (s *OrdemServicoService) BuscarAbertaPorContato(contato string) (*models.OrdemServico, error) {
 	return s.repo.BuscarAbertaPorContato(contato)
+}
+
+// ListarPorContato devolve os chamados (abertos e fechados) de um telefone,
+// mais recentes primeiro — usado no "Retomar chamado" do bot.
+func (s *OrdemServicoService) ListarPorContato(contato string, limite int) ([]models.OrdemServico, error) {
+	if limite <= 0 {
+		limite = 10
+	}
+	lista, _, err := s.repo.Listar(repositories.FiltroOrdemServico{
+		Contato: strings.TrimSpace(contato),
+		Pagina:  1,
+		Tamanho: limite,
+	})
+	return lista, err
 }
 
 func (s *OrdemServicoService) BuscarPorID(id uint) (*models.OrdemServico, error) {

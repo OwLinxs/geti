@@ -108,7 +108,8 @@ type OrdemServico struct {
 	Solicitante             *Servidor `gorm:"foreignKey:SolicitanteID" json:"solicitante,omitempty"`
 	SolicitanteNomeSnapshot string    `gorm:"size:120" json:"solicitante_nome_snapshot,omitempty"`
 	// Contato do solicitante externo (telefone/WhatsApp), quando não é servidor.
-	SolicitanteContato string `gorm:"size:80" json:"solicitante_contato,omitempty"`
+	// Indexado para a busca por telefone (integração ZapGov / "Retomar chamado").
+	SolicitanteContato string `gorm:"size:80;index" json:"solicitante_contato,omitempty"`
 
 	DefeitoRelatado string `gorm:"size:1000;not null" json:"defeito_relatado"`
 	Diagnostico     string `gorm:"size:1000" json:"diagnostico,omitempty"`

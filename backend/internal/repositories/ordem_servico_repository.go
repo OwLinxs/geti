@@ -16,6 +16,7 @@ type FiltroOrdemServico struct {
 	CategoriaChamadoID *uint
 	AbertoPorID        *uint // filtra pelos chamados abertos por um usuário (portal)
 	ReferenciaExterna  string
+	Contato            string // filtra pelo telefone/WhatsApp do solicitante
 	De                 *time.Time
 	Ate                *time.Time
 	Pagina             int
@@ -185,6 +186,9 @@ func (r *ordemServicoRepository) Listar(f FiltroOrdemServico) ([]models.OrdemSer
 	}
 	if f.ReferenciaExterna != "" {
 		q = q.Where("referencia_externa = ?", f.ReferenciaExterna)
+	}
+	if f.Contato != "" {
+		q = q.Where("solicitante_contato = ?", f.Contato)
 	}
 	if f.CategoriaChamadoID != nil {
 		q = q.Where("categoria_chamado_id = ?", *f.CategoriaChamadoID)

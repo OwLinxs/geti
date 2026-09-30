@@ -1,379 +1,115 @@
 package services
 
 import (
-	"bufio"
 	"bytes"
-	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/pmfb/sige-ti/internal/config"
 )
 
-// ErrJanelaFechada indica que a janela de 24h do WhatsApp está fechada e o envio
-// de texto livre foi recusado (é preciso usar um template aprovado).
+// ErrJanelaFechada indica que a janela de 24h do WhatsApp está fechada: o envio
+// de texto livre foi recusado e é preciso usar um template aprovado.
 var ErrJanelaFechada = errors.New("janela de 24h fechada")
 
-// ZapGovClient fala com a API do ZapGov (login JWT + envio de mensagens).
+// ZapGovClient fala com o gateway de WhatsApp (ZapGov). Autenticação por API key
+// no header X-API-Key. Endpoints: POST /v1/mensagens e POST /v1/relay/encerrar.
 type ZapGovClient struct {
 	cfg  *config.Config
 	http *http.Client
-
-	mu       sync.Mutex
-	token    string
-	expiraEm time.Time
 }
 
 func NewZapGovClient(cfg *config.Config) *ZapGovClient {
 	return &ZapGovClient{cfg: cfg, http: &http.Client{Timeout: 20 * time.Second}}
 }
 
-// Configurado informa se há credenciais para enviar mensagens.
+// Configurado informa se há credenciais para falar com o ZapGov.
 func (z *ZapGovClient) Configurado() bool {
-	return z.cfg.ZapGovBaseURL != "" && z.cfg.ZapGovEmail != "" && z.cfg.ZapGovSenha != ""
+	return z.cfg.ZapGovBaseURL != "" && z.cfg.ZapGovAPIKey != ""
 }
 
-// ResultadoEnvio traz os dados úteis da resposta de envio.
-type ResultadoEnvio struct {
-	WaMessageID    string `json:"wa_message_id"`
-	ConversationID int64  `json:"conversation_id"`
-	Status         string `json:"status"`
+func (z *ZapGovClient) post(caminho string, payload any) (*http.Response, error) {
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest(http.MethodPost, z.cfg.ZapGovBaseURL+caminho, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", z.cfg.ZapGovAPIKey)
+	return z.http.Do(req)
 }
 
-func (z *ZapGovClient) garantirToken() (string, error) {
-	z.mu.Lock()
-	defer z.mu.Unlock()
-	if z.token != "" && time.Now().Before(z.expiraEm) {
-		return z.token, nil
-	}
-	body, _ := json.Marshal(map[string]string{
-		"email":      z.cfg.ZapGovEmail,
-		"senha":      z.cfg.ZapGovSenha,
-		"subdominio": z.cfg.ZapGovSubdominio,
-	})
-	resp, err := z.http.Post(z.cfg.ZapGovBaseURL+"/auth/login",
-		"application/json", bytes.NewReader(body))
+// enviar despacha o payload para /v1/mensagens e devolve o wa_message_id.
+// Trata 422 {"erro":"janela_fechada"} como ErrJanelaFechada.
+func (z *ZapGovClient) enviar(payload map[string]any) (string, error) {
+	resp, err := z.post("/v1/mensagens", payload)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("login ZapGov falhou (%d): %s", resp.StatusCode, string(b))
-	}
-	var r struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil || r.Token == "" {
-		return "", fmt.Errorf("login ZapGov: token ausente")
-	}
-	z.token = r.Token
-	z.expiraEm = time.Now().Add(11 * time.Hour) // margem sobre as 12h
-	return z.token, nil
-}
+	raw, _ := io.ReadAll(resp.Body)
 
-func (z *ZapGovClient) postAutenticado(caminho string, payload any) (*http.Response, error) {
-	token, err := z.garantirToken()
-	if err != nil {
-		return nil, err
-	}
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest(http.MethodPost, z.cfg.ZapGovBaseURL+caminho, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := z.http.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	// Token pode ter expirado antes da margem: tenta uma vez de novo.
-	if resp.StatusCode == http.StatusUnauthorized {
-		resp.Body.Close()
-		z.mu.Lock()
-		z.token = ""
-		z.mu.Unlock()
-		token, err = z.garantirToken()
-		if err != nil {
-			return nil, err
-		}
-		req2, _ := http.NewRequest(http.MethodPost, z.cfg.ZapGovBaseURL+caminho, bytes.NewReader(body))
-		req2.Header.Set("Content-Type", "application/json")
-		req2.Header.Set("Authorization", "Bearer "+token)
-		resp, err = z.http.Do(req2)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return resp, nil
-}
-
-// Enviar manda texto livre (dentro da janela de 24h). Se a janela estiver
-// fechada, devolve ErrJanelaFechada.
-func (z *ZapGovClient) Enviar(to, body, replyTo string) (*ResultadoEnvio, error) {
-	payload := map[string]string{"to": to, "body": body}
-	if replyTo != "" {
-		payload["reply_to"] = replyTo
-	}
-	resp, err := z.postAutenticado("/messages/send", payload)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusUnprocessableEntity {
 		var e struct {
-			WindowClosed bool `json:"window_closed"`
+			Erro string `json:"erro"`
 		}
-		raw, _ := io.ReadAll(resp.Body)
 		_ = json.Unmarshal(raw, &e)
-		if e.WindowClosed {
-			return nil, ErrJanelaFechada
+		if e.Erro == "janela_fechada" {
+			return "", ErrJanelaFechada
 		}
-		return nil, fmt.Errorf("envio recusado: %s", string(raw))
+		return "", fmt.Errorf("envio recusado: %s", string(raw))
 	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		raw, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("envio falhou (%d): %s", resp.StatusCode, string(raw))
+		return "", fmt.Errorf("envio falhou (%d): %s", resp.StatusCode, string(raw))
 	}
-	var r ResultadoEnvio
-	_ = json.NewDecoder(resp.Body).Decode(&r)
-	return &r, nil
+	var r struct {
+		WaMessageID string `json:"wa_message_id"`
+	}
+	_ = json.Unmarshal(raw, &r)
+	return r.WaMessageID, nil
 }
 
-// ---- Entrada (SIGE puxa as mensagens recebidas do WhatsApp) ----
-
-// MensagemZapGov representa uma mensagem de uma conversa no ZapGov.
-// Schema real: id (número), wa_message_id, conversation_id, direction
-// ("in"/"out"/"evento"), body, media_*, created_at.
-type MensagemZapGov struct {
-	ID             int64  `json:"id"`
-	WaMessageID    string `json:"wa_message_id"`
-	ConversationID int64  `json:"conversation_id"`
-	Direction      string `json:"direction"`
-	Body           string `json:"body"`
-	MediaType      string `json:"media_type"`
-	CriadoEm       string `json:"created_at"`
+// EnviarTexto manda texto livre (dentro da janela de 24h).
+func (z *ZapGovClient) EnviarTexto(telefone, texto string) (string, error) {
+	return z.enviar(map[string]any{
+		"telefone": telefone,
+		"tipo":     "texto",
+		"texto":    texto,
+	})
 }
 
-// Recebida indica se a mensagem veio do contato (entrada). Só "in" conta —
-// "out" é da equipe/bot e "evento" é log interno do ZapGov.
-func (m MensagemZapGov) Recebida() bool {
-	return strings.EqualFold(strings.TrimSpace(m.Direction), "in")
-}
-
-func (m MensagemZapGov) Conteudo() string {
-	return m.Body
-}
-
-// Instante devolve o created_at parseado (zero se inválido).
-func (m MensagemZapGov) Instante() time.Time {
-	t, err := time.Parse(time.RFC3339, m.CriadoEm)
-	if err != nil {
-		return time.Time{}
-	}
-	return t
-}
-
-// Telefone extrai o número do contato de dentro do wa_message_id. O padrão do
-// WhatsApp Cloud (wamid.<base64>) embute o telefone como uma sequência de
-// dígitos ASCII no conteúdo decodificado. Devolve "" se não achar algo plausível.
-func (m MensagemZapGov) Telefone() string {
-	return telefoneDoWamid(m.WaMessageID)
-}
-
-func telefoneDoWamid(wamid string) string {
-	i := strings.Index(wamid, ".")
-	if i < 0 {
-		return ""
-	}
-	seg := wamid[i+1:]
-	// Base64 pode vir sem padding; completa para múltiplo de 4.
-	if r := len(seg) % 4; r != 0 {
-		seg += strings.Repeat("=", 4-r)
-	}
-	dados, err := base64.StdEncoding.DecodeString(seg)
-	if err != nil {
-		return ""
-	}
-	// Pega a maior sequência de dígitos (o telefone tem 10–15 dígitos).
-	melhor, atual := "", ""
-	flush := func() {
-		if len(atual) > len(melhor) {
-			melhor = atual
-		}
-		atual = ""
-	}
-	for _, b := range dados {
-		if b >= '0' && b <= '9' {
-			atual += string(b)
-		} else {
-			flush()
-		}
-	}
-	flush()
-	if len(melhor) < 10 || len(melhor) > 15 {
-		return ""
-	}
-	return melhor
-}
-
-func (z *ZapGovClient) getAutenticado(caminho string) (*http.Response, error) {
-	token, err := z.garantirToken()
-	if err != nil {
-		return nil, err
-	}
-	req, _ := http.NewRequest(http.MethodGet, z.cfg.ZapGovBaseURL+caminho, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := z.http.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode == http.StatusUnauthorized {
-		resp.Body.Close()
-		z.mu.Lock()
-		z.token = ""
-		z.mu.Unlock()
-		token, err = z.garantirToken()
-		if err != nil {
-			return nil, err
-		}
-		req2, _ := http.NewRequest(http.MethodGet, z.cfg.ZapGovBaseURL+caminho, nil)
-		req2.Header.Set("Authorization", "Bearer "+token)
-		resp, err = z.http.Do(req2)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return resp, nil
-}
-
-// MensagensConversa busca as mensagens de uma conversa (opcionalmente só as não
-// lidas), usada para trazer o que chegou do contato no WhatsApp.
-func (z *ZapGovClient) MensagensConversa(convID int64, limite int, apenasNaoLidas bool) ([]MensagemZapGov, error) {
-	if limite <= 0 {
-		limite = 200
-	}
-	q := url.Values{}
-	q.Set("limit", fmt.Sprintf("%d", limite))
-	if apenasNaoLidas {
-		q.Set("read", "0")
-	}
-	resp, err := z.getAutenticado(fmt.Sprintf("/conversations/%d/messages?%s", convID, q.Encode()))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("conversa %d falhou (%d): %s", convID, resp.StatusCode, string(raw))
-	}
-	// Aceita tanto um array puro quanto {data:[...]} ou {messages:[...]}.
-	raw, _ := io.ReadAll(resp.Body)
-	var arr []MensagemZapGov
-	if err := json.Unmarshal(raw, &arr); err == nil && arr != nil {
-		return arr, nil
-	}
-	var env struct {
-		Data     []MensagemZapGov `json:"data"`
-		Messages []MensagemZapGov `json:"messages"`
-	}
-	if err := json.Unmarshal(raw, &env); err != nil {
-		return nil, fmt.Errorf("resposta de conversa inesperada: %s", string(raw))
-	}
-	if env.Messages != nil {
-		return env.Messages, nil
-	}
-	return env.Data, nil
-}
-
-// EventoZapGov é um evento recebido pelo SSE.
-type EventoZapGov struct {
-	Type    string          `json:"type"`
-	Event   string          `json:"event"`
-	Message json.RawMessage `json:"message"`
-	Data    json.RawMessage `json:"data"`
-}
-
-// StreamEventos conecta no SSE do ZapGov e chama onEvento para cada evento até o
-// contexto ser cancelado ou a conexão cair (o chamador decide reconectar).
-func (z *ZapGovClient) StreamEventos(ctx context.Context, onEvento func(EventoZapGov)) error {
-	token, err := z.garantirToken()
-	if err != nil {
-		return err
-	}
-	q := url.Values{}
-	q.Set("token", token)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
-		z.cfg.ZapGovBaseURL+"/events?"+q.Encode(), nil)
-	req.Header.Set("Accept", "text/event-stream")
-	// Stream não usa o timeout curto do cliente padrão.
-	cli := &http.Client{}
-	resp, err := cli.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("SSE falhou (%d): %s", resp.StatusCode, string(raw))
-	}
-
-	sc := bufio.NewScanner(resp.Body)
-	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
-	var dados strings.Builder
-	for sc.Scan() {
-		linha := sc.Text()
-		if linha == "" { // fim de um evento
-			bruto := strings.TrimSpace(dados.String())
-			dados.Reset()
-			if bruto == "" || bruto == ":" {
-				continue
-			}
-			var ev EventoZapGov
-			if err := json.Unmarshal([]byte(bruto), &ev); err == nil {
-				// Guarda o payload cru quando não veio embrulhado em message/data.
-				if len(ev.Message) == 0 && len(ev.Data) == 0 {
-					ev.Data = json.RawMessage(bruto)
-				}
-				onEvento(ev)
-			}
-			continue
-		}
-		if strings.HasPrefix(linha, ":") { // comentário/keep-alive
-			continue
-		}
-		if strings.HasPrefix(linha, "data:") {
-			dados.WriteString(strings.TrimSpace(strings.TrimPrefix(linha, "data:")))
-		}
-	}
-	return sc.Err()
+// EnviarMidia manda um arquivo (a URL precisa ser acessível pelo ZapGov).
+func (z *ZapGovClient) EnviarMidia(telefone, midiaURL, mime string) (string, error) {
+	return z.enviar(map[string]any{
+		"telefone":   telefone,
+		"tipo":       "midia",
+		"midia_url":  midiaURL,
+		"midia_mime": mime,
+	})
 }
 
 // EnviarTemplate manda um template aprovado (usado fora da janela de 24h).
-func (z *ZapGovClient) EnviarTemplate(to, nome, template, language string, params []string) (*ResultadoEnvio, error) {
-	if language == "" {
-		language = "pt_BR"
-	}
-	payload := map[string]any{
-		"to": to, "nome": nome, "template": template,
-		"language": language, "params": params,
-	}
-	resp, err := z.postAutenticado("/messages/template", payload)
+func (z *ZapGovClient) EnviarTemplate(telefone, template string, params []string) (string, error) {
+	return z.enviar(map[string]any{
+		"telefone": telefone,
+		"tipo":     "template",
+		"template": template,
+		"params":   params,
+	})
+}
+
+// RelayEncerrar tira a conversa do modo relay: a próxima mensagem da pessoa
+// volta a cair no menu do bot. Chamado quando o chamado é fechado no SIGE.
+func (z *ZapGovClient) RelayEncerrar(telefone string) error {
+	resp, err := z.post("/v1/relay/encerrar", map[string]any{"telefone": telefone})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		raw, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("template falhou (%d): %s", resp.StatusCode, string(raw))
+		return fmt.Errorf("relay/encerrar falhou (%d): %s", resp.StatusCode, string(raw))
 	}
-	var r ResultadoEnvio
-	_ = json.NewDecoder(resp.Body).Decode(&r)
-	return &r, nil
+	return nil
 }

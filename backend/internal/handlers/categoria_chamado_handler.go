@@ -16,10 +16,11 @@ func NewCategoriaChamadoHandler(svc *services.CategoriaChamadoService) *Categori
 }
 
 type categoriaChamadoRequest struct {
-	Nome      string `json:"nome"`
-	Descricao string `json:"descricao"`
-	Ordem     int    `json:"ordem"`
-	Ativo     *bool  `json:"ativo"`
+	Nome            string   `json:"nome"`
+	Descricao       string   `json:"descricao"`
+	Ordem           int      `json:"ordem"`
+	Ativo           *bool    `json:"ativo"`
+	ChecklistPadrao []string `json:"checklist_padrao"`
 }
 
 func (r categoriaChamadoRequest) toEntrada() services.EntradaCategoriaChamado {
@@ -28,10 +29,11 @@ func (r categoriaChamadoRequest) toEntrada() services.EntradaCategoriaChamado {
 		ativo = *r.Ativo
 	}
 	return services.EntradaCategoriaChamado{
-		Nome:      r.Nome,
-		Descricao: r.Descricao,
-		Ordem:     r.Ordem,
-		Ativo:     ativo,
+		Nome:            r.Nome,
+		Descricao:       r.Descricao,
+		Ordem:           r.Ordem,
+		Ativo:           ativo,
+		ChecklistPadrao: r.ChecklistPadrao,
 	}
 }
 

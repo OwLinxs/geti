@@ -18,10 +18,22 @@ func NewCategoriaChamadoService(repo repositories.CategoriaChamadoRepository) *C
 }
 
 type EntradaCategoriaChamado struct {
-	Nome      string
-	Descricao string
-	Ordem     int
-	Ativo     bool
+	Nome            string
+	Descricao       string
+	Ordem           int
+	Ativo           bool
+	ChecklistPadrao []string
+}
+
+// normalizarChecklist limpa itens vazios e espaços do modelo de checklist.
+func normalizarChecklist(itens []string) []string {
+	out := make([]string, 0, len(itens))
+	for _, it := range itens {
+		if t := strings.TrimSpace(it); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 func (s *CategoriaChamadoService) validar(in EntradaCategoriaChamado) error {
@@ -40,10 +52,11 @@ func (s *CategoriaChamadoService) Criar(in EntradaCategoriaChamado) (*models.Cat
 		return nil, err
 	}
 	c := &models.CategoriaChamado{
-		Nome:      strings.TrimSpace(in.Nome),
-		Descricao: strings.TrimSpace(in.Descricao),
-		Ordem:     in.Ordem,
-		Ativo:     in.Ativo,
+		Nome:            strings.TrimSpace(in.Nome),
+		Descricao:       strings.TrimSpace(in.Descricao),
+		Ordem:           in.Ordem,
+		Ativo:           in.Ativo,
+		ChecklistPadrao: normalizarChecklist(in.ChecklistPadrao),
 	}
 	if err := s.repo.Criar(c); err != nil {
 		return nil, err
@@ -63,6 +76,7 @@ func (s *CategoriaChamadoService) Atualizar(id uint, in EntradaCategoriaChamado)
 	c.Descricao = strings.TrimSpace(in.Descricao)
 	c.Ordem = in.Ordem
 	c.Ativo = in.Ativo
+	c.ChecklistPadrao = normalizarChecklist(in.ChecklistPadrao)
 	if err := s.repo.Atualizar(c); err != nil {
 		return nil, err
 	}

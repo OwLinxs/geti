@@ -134,6 +134,7 @@ export interface CategoriaChamado extends Base {
   descricao?: string;
   ordem: number;
   ativo: boolean;
+  checklist_padrao?: string[];
 }
 
 export interface CategoriaChamadoPayload {
@@ -141,6 +142,7 @@ export interface CategoriaChamadoPayload {
   descricao?: string;
   ordem?: number;
   ativo?: boolean;
+  checklist_padrao?: string[];
 }
 
 export interface OrdemServico extends Base {
