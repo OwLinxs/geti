@@ -1,5 +1,12 @@
 # API de Integração — Chamados / Kanban de Manutenção (SIGE-TI)
 
+> **Integração de WhatsApp:** o fluxo específico do gateway ZapGov (abertura por
+> webhook, chat, "Retomar chamado", janela de 24h, status de entrega) vive em
+> **[INTEGRACAO_ZAPGOV.md](INTEGRACAO_ZAPGOV.md)**. Este documento cobre os
+> endpoints **genéricos** de sincronização de chamados (`/api/v1/integracao`).
+> O antigo `POST /integracao/mensagens` foi substituído pelo webhook
+> `POST /integracao/zapgov/eventos`.
+
 API para sistemas externos (ex.: plataforma de WhatsApp) criarem, atualizarem,
 lerem e moverem chamados técnicos, que aparecem no **Kanban de Manutenção** do
 SIGE-TI. Um "chamado" é uma **Ordem de Serviço (OS)**.

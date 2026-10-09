@@ -74,7 +74,7 @@ func ExecutarBase(ct *container.Container) (bool, error) {
 		return false, err
 	}
 
-	// 2) Categorias patrimoniadas (controle unitário, exigem patrimônio).
+	// 2) Categorias de bens permanentes (controle unitário; patrimônio posterior).
 	categoriasPatrimoniadas := []services.EntradaCategoria{
 		{Nome: "Desktop", Descricao: "Computadores de mesa"},
 		{Nome: "Notebook", Descricao: "Computadores portáteis"},

@@ -18,7 +18,7 @@ func CSVItens(itens []models.Item) ([]byte, error) {
 	w.Comma = ';'
 
 	cabecalho := []string{
-		"ID", "Descricao", "Categoria", "Patrimonio", "Serie", "Marca", "Modelo",
+		"ID", "Codigo TI", "Lote", "Descricao", "Categoria", "Patrimonio", "Serie", "Marca", "Modelo",
 		"Estado", "Quantidade", "Estoque Minimo", "Setor", "Responsavel",
 		"Valor", "Baixado",
 	}
@@ -29,6 +29,8 @@ func CSVItens(itens []models.Item) ([]byte, error) {
 	for _, i := range itens {
 		linha := []string{
 			strconv.FormatUint(uint64(i.ID), 10),
+			codigoInterno(i.ID),
+			i.LoteCodigo,
 			i.Descricao,
 			nomeCategoria(&i),
 			derefStr(i.NumeroPatrimonio),
@@ -52,6 +54,10 @@ func CSVItens(itens []models.Item) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func codigoInterno(id uint) string {
+	return fmt.Sprintf("TI-%06d", id)
 }
 
 // CSVMovimentacoes gera um CSV do histórico de movimentações.

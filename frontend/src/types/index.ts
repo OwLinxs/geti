@@ -56,6 +56,7 @@ export interface Item extends Base {
   categoria?: Categoria | null;
   numero_patrimonio?: string | null;
   numero_serie?: string | null;
+  lote_codigo?: string;
   marca: string;
   modelo: string;
   estado_conservacao: EstadoConservacao;

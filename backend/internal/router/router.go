@@ -159,6 +159,7 @@ func registrarItens(g *gin.RouterGroup, ct *container.Container) {
 	i.GET("/alertas/estoque-baixo", ct.ItemHandler.AlertasEstoqueBaixo)
 	// Importação em massa via CSV (operador e administrador).
 	i.GET("/modelo-csv", ct.ItemHandler.ModeloCSV)
+	i.POST("/lote", ct.ItemHandler.CriarLote)
 	i.POST("/importar", ct.ItemHandler.Importar)
 	i.GET("/:id", ct.ItemHandler.BuscarPorID)
 	i.GET("/:id/historico", ct.ItemHandler.Historico)

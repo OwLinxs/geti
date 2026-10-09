@@ -47,7 +47,7 @@ func (r *movimentacaoRepository) CriarComTx(tx *gorm.DB, m *models.Movimentacao)
 
 func (r *movimentacaoRepository) preloads(q *gorm.DB) *gorm.DB {
 	return q.
-		Preload("Item").
+		Preload("Item.Categoria").
 		Preload("SetorOrigem").
 		Preload("SetorDestino").
 		Preload("Servidor").

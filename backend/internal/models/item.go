@@ -25,10 +25,10 @@ func EstadoConservacaoValido(e EstadoConservacao) bool {
 	return false
 }
 
-// Item representa tanto bens patrimoniados (com nº de patrimônio, controle
+// Item representa tanto bens permanentes (controle
 // unitário) quanto materiais de consumo (controle por quantidade/estoque
-// mínimo). A distinção vem da Categoria.Consumivel e da presença de
-// NumeroPatrimonio.
+// mínimo). A distinção vem da Categoria.Consumivel; o número oficial de
+// patrimônio pode ser preenchido depois do recebimento.
 //
 // Regras de estoque:
 //   - Consumível: Quantidade reflete o saldo atual; EstoqueMinimo dispara
@@ -48,8 +48,11 @@ type Item struct {
 	// Identificação patrimonial (opcionais para consumíveis).
 	NumeroPatrimonio *string `gorm:"size:60;uniqueIndex" json:"numero_patrimonio,omitempty"`
 	NumeroSerie      *string `gorm:"size:80;index" json:"numero_serie,omitempty"`
-	Marca            string  `gorm:"size:80" json:"marca"`
-	Modelo           string  `gorm:"size:80" json:"modelo"`
+	// LoteCodigo agrupa unidades cadastradas no mesmo recebimento. O código
+	// interno de cada unidade é derivado do ID, independentemente do tombamento.
+	LoteCodigo string `gorm:"size:40;index" json:"lote_codigo,omitempty"`
+	Marca      string `gorm:"size:80" json:"marca"`
+	Modelo     string `gorm:"size:80" json:"modelo"`
 
 	EstadoConservacao EstadoConservacao `gorm:"size:20;not null;default:bom;index" json:"estado_conservacao"`
 

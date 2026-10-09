@@ -126,7 +126,7 @@ export function ItemForm({
     if (!form.descricao.trim())
       novosErros.descricao = "Informe a descrição do item.";
     if (!form.categoria_id) novosErros.categoria_id = "Selecione a categoria.";
-    const qtd = Number(form.quantidade);
+    const qtd = ehConsumivel ? Number(form.quantidade) : 1;
     if (Number.isNaN(qtd) || qtd < 0)
       novosErros.quantidade = "Quantidade inválida.";
     const min = Number(form.estoque_minimo);
@@ -247,7 +247,7 @@ export function ItemForm({
           {!ehConsumivel && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
-                label="Nº de patrimônio"
+                label="Nº de patrimônio (preencher após tombamento)"
                 htmlFor="patrimonio"
                 erro={erros.numero_patrimonio}
               >
@@ -287,7 +287,7 @@ export function ItemForm({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
-              label={ehConsumivel ? "Quantidade em estoque" : "Quantidade"}
+              label={ehConsumivel ? "Quantidade em estoque" : "Unidade individual"}
               htmlFor="quantidade"
               obrigatorio={!item}
               erro={erros.quantidade}
@@ -296,9 +296,9 @@ export function ItemForm({
                 id="quantidade"
                 type="number"
                 min={0}
-                value={form.quantidade}
+                value={ehConsumivel ? form.quantidade : "1"}
                 onChange={(e) => set("quantidade", e.target.value)}
-                disabled={!!item}
+                disabled={!!item || !ehConsumivel}
               />
             </FormField>
             <FormField
@@ -345,6 +345,7 @@ export function ItemForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="Departamento / localização">
               <Select
+                disabled={!!item && !ehConsumivel}
                 value={form.setor_id ? String(form.setor_id) : SEM}
                 onValueChange={(v) =>
                   set("setor_id", v === SEM ? null : Number(v))
@@ -367,6 +368,7 @@ export function ItemForm({
 
             <FormField label="Servidor responsável">
               <Select
+                disabled={!!item && !ehConsumivel}
                 value={
                   form.responsavel_id ? String(form.responsavel_id) : SEM
                 }
@@ -388,6 +390,12 @@ export function ItemForm({
               </Select>
             </FormField>
           </div>
+
+          {!!item && !ehConsumivel && (
+            <p className="text-xs text-muted-foreground">
+              Para mudar o departamento ou responsável deste bem, use Movimentar na tela de detalhes. A mudança ficará no histórico.
+            </p>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="Data de aquisição" htmlFor="data_aquisicao">

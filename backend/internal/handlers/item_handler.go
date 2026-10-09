@@ -88,6 +88,9 @@ func (h *ItemHandler) Listar(c *gin.Context) {
 		ResponsavelID: queryUint(c, "responsavel_id"),
 		Pagina:        queryInt(c, "pagina", 1),
 		TamanhoPagina: queryInt(c, "tamanho", 20),
+		LoteCodigo:    c.Query("lote"),
+		SemPatrimonio: c.Query("sem_patrimonio") == "true",
+		SemSetor:      c.Query("sem_setor") == "true",
 	}
 	if estado := c.Query("estado"); estado != "" {
 		e := models.EstadoConservacao(estado)
@@ -112,6 +115,23 @@ func (h *ItemHandler) Listar(c *gin.Context) {
 		"pagina":  f.Pagina,
 		"tamanho": f.TamanhoPagina,
 	})
+}
+
+func (h *ItemHandler) CriarLote(c *gin.Context) {
+	var req struct {
+		itemRequest
+		Unidades int `json:"unidades"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+	resultado, err := h.svc.CriarLote(req.itemRequest.toEntrada(), req.Unidades)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, resultado)
 }
 
 func (h *ItemHandler) Criar(c *gin.Context) {

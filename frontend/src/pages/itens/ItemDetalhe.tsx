@@ -23,6 +23,7 @@ import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useReferencias } from "@/hooks/useReferencias";
 import { formatarData, formatarMoeda } from "@/lib/format";
+import { codigoInterno } from "@/lib/patrimonio";
 import type { Item, Movimentacao, TipoMovimentacao } from "@/types";
 
 export default function ItemDetalhe() {
@@ -79,6 +80,7 @@ export default function ItemDetalhe() {
 
   const alerta =
     item.estoque_minimo > 0 && item.quantidade < item.estoque_minimo;
+  const bemPermanente = !item.categoria?.consumivel;
 
   return (
     <div>
@@ -93,10 +95,10 @@ export default function ItemDetalhe() {
 
       <PageHeader
         titulo={item.descricao}
-        descricao={item.categoria?.nome}
+        descricao={`${item.categoria?.nome ?? "Item"} · ${codigoInterno(item.id)}`}
         acao={
           <>
-            {!item.baixado && (
+            {!item.baixado && !bemPermanente && (
               <Button onClick={() => abrirMovimentacao("entrada_compra")}>
                 <PlusCircle className="h-4 w-4" /> Adicionar estoque
               </Button>
@@ -139,13 +141,15 @@ export default function ItemDetalhe() {
             <CardTitle className="text-base">Dados do item</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <Campo rotulo="Código interno">{codigoInterno(item.id)}</Campo>
+            {item.lote_codigo && <Campo rotulo="Lote de recebimento">{item.lote_codigo}</Campo>}
             <Campo rotulo="Estado">
               <EstadoBadge estado={item.estado_conservacao} />
             </Campo>
             <Campo rotulo="Quantidade">
               <span className="flex items-center gap-2">
                 {item.quantidade}
-                {!item.baixado && (
+                {!item.baixado && !bemPermanente && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -159,15 +163,15 @@ export default function ItemDetalhe() {
                 )}
               </span>
             </Campo>
-            <Campo rotulo="Estoque mínimo">{item.estoque_minimo}</Campo>
+            {!bemPermanente && <Campo rotulo="Estoque mínimo">{item.estoque_minimo}</Campo>}
             <Campo rotulo="Nº patrimônio">
-              {item.numero_patrimonio ?? "—"}
+              {item.numero_patrimonio ?? "Aguardando tombamento"}
             </Campo>
             <Campo rotulo="Nº série">{item.numero_serie ?? "—"}</Campo>
             <Campo rotulo="Marca / modelo">
               {[item.marca, item.modelo].filter(Boolean).join(" · ") || "—"}
             </Campo>
-            <Campo rotulo="Departamento">{item.setor?.nome ?? "—"}</Campo>
+            <Campo rotulo="Departamento">{item.setor?.nome ?? "Local pendente"}</Campo>
             <Campo rotulo="Responsável">
               {item.responsavel
                 ? `${item.responsavel.nome} (${item.responsavel.matricula})`
@@ -203,7 +207,7 @@ export default function ItemDetalhe() {
           setEditAberto(false);
           carregar();
         }}
-        onRegistrarEntrada={() => {
+        onRegistrarEntrada={bemPermanente ? undefined : () => {
           setEditAberto(false);
           abrirMovimentacao("entrada_compra");
         }}

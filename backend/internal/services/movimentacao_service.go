@@ -72,7 +72,7 @@ func (s *MovimentacaoService) Registrar(in EntradaMovimentacao) (*ResultadoMovim
 		var item models.Item
 		// Bloqueio pessimista quando suportado (no SQLite é no-op, mas a
 		// limitação a 1 conexão de escrita já serializa as gravações).
-		if err := tx.First(&item, in.ItemID).Error; err != nil {
+		if err := tx.Preload("Categoria").First(&item, in.ItemID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrNaoEncontrado
 			}
@@ -82,6 +82,16 @@ func (s *MovimentacaoService) Registrar(in EntradaMovimentacao) (*ResultadoMovim
 		// Item já baixado não aceita novas movimentações.
 		if item.Baixado {
 			return ErrItemBaixado
+		}
+		if item.Categoria != nil && !item.Categoria.Consumivel {
+			if in.Quantidade != 1 {
+				ev := NovoErroValidacao()
+				ev.Add("quantidade", "A movimentação de um bem permanente deve ser de uma unidade.")
+				return ev
+			}
+			if in.Tipo == models.MovEntradaCompra || in.Tipo == models.MovEntradaDoacao {
+				return fmt.Errorf("%w: cadastre uma nova unidade em Itens", ErrRegraNegocio)
+			}
 		}
 
 		novoSaldo, err := s.calcularNovoSaldo(&item, in.Tipo, in.Quantidade)
@@ -99,11 +109,11 @@ func (s *MovimentacaoService) Registrar(in EntradaMovimentacao) (*ResultadoMovim
 			Tipo:             in.Tipo,
 			Quantidade:       in.Quantidade,
 			SaldoResultante:  novoSaldo,
-			SetorOrigemID:    in.SetorOrigemID,
+			SetorOrigemID:    origemDaMovimentacao(&item, in.SetorOrigemID),
 			SetorDestinoID:   in.SetorDestinoID,
 			ServidorID:       in.ServidorID,
 			RegistradoPorID:  in.RegistradoPorID,
-			OrigemDescricao:  s.descreverSetor(tx, in.SetorOrigemID),
+			OrigemDescricao:  s.descreverSetor(tx, origemDaMovimentacao(&item, in.SetorOrigemID)),
 			DestinoDescricao: s.descreverSetor(tx, in.SetorDestinoID),
 			Observacao:       strings.TrimSpace(in.Observacao),
 			DataEvento:       dataEvento,
@@ -165,9 +175,24 @@ func (s *MovimentacaoService) Registrar(in EntradaMovimentacao) (*ResultadoMovim
 	return &resultado, nil
 }
 
+func origemDaMovimentacao(item *models.Item, informada *uint) *uint {
+	if item.Categoria != nil && !item.Categoria.Consumivel {
+		return item.SetorID
+	}
+	return informada
+}
+
 // calcularNovoSaldo aplica a regra central: entradas somam, saídas subtraem,
 // e saída nunca pode exceder o estoque disponível.
 func (s *MovimentacaoService) calcularNovoSaldo(item *models.Item, tipo models.TipoMovimentacao, qtd int) (int, error) {
+	if item.Categoria != nil && !item.Categoria.Consumivel {
+		if tipo.EhBaixa() {
+			return 0, nil
+		}
+		// Transferência, empréstimo e devolução mudam custódia, não consomem
+		// a unidade. Também normaliza saldos antigos zerados por transferência.
+		return 1, nil
+	}
 	if tipo.EhEntrada() {
 		return item.Quantidade + qtd, nil
 	}

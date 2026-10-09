@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/pmfb/sige-ti/internal/models"
@@ -18,12 +19,16 @@ type FiltroItem struct {
 	SomenteBaixados *bool // nil = todos; true = só baixados; false = só ativos
 	AbaixoDoMinimo  bool  // true = só consumíveis em alerta de estoque
 	Reservavel      *bool // nil = todos; true = só reserváveis
+	LoteCodigo      string
+	SemPatrimonio   bool
+	SemSetor        bool
 	Pagina          int
 	TamanhoPagina   int
 }
 
 type ItemRepository interface {
 	Criar(i *models.Item) error
+	CriarLote(itens []models.Item) error
 	BuscarPorID(id uint) (*models.Item, error)
 	Listar(f FiltroItem) ([]models.Item, int64, error)
 	Atualizar(i *models.Item) error
@@ -51,6 +56,12 @@ func (r *itemRepository) Criar(i *models.Item) error {
 	return r.db.Create(i).Error
 }
 
+func (r *itemRepository) CriarLote(itens []models.Item) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		return tx.CreateInBatches(&itens, 50).Error
+	})
+}
+
 func (r *itemRepository) BuscarPorID(id uint) (*models.Item, error) {
 	var i models.Item
 	if err := r.preloads(r.db).First(&i, id).Error; err != nil {
@@ -66,12 +77,27 @@ func (r *itemRepository) Listar(f FiltroItem) ([]models.Item, int64, error) {
 	q := r.db.Model(&models.Item{})
 
 	if f.Texto != "" {
-		// LOWER(...) para busca case-insensitive portável (SQLite e PostgreSQL).
-		like := "%" + strings.ToLower(f.Texto) + "%"
-		q = q.Where(
-			"LOWER(descricao) LIKE ? OR LOWER(numero_patrimonio) LIKE ? OR LOWER(numero_serie) LIKE ? OR LOWER(marca) LIKE ? OR LOWER(modelo) LIKE ?",
-			like, like, like, like, like,
-		)
+		busca := strings.ToUpper(strings.TrimSpace(f.Texto))
+		id, err := strconv.ParseUint(strings.TrimPrefix(busca, "TI-"), 10, 64)
+		if strings.HasPrefix(busca, "TI-") && err == nil && id > 0 {
+			q = q.Where("id = ?", id)
+		} else {
+			// LOWER(...) para busca case-insensitive portável (SQLite e PostgreSQL).
+			like := "%" + strings.ToLower(f.Texto) + "%"
+			q = q.Where(
+				"LOWER(descricao) LIKE ? OR LOWER(numero_patrimonio) LIKE ? OR LOWER(numero_serie) LIKE ? OR LOWER(marca) LIKE ? OR LOWER(modelo) LIKE ?",
+				like, like, like, like, like,
+			)
+		}
+	}
+	if f.LoteCodigo != "" {
+		q = q.Where("lote_codigo = ?", f.LoteCodigo)
+	}
+	if f.SemPatrimonio {
+		q = q.Where("numero_patrimonio IS NULL AND categoria_id IN (SELECT id FROM categorias WHERE consumivel = ?)", false)
+	}
+	if f.SemSetor {
+		q = q.Where("setor_id IS NULL AND categoria_id IN (SELECT id FROM categorias WHERE consumivel = ?)", false)
 	}
 	if f.CategoriaID != nil {
 		q = q.Where("categoria_id = ?", *f.CategoriaID)

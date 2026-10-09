@@ -218,8 +218,29 @@ export interface FiltroItens {
   estado?: string;
   baixado?: boolean;
   abaixo_minimo?: boolean;
+  lote?: string;
+  sem_patrimonio?: boolean;
+  sem_setor?: boolean;
   pagina?: number;
   tamanho?: number;
+}
+
+export interface LoteItensPayload {
+  descricao: string;
+  categoria_id: number;
+  marca: string;
+  modelo: string;
+  estado_conservacao: Item["estado_conservacao"];
+  unidades: number;
+  setor_id?: number | null;
+  data_aquisicao?: string | null;
+  valor?: number | null;
+}
+
+export interface ResultadoLoteItens {
+  lote_codigo: string;
+  quantidade: number;
+  ids: number[];
 }
 
 export const itensApi = {
@@ -230,6 +251,8 @@ export const itensApi = {
   buscarPorId: (id: number) =>
     api.get<Item>(`/itens/${id}`).then((r) => r.data),
   criar: (p: ItemPayload) => api.post<Item>("/itens", p).then((r) => r.data),
+  criarLote: (p: LoteItensPayload) =>
+    api.post<ResultadoLoteItens>("/itens/lote", p).then((r) => r.data),
   atualizar: (id: number, p: ItemPayload) =>
     api.put<Item>(`/itens/${id}`, p).then((r) => r.data),
   historico: (id: number) =>

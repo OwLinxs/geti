@@ -97,7 +97,7 @@ export function MovimentacaoForm({
       setItemId(itemFixo?.id ?? null);
       setTipo(tipoInicial ?? "");
       setQuantidade("1");
-      setSetorOrigem(SEM);
+      setSetorOrigem(itemFixo?.setor_id ? String(itemFixo.setor_id) : SEM);
       setSetorDestino(SEM);
       setServidorId(SEM);
       setObservacao("");
@@ -107,6 +107,7 @@ export function MovimentacaoForm({
   }, [aberto, itemFixo, tipoInicial]);
 
   const itemAtual = itemFixo ?? itens?.find((i) => i.id === itemId) ?? null;
+  const bemPermanente = itemAtual?.categoria?.consumivel === false;
   const entrada = tipo ? ehEntrada(tipo) : false;
   const baixa = tipo ? ehBaixa(tipo) : false;
 
@@ -119,7 +120,7 @@ export function MovimentacaoForm({
     if (Number.isNaN(qtd) || qtd <= 0)
       novosErros.quantidade = "Informe uma quantidade maior que zero.";
     if (
-      !entrada &&
+      !entrada && !bemPermanente &&
       itemAtual &&
       qtd > itemAtual.quantidade
     ) {
@@ -127,6 +128,8 @@ export function MovimentacaoForm({
     }
     if (baixa && !motivoBaixa.trim())
       novosErros.motivo_baixa = "Informe o motivo da baixa.";
+    if (tipo === "saida_transferencia" && setorDestino === SEM)
+      novosErros.setor_destino_id = "Informe o departamento de destino.";
     if (Object.keys(novosErros).length) {
       setErros(novosErros);
       return;
@@ -185,7 +188,7 @@ export function MovimentacaoForm({
                 {itemFixo.descricao}
               </span>{" "}
               <span className="text-muted-foreground">
-                (estoque atual: {itemFixo.quantidade})
+                {bemPermanente ? "(bem individual)" : `(estoque atual: ${itemFixo.quantidade})`}
               </span>
             </div>
           ) : (
@@ -219,7 +222,7 @@ export function MovimentacaoForm({
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIPOS_ENTRADA.map((t) => (
+                  {TIPOS_ENTRADA.filter((t) => !bemPermanente || t.valor === "entrada_devolucao").map((t) => (
                     <SelectItem key={t.valor} value={t.valor}>
                       {t.rotulo}
                     </SelectItem>
@@ -234,7 +237,7 @@ export function MovimentacaoForm({
             </FormField>
 
             <FormField
-              label="Quantidade"
+              label={bemPermanente ? "Unidade" : "Quantidade"}
               htmlFor="qtd_mov"
               obrigatorio
               erro={erros.quantidade}
@@ -243,8 +246,9 @@ export function MovimentacaoForm({
                 id="qtd_mov"
                 type="number"
                 min={1}
-                value={quantidade}
+                value={bemPermanente ? "1" : quantidade}
                 onChange={(e) => setQuantidade(e.target.value)}
+                disabled={bemPermanente}
               />
             </FormField>
           </div>
@@ -267,7 +271,7 @@ export function MovimentacaoForm({
               </Select>
             </FormField>
 
-            <FormField label="Departamento de destino">
+            <FormField label="Departamento de destino" obrigatorio={tipo === "saida_transferencia"} erro={erros.setor_destino_id}>
               <Select value={setorDestino} onValueChange={setSetorDestino}>
                 <SelectTrigger>
                   <SelectValue placeholder="Opcional" />

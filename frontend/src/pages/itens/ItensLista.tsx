@@ -27,7 +27,9 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { ItemForm } from "./ItemForm";
 import { ImportarItensDialog } from "@/components/ImportarItensDialog";
+import { CadastrarLoteDialog } from "@/components/CadastrarLoteDialog";
 import { itensApi, type FiltroItens } from "@/services/api";
+import { codigoInterno } from "@/lib/patrimonio";
 import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,9 +57,12 @@ export default function ItensLista() {
   const [categoriaId, setCategoriaId] = React.useState<string>(TODOS);
   const [setorId, setSetorId] = React.useState<string>(TODOS);
   const [estado, setEstado] = React.useState<string>(TODOS);
+  const [lote, setLote] = React.useState("");
+  const [pendencia, setPendencia] = React.useState<"" | "patrimonio" | "local">("");
 
   const [formAberto, setFormAberto] = React.useState(false);
   const [importarAberto, setImportarAberto] = React.useState(false);
+  const [loteAberto, setLoteAberto] = React.useState(false);
   const [editando, setEditando] = React.useState<Item | null>(null);
 
   // Exclusão (admin): correção de cadastro errado.
@@ -80,6 +85,9 @@ export default function ItensLista() {
       categoria_id: categoriaId !== TODOS ? Number(categoriaId) : undefined,
       setor_id: setorId !== TODOS ? Number(setorId) : undefined,
       estado: estado !== TODOS ? estado : undefined,
+      lote: lote || undefined,
+      sem_patrimonio: pendencia === "patrimonio" ? true : undefined,
+      sem_setor: pendencia === "local" ? true : undefined,
       pagina,
       tamanho: TAMANHO,
     };
@@ -97,13 +105,13 @@ export default function ItensLista() {
         })
       )
       .finally(() => setCarregando(false));
-  }, [busca, categoriaId, setorId, estado, pagina, toast]);
+  }, [busca, categoriaId, setorId, estado, lote, pendencia, pagina, toast]);
 
   React.useEffect(carregar, [carregar]);
 
   const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO));
   const temFiltro =
-    busca || categoriaId !== TODOS || setorId !== TODOS || estado !== TODOS;
+    busca || categoriaId !== TODOS || setorId !== TODOS || estado !== TODOS || lote || pendencia;
 
   function limparFiltros() {
     setTexto("");
@@ -111,6 +119,8 @@ export default function ItensLista() {
     setCategoriaId(TODOS);
     setSetorId(TODOS);
     setEstado(TODOS);
+    setLote("");
+    setPendencia("");
     setPagina(1);
   }
 
@@ -164,6 +174,9 @@ export default function ItensLista() {
             <Button variant="outline" onClick={() => setImportarAberto(true)}>
               <Upload className="h-4 w-4" /> Importar CSV
             </Button>
+            <Button variant="outline" onClick={() => setLoteAberto(true)}>
+              <Plus className="h-4 w-4" /> Receber lote
+            </Button>
             <Button onClick={abrirCriacao}>
               <Plus className="h-4 w-4" /> Novo item
             </Button>
@@ -177,7 +190,7 @@ export default function ItensLista() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
-              placeholder="Buscar por descrição, patrimônio, série, marca..."
+              placeholder="Buscar por descrição, código TI, patrimônio, série..."
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
             />
@@ -251,6 +264,16 @@ export default function ItensLista() {
         </CardContent>
       </Card>
 
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button size="sm" variant={pendencia === "patrimonio" ? "default" : "outline"} onClick={() => { setPendencia(pendencia === "patrimonio" ? "" : "patrimonio"); setPagina(1); }}>
+          Sem patrimônio
+        </Button>
+        <Button size="sm" variant={pendencia === "local" ? "default" : "outline"} onClick={() => { setPendencia(pendencia === "local" ? "" : "local"); setPagina(1); }}>
+          Sem local definido
+        </Button>
+        {lote && <Badge variant="secondary">Lote {lote} <button className="ml-2" onClick={() => { setLote(""); setPagina(1); }} aria-label="Limpar lote">×</button></Badge>}
+      </div>
+
       <Card>
         <CardContent className="p-0">
           {carregando ? (
@@ -291,6 +314,9 @@ export default function ItensLista() {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           {item.descricao}
+                          {!item.categoria?.consumivel && !item.numero_patrimonio && !item.baixado && (
+                            <Badge variant="warning">Aguardando patrimônio</Badge>
+                          )}
                           {item.baixado && (
                             <Badge variant="muted">Baixado</Badge>
                           )}
@@ -302,13 +328,14 @@ export default function ItensLista() {
                               .join(" · ")}
                           </p>
                         )}
+                        <p className="text-xs font-medium text-muted-foreground">{codigoInterno(item.id)}</p>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {item.categoria?.nome ?? "—"}
                       </TableCell>
-                      <TableCell>{item.numero_patrimonio ?? "—"}</TableCell>
+                      <TableCell>{item.numero_patrimonio ?? "Pendente"}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {item.setor?.nome ?? "—"}
+                        {item.setor?.nome ?? "Local pendente"}
                       </TableCell>
                       <TableCell className="text-center">
                         <span
@@ -413,6 +440,16 @@ export default function ItensLista() {
         aberto={importarAberto}
         onFechar={() => setImportarAberto(false)}
         onConcluido={carregar}
+      />
+      <CadastrarLoteDialog
+        aberto={loteAberto}
+        categorias={categorias}
+        setores={setores}
+        onFechar={() => setLoteAberto(false)}
+        onCriado={(res) => {
+          setTexto(""); setBusca(""); setCategoriaId(TODOS); setSetorId(TODOS);
+          setEstado(TODOS); setPendencia(""); setLote(res.lote_codigo); setPagina(1);
+        }}
       />
 
       <ConfirmDialog

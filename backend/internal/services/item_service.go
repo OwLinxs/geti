@@ -1,7 +1,10 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -75,7 +78,7 @@ func (s *ItemService) Criar(in EntradaItem) (*models.Item, error) {
 		Valor:             in.Valor,
 		Reservavel:        in.Reservavel,
 	}
-	// Patrimoniados têm controle unitário: padroniza quantidade mínima 1.
+	// Bens permanentes têm controle unitário, inclusive antes do tombamento.
 	if !categoria.Consumivel && item.Quantidade == 0 {
 		item.Quantidade = 1
 	}
@@ -86,6 +89,59 @@ func (s *ItemService) Criar(in EntradaItem) (*models.Item, error) {
 	return s.repo.BuscarPorID(item.ID)
 }
 
+// ResultadoLote identifica um recebimento e as unidades criadas nele.
+type ResultadoLote struct {
+	LoteCodigo string `json:"lote_codigo"`
+	Quantidade int    `json:"quantidade"`
+	IDs        []uint `json:"ids"`
+}
+
+// CriarLote cadastra unidades permanentes individualmente em uma transação.
+func (s *ItemService) CriarLote(in EntradaItem, unidades int) (*ResultadoLote, error) {
+	ev := NovoErroValidacao()
+	if unidades < 1 || unidades > 200 {
+		ev.Add("unidades", "Informe de 1 a 200 unidades por lote.")
+	}
+	if in.NumeroPatrimonio != nil || in.NumeroSerie != nil {
+		ev.Add("unidades", "Patrimônio e série devem ser preenchidos em cada unidade após o cadastro.")
+	}
+	if ev.TemErros() {
+		return nil, ev
+	}
+	in.Quantidade = 1
+	in.EstoqueMinimo = 0
+	categoria, err := s.validar(in)
+	if err != nil {
+		return nil, err
+	}
+	if categoria.Consumivel {
+		ev.Add("categoria_id", "O cadastro em lote individual é para bens permanentes.")
+		return nil, ev
+	}
+	aleatorio := make([]byte, 8)
+	if _, err := rand.Read(aleatorio); err != nil {
+		return nil, err
+	}
+	lote := fmt.Sprintf("REC-%s-%s", time.Now().UTC().Format("20060102"), hex.EncodeToString(aleatorio))
+	itens := make([]models.Item, unidades)
+	for i := range itens {
+		itens[i] = models.Item{
+			Descricao: strings.TrimSpace(in.Descricao), CategoriaID: in.CategoriaID,
+			LoteCodigo: lote, Marca: strings.TrimSpace(in.Marca), Modelo: strings.TrimSpace(in.Modelo),
+			EstadoConservacao: in.EstadoConservacao, Quantidade: 1, SetorID: in.SetorID,
+			DataAquisicao: in.DataAquisicao, Valor: in.Valor,
+		}
+	}
+	if err := s.repo.CriarLote(itens); err != nil {
+		return nil, err
+	}
+	ids := make([]uint, len(itens))
+	for i := range itens {
+		ids[i] = itens[i].ID
+	}
+	return &ResultadoLote{LoteCodigo: lote, Quantidade: unidades, IDs: ids}, nil
+}
+
 func (s *ItemService) Atualizar(id uint, in EntradaItem) (*models.Item, error) {
 	item, err := s.repo.BuscarPorID(id)
 	if err != nil {
@@ -94,8 +150,14 @@ func (s *ItemService) Atualizar(id uint, in EntradaItem) (*models.Item, error) {
 	if item.Baixado {
 		return nil, ErrItemBaixado
 	}
-	if _, err := s.validar(in); err != nil {
+	categoria, err := s.validar(in)
+	if err != nil {
 		return nil, err
+	}
+	if !categoria.Consumivel && (!mesmoID(item.SetorID, in.SetorID) || !mesmoID(item.ResponsavelID, in.ResponsavelID)) {
+		ev := NovoErroValidacao()
+		ev.Add("setor_id", "Para mudar o local ou responsável de um bem permanente, registre uma movimentação.")
+		return nil, ev
 	}
 
 	item.Descricao = strings.TrimSpace(in.Descricao)
@@ -118,6 +180,13 @@ func (s *ItemService) Atualizar(id uint, in EntradaItem) (*models.Item, error) {
 		return nil, err
 	}
 	return s.repo.BuscarPorID(item.ID)
+}
+
+func mesmoID(a, b *uint) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 // DefinirReservavel marca/desmarca o item como reservável (pool de reservas).
@@ -234,11 +303,9 @@ func (s *ItemService) validar(in EntradaItem) (*models.Categoria, error) {
 		}
 	}
 
-	// Regra: item patrimoniado deve ter número de patrimônio.
-	if categoria != nil && !categoria.Consumivel {
-		if normalizarPtr(in.NumeroPatrimonio) == nil {
-			ev.Add("numero_patrimonio", "Itens patrimoniados exigem número de patrimônio.")
-		}
+	// Bens permanentes entram antes do tombamento, sempre como unidades.
+	if categoria != nil && !categoria.Consumivel && in.Quantidade > 1 {
+		ev.Add("quantidade", "Cadastre cada bem permanente separadamente ou use o cadastro em lote.")
 	}
 
 	if ev.TemErros() {

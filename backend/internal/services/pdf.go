@@ -69,6 +69,7 @@ func PDFTermoResponsabilidade(termo *models.TermoResponsabilidade, cfg *config.C
 	linha("Servidor:", termo.ServidorNomeSnapshot)
 	linha("Matrícula:", termo.ServidorMatriculaSnapshot)
 	linha("Equipamento:", termo.ItemDescricaoSnapshot)
+	linha("Código interno:", codigoInterno(termo.ItemID))
 	if termo.PatrimonioSnapshot != "" {
 		linha("Nº Patrimônio:", termo.PatrimonioSnapshot)
 	}
@@ -122,13 +123,14 @@ func PDFRelatorioItens(titulo string, itens []models.Item, cfg *config.Config) (
 		titulo  string
 		largura float64
 	}{
-		{"Descrição", 70},
-		{"Categoria", 35},
+		{"Código TI", 25},
+		{"Descrição", 60},
+		{"Categoria", 30},
 		{"Patrimônio", 30},
-		{"Estado", 25},
-		{"Qtd", 15},
-		{"Setor", 45},
-		{"Responsável", 45},
+		{"Estado", 20},
+		{"Qtd", 12},
+		{"Setor", 42},
+		{"Responsável", 42},
 	}
 	pdf.SetFont("Helvetica", "B", 8)
 	pdf.SetFillColor(230, 230, 230)
@@ -140,6 +142,7 @@ func PDFRelatorioItens(titulo string, itens []models.Item, cfg *config.Config) (
 	pdf.SetFont("Helvetica", "", 8)
 	for _, i := range itens {
 		vals := []string{
+			codigoInterno(i.ID),
 			i.Descricao,
 			nomeCategoria(&i),
 			derefStr(i.NumeroPatrimonio),

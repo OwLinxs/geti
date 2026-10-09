@@ -30,6 +30,7 @@ import { useToast } from "@/components/ui/toast";
 import { useReferencias } from "@/hooks/useReferencias";
 import { baixarBlob, formatarData } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { codigoInterno } from "@/lib/patrimonio";
 import type { Item, Movimentacao } from "@/types";
 
 type TipoRelatorio =
@@ -275,6 +276,7 @@ function TabelaItens({ itens }: { itens: Item[] }) {
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead>Código TI</TableHead>
           <TableHead>Descrição</TableHead>
           <TableHead>Categoria</TableHead>
           <TableHead>Patrimônio</TableHead>
@@ -288,11 +290,12 @@ function TabelaItens({ itens }: { itens: Item[] }) {
       <TableBody>
         {itens.map((i) => (
           <TableRow key={i.id}>
+            <TableCell className="font-mono text-xs">{codigoInterno(i.id)}</TableCell>
             <TableCell className="font-medium">{i.descricao}</TableCell>
             <TableCell className="text-muted-foreground">
               {i.categoria?.nome ?? "—"}
             </TableCell>
-            <TableCell>{i.numero_patrimonio ?? "—"}</TableCell>
+            <TableCell>{i.numero_patrimonio ?? "Pendente"}</TableCell>
             <TableCell className="text-muted-foreground">
               {i.setor?.nome ?? "—"}
             </TableCell>

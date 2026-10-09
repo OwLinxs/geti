@@ -43,6 +43,8 @@ export function HistoricoTabela({
       <TableBody>
         {movimentacoes.map((m) => {
           const entrada = ehEntrada(m.tipo);
+          const transferenciaPatrimonial = m.item?.categoria?.consumivel === false &&
+            (m.tipo === "saida_transferencia" || m.tipo === "saida_emprestimo" || m.tipo === "entrada_devolucao");
           return (
             <TableRow key={m.id}>
               <TableCell className="whitespace-nowrap text-muted-foreground">
@@ -70,7 +72,7 @@ export function HistoricoTabela({
                 </span>
               </TableCell>
               <TableCell className="text-center font-medium">
-                {entrada ? "+" : "−"}
+                {transferenciaPatrimonial ? "" : entrada ? "+" : "−"}
                 {m.quantidade}
               </TableCell>
               <TableCell className="text-center text-muted-foreground">

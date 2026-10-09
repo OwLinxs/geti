@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/pmfb/sige-ti/internal/models"
@@ -286,5 +287,76 @@ func TestValidacaoQuantidadeInvalida(t *testing.T) {
 	})
 	if !errors.Is(err, services.ErrValidacao) {
 		t.Fatalf("esperado ErrValidacao para quantidade 0, obtido %v", err)
+	}
+}
+
+func TestLotePatrimonialSemTombamentoETransferencia(t *testing.T) {
+	f := novoAmbiente(t)
+	lote, err := f.itemSvc.CriarLote(services.EntradaItem{
+		Descricao: "Monitor 24 polegadas", CategoriaID: f.catPatr.ID,
+		Marca: "LG", Modelo: "24", EstadoConservacao: models.EstadoNovo,
+	}, 48)
+	if err != nil {
+		t.Fatalf("criar lote: %v", err)
+	}
+	if lote.Quantidade != 48 || len(lote.IDs) != 48 || lote.IDs[0] == 0 || lote.LoteCodigo == "" {
+		t.Fatalf("resultado de lote inesperado: %+v", lote)
+	}
+	var total int64
+	if err := f.db.Model(&models.Item{}).Where("lote_codigo = ? AND numero_patrimonio IS NULL AND setor_id IS NULL AND quantidade = 1", lote.LoteCodigo).Count(&total).Error; err != nil || total != 48 {
+		t.Fatalf("esperadas 48 unidades pendentes, obtidas %d (erro: %v)", total, err)
+	}
+
+	setor := &models.Setor{Nome: "Secretaria de Saúde"}
+	if err := f.db.Create(setor).Error; err != nil {
+		t.Fatal(err)
+	}
+	res, err := f.movSvc.Registrar(services.EntradaMovimentacao{
+		ItemID: lote.IDs[0], Tipo: models.MovSaidaTransferencia,
+		Quantidade: 1, SetorDestinoID: &setor.ID, RegistradoPorID: f.usuario.ID,
+	})
+	if err != nil {
+		t.Fatalf("transferir bem: %v", err)
+	}
+	if res.Item.Quantidade != 1 || res.Movimentacao.SaldoResultante != 1 || res.Item.SetorID == nil || *res.Item.SetorID != setor.ID {
+		t.Fatalf("transferência consumiu unidade ou não atualizou destino: %+v", res.Item)
+	}
+	_, err = f.itemSvc.Atualizar(lote.IDs[0], services.EntradaItem{
+		Descricao: "Monitor 24 polegadas", CategoriaID: f.catPatr.ID,
+		EstadoConservacao: models.EstadoNovo, Quantidade: 1,
+	})
+	if !errors.Is(err, services.ErrValidacao) {
+		t.Fatalf("edição direta do destino deveria ser recusada: %v", err)
+	}
+	patrimonio := "PM-2026-001"
+	_, err = f.itemSvc.Atualizar(lote.IDs[0], services.EntradaItem{
+		Descricao: "Monitor 24 polegadas", CategoriaID: f.catPatr.ID,
+		NumeroPatrimonio: &patrimonio, Marca: "LG", Modelo: "24",
+		EstadoConservacao: models.EstadoNovo, Quantidade: 1, SetorID: &setor.ID,
+	})
+	if err != nil {
+		t.Fatalf("tombar bem após distribuição: %v", err)
+	}
+	var restantes int64
+	if err := f.db.Model(&models.Item{}).Where("lote_codigo = ? AND numero_patrimonio IS NULL", lote.LoteCodigo).Count(&restantes).Error; err != nil || restantes != 47 {
+		t.Fatalf("esperadas 47 unidades ainda sem patrimônio, obtidas %d (erro: %v)", restantes, err)
+	}
+	lista, total, err := repositories.NewItemRepository(f.db).Listar(repositories.FiltroItem{
+		Texto: "TI-" + fmt.Sprintf("%06d", lote.IDs[0]),
+	})
+	if err != nil || total != 1 || len(lista) != 1 || lista[0].ID != lote.IDs[0] {
+		t.Fatalf("busca por código interno falhou: total=%d erro=%v", total, err)
+	}
+}
+
+func TestLoteRecusaConsumoEQuantidadeExcessiva(t *testing.T) {
+	f := novoAmbiente(t)
+	_, err := f.itemSvc.CriarLote(services.EntradaItem{Descricao: "Toner", CategoriaID: f.catCons.ID}, 48)
+	if !errors.Is(err, services.ErrValidacao) {
+		t.Fatalf("lote individual de consumível deveria falhar: %v", err)
+	}
+	_, err = f.itemSvc.Criar(services.EntradaItem{Descricao: "Monitor", CategoriaID: f.catPatr.ID, Quantidade: 48})
+	if !errors.Is(err, services.ErrValidacao) {
+		t.Fatalf("bem permanente com quantidade 48 deveria falhar: %v", err)
 	}
 }
