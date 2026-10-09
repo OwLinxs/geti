@@ -58,8 +58,10 @@ export default function App() {
         ) : (
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/itens" element={<ItensLista />} />
+          <Route path="/itens" element={<ItensLista key="consumo" tipo="consumo" />} />
           <Route path="/itens/:id" element={<ItemDetalhe />} />
+          <Route path="/patrimonio" element={<ItensLista key="patrimonio" tipo="patrimonio" />} />
+          <Route path="/patrimonio/:id" element={<ItemDetalhe />} />
           <Route path="/movimentacoes" element={<Movimentacoes />} />
           <Route path="/manutencao" element={<Manutencao />} />
           <Route path="/manutencao/kanban" element={<KanbanManutencao />} />

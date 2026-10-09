@@ -14,16 +14,16 @@ Como cadastrar equipamentos e registrar movimentações. Leva 5 minutos.
 
 ---
 
-## 2. Cadastrar um item (equipamento ou material)
+## 2. Cadastrar um item de consumo ou um bem patrimonial
 
-Menu **Itens → Novo item**.
+Use **Itens → Novo item** para materiais controlados por quantidade, como mouse, teclado, cabos e toner. Use **Patrimônio → Novo bem** para equipamentos controlados individualmente, como monitores, notebooks e impressoras.
 
-Há dois tipos, e o formulário se ajusta conforme a **categoria** escolhida:
+Cada aba apresenta apenas as categorias do seu tipo:
 
 | Tipo | Exemplos | O que preencher |
 |------|----------|-----------------|
-| **Bem permanente** (controle unitário) | Notebook, Monitor, Impressora | Um cadastro por equipamento. O código interno é gerado pelo SIGE; patrimônio, série, setor e responsável podem ser preenchidos depois. |
-| **Consumo** (controle por quantidade) | Toner, Cabo de rede, Mouse | Categoria + **Quantidade** + **Estoque mínimo** (dispara alerta quando acaba) |
+| **Patrimônio** (controle unitário) | Notebook, Monitor, Impressora | Um cadastro por equipamento. O código interno é gerado pelo SIGE; patrimônio, série, setor e responsável podem ser preenchidos depois. |
+| **Itens** (controle por quantidade) | Toner, Cabo de rede, Mouse | Categoria + **Quantidade** + **Estoque mínimo** (dispara alerta quando acaba) |
 
 Campos principais:
 
@@ -38,7 +38,7 @@ Clique em **Salvar**. Pronto.
 
 ### Receber várias unidades iguais
 
-Em **Itens → Receber lote**, informe a categoria, a descrição e o número de unidades. Por exemplo, para 48 monitores, o sistema cria **48 registros**, cada um com quantidade 1 e código interno próprio. O patrimônio, a série e o destino podem ficar pendentes. Depois do cadastro, baixe a lista de códigos e identifique fisicamente cada monitor para saber qual registro corresponde a cada unidade.
+Em **Patrimônio → Receber lote**, informe a categoria, a descrição e o número de unidades. Por exemplo, para 48 monitores, o sistema cria **48 registros**, cada um com quantidade 1 e código interno próprio. O patrimônio, a série e o destino podem ficar pendentes. Depois do cadastro, baixe a lista de códigos e identifique fisicamente cada monitor para saber qual registro corresponde a cada unidade. Use os filtros **Sem patrimônio** e **Sem local definido** para acompanhar as pendências.
 
 Ao entregar uma unidade, abra seu registro pelo código interno, clique em **Movimentar** e escolha **Transferência** e o departamento de destino. Essa operação registra o histórico sem reduzir a quantidade do bem. Para preencher o número oficial de patrimônio ou a série depois, use **Editar**.
 
@@ -46,7 +46,7 @@ Ao entregar uma unidade, abra seu registro pelo código interno, clique em **Mov
 
 ## 3. Cadastrar MUITOS itens de uma vez (CSV)
 
-Menu **Itens → Importar CSV**.
+Menu **Itens → Importar CSV** para materiais de consumo.
 
 1. Clique em **Baixar modelo** — abre uma planilha com as colunas certas.
 2. Preencha uma linha por item (no Excel/LibreOffice, salve como **CSV**).

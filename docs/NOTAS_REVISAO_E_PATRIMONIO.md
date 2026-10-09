@@ -22,6 +22,7 @@ Chegada de um lote de 48 monitores. Cada monitor precisa ser cadastrado e acompa
 - Manter um registro por unidade de bem permanente, com identificador interno gerado pelo SIGE, distinto do número oficial de patrimônio. Número oficial, série, setor e responsável podem começar vazios.
 - A ação **Receber lote** cria até 200 bens permanentes individuais em uma transação, agrupados por `lote_codigo`, com códigos internos derivados dos IDs (`TI-000001`, etc.). O resultado permite baixar uma lista CSV dos códigos.
 - Patrimônio, série, setor e responsável podem ficar pendentes; filtros da lista mostram bens sem patrimônio, sem setor e por lote.
+- O menu agora separa **Itens** (categorias de consumo, por quantidade) e **Patrimônio** (categorias permanentes, por unidade). A API aceita `tipo=consumo` ou `tipo=patrimonio` para filtrar as listas; o painel mostra as contagens separadas.
 - Transferência, empréstimo e devolução de bem permanente mantêm quantidade 1; descarte baixa a unidade. Mudanças de setor ou responsável por edição direta são recusadas, preservando o histórico da movimentação.
 - CSV e PDF de inventário exibem o código interno. A implementação ainda não cadastra nota fiscal, fornecedor nem localização física mais detalhada que o setor; esses campos dependem da definição do fluxo real de recebimento.
 

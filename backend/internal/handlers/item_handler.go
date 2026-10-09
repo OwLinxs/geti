@@ -96,6 +96,18 @@ func (h *ItemHandler) Listar(c *gin.Context) {
 		e := models.EstadoConservacao(estado)
 		f.Estado = &e
 	}
+	switch c.Query("tipo") {
+	case "consumo":
+		consumivel := true
+		f.Consumivel = &consumivel
+	case "patrimonio":
+		consumivel := false
+		f.Consumivel = &consumivel
+	case "":
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "tipo deve ser consumo ou patrimonio"})
+		return
+	}
 	if c.Query("baixado") != "" {
 		b := c.Query("baixado") == "true"
 		f.SomenteBaixados = &b

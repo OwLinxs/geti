@@ -40,11 +40,17 @@ import type { Item } from "@/types";
 const TODOS = "todos";
 const TAMANHO = 20;
 
-export default function ItensLista() {
+export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" }) {
+  const ehPatrimonio = tipo === "patrimonio";
+  const rotaBase = ehPatrimonio ? "/patrimonio" : "/itens";
   const { toast } = useToast();
   const navigate = useNavigate();
   const { ehAdministrador } = useAuth();
   const { categorias, setores, servidores } = useReferencias();
+  const categoriasDaAba = React.useMemo(
+    () => categorias.filter((c) => c.consumivel !== ehPatrimonio),
+    [categorias, ehPatrimonio]
+  );
 
   const [itens, setItens] = React.useState<Item[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -81,6 +87,7 @@ export default function ItensLista() {
   const carregar = React.useCallback(() => {
     setCarregando(true);
     const filtro: FiltroItens = {
+      tipo,
       q: busca || undefined,
       categoria_id: categoriaId !== TODOS ? Number(categoriaId) : undefined,
       setor_id: setorId !== TODOS ? Number(setorId) : undefined,
@@ -105,7 +112,7 @@ export default function ItensLista() {
         })
       )
       .finally(() => setCarregando(false));
-  }, [busca, categoriaId, setorId, estado, lote, pendencia, pagina, toast]);
+  }, [busca, categoriaId, setorId, estado, lote, pendencia, pagina, tipo, toast]);
 
   React.useEffect(carregar, [carregar]);
 
@@ -167,18 +174,20 @@ export default function ItensLista() {
   return (
     <div>
       <PageHeader
-        titulo="Itens"
-        descricao="Cadastro de equipamentos patrimoniados e materiais de consumo."
+        titulo={ehPatrimonio ? "Patrimônio" : "Itens"}
+        descricao={ehPatrimonio
+          ? "Bens controlados individualmente, com patrimônio e localização definidos ao longo do tempo."
+          : "Materiais de consumo controlados por quantidade e estoque mínimo."}
         acao={
           <>
-            <Button variant="outline" onClick={() => setImportarAberto(true)}>
+            {!ehPatrimonio && <Button variant="outline" onClick={() => setImportarAberto(true)}>
               <Upload className="h-4 w-4" /> Importar CSV
-            </Button>
-            <Button variant="outline" onClick={() => setLoteAberto(true)}>
+            </Button>}
+            {ehPatrimonio && <Button variant="outline" onClick={() => setLoteAberto(true)}>
               <Plus className="h-4 w-4" /> Receber lote
-            </Button>
+            </Button>}
             <Button onClick={abrirCriacao}>
-              <Plus className="h-4 w-4" /> Novo item
+              <Plus className="h-4 w-4" /> {ehPatrimonio ? "Novo bem" : "Novo item"}
             </Button>
           </>
         }
@@ -190,7 +199,7 @@ export default function ItensLista() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-9"
-              placeholder="Buscar por descrição, código TI, patrimônio, série..."
+              placeholder={ehPatrimonio ? "Buscar por descrição, código TI, patrimônio, série..." : "Buscar material por descrição..."}
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
             />
@@ -208,7 +217,7 @@ export default function ItensLista() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={TODOS}>Todas categorias</SelectItem>
-              {categorias.map((c) => (
+              {categoriasDaAba.map((c) => (
                 <SelectItem key={c.id} value={String(c.id)}>
                   {c.nome}
                 </SelectItem>
@@ -264,7 +273,7 @@ export default function ItensLista() {
         </CardContent>
       </Card>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      {ehPatrimonio && <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button size="sm" variant={pendencia === "patrimonio" ? "default" : "outline"} onClick={() => { setPendencia(pendencia === "patrimonio" ? "" : "patrimonio"); setPagina(1); }}>
           Sem patrimônio
         </Button>
@@ -272,7 +281,7 @@ export default function ItensLista() {
           Sem local definido
         </Button>
         {lote && <Badge variant="secondary">Lote {lote} <button className="ml-2" onClick={() => { setLote(""); setPagina(1); }} aria-label="Limpar lote">×</button></Badge>}
-      </div>
+      </div>}
 
       <Card>
         <CardContent className="p-0">
@@ -280,11 +289,11 @@ export default function ItensLista() {
             <CarregandoTela />
           ) : itens.length === 0 ? (
             <EstadoVazio
-              titulo="Nenhum item encontrado"
+              titulo={ehPatrimonio ? "Nenhum bem encontrado" : "Nenhum item encontrado"}
               descricao={
                 temFiltro
                   ? "Ajuste os filtros ou limpe a busca."
-                  : "Cadastre o primeiro item."
+                  : ehPatrimonio ? "Cadastre o primeiro bem." : "Cadastre o primeiro item."
               }
             />
           ) : (
@@ -293,9 +302,9 @@ export default function ItensLista() {
                 <TableRow>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead>Patrimônio</TableHead>
+                  {ehPatrimonio && <TableHead>Patrimônio</TableHead>}
                   <TableHead>Departamento</TableHead>
-                  <TableHead className="text-center">Qtd.</TableHead>
+                  {!ehPatrimonio && <TableHead className="text-center">Qtd.</TableHead>}
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-24 text-right">Ações</TableHead>
                 </TableRow>
@@ -309,7 +318,7 @@ export default function ItensLista() {
                     <TableRow
                       key={item.id}
                       className="cursor-pointer"
-                      onClick={() => navigate(`/itens/${item.id}`)}
+                      onClick={() => navigate(`${rotaBase}/${item.id}`)}
                     >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
@@ -328,16 +337,16 @@ export default function ItensLista() {
                               .join(" · ")}
                           </p>
                         )}
-                        <p className="text-xs font-medium text-muted-foreground">{codigoInterno(item.id)}</p>
+                        {ehPatrimonio && <p className="text-xs font-medium text-muted-foreground">{codigoInterno(item.id)}</p>}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {item.categoria?.nome ?? "—"}
                       </TableCell>
-                      <TableCell>{item.numero_patrimonio ?? "Pendente"}</TableCell>
+                      {ehPatrimonio && <TableCell>{item.numero_patrimonio ?? "Pendente"}</TableCell>}
                       <TableCell className="text-muted-foreground">
-                        {item.setor?.nome ?? "Local pendente"}
+                        {item.setor?.nome ?? (ehPatrimonio ? "Local pendente" : "—")}
                       </TableCell>
-                      <TableCell className="text-center">
+                      {!ehPatrimonio && <TableCell className="text-center">
                         <span
                           className={
                             alerta
@@ -348,7 +357,7 @@ export default function ItensLista() {
                           {alerta && <AlertTriangle className="h-3.5 w-3.5" />}
                           {item.quantidade}
                         </span>
-                      </TableCell>
+                      </TableCell>}
                       <TableCell>
                         <EstadoBadge estado={item.estado_conservacao} />
                       </TableCell>
@@ -359,7 +368,7 @@ export default function ItensLista() {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/itens/${item.id}`);
+                              navigate(`${rotaBase}/${item.id}`);
                             }}
                             aria-label="Ver detalhes"
                           >
@@ -399,7 +408,7 @@ export default function ItensLista() {
       {total > 0 && (
         <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            {total} {total === 1 ? "item" : "itens"} · página {pagina} de{" "}
+            {total} {ehPatrimonio ? (total === 1 ? "bem" : "bens") : (total === 1 ? "item" : "itens")} · página {pagina} de{" "}
             {totalPaginas}
           </span>
           <div className="flex gap-2">
@@ -426,7 +435,7 @@ export default function ItensLista() {
       <ItemForm
         aberto={formAberto}
         item={editando}
-        categorias={categorias}
+        categorias={categoriasDaAba}
         setores={setores}
         servidores={servidores}
         onFechar={() => setFormAberto(false)}
@@ -436,21 +445,21 @@ export default function ItensLista() {
         }}
       />
 
-      <ImportarItensDialog
+      {!ehPatrimonio && <ImportarItensDialog
         aberto={importarAberto}
         onFechar={() => setImportarAberto(false)}
         onConcluido={carregar}
-      />
-      <CadastrarLoteDialog
+      />}
+      {ehPatrimonio && <CadastrarLoteDialog
         aberto={loteAberto}
-        categorias={categorias}
+        categorias={categoriasDaAba}
         setores={setores}
         onFechar={() => setLoteAberto(false)}
         onCriado={(res) => {
           setTexto(""); setBusca(""); setCategoriaId(TODOS); setSetorId(TODOS);
           setEstado(TODOS); setPendencia(""); setLote(res.lote_codigo); setPagina(1);
         }}
-      />
+      />}
 
       <ConfirmDialog
         aberto={!!excluindoAlvo}

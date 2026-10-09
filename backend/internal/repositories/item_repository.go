@@ -19,6 +19,7 @@ type FiltroItem struct {
 	SomenteBaixados *bool // nil = todos; true = só baixados; false = só ativos
 	AbaixoDoMinimo  bool  // true = só consumíveis em alerta de estoque
 	Reservavel      *bool // nil = todos; true = só reserváveis
+	Consumivel      *bool // nil = todos; true = materiais de consumo; false = patrimônio
 	LoteCodigo      string
 	SemPatrimonio   bool
 	SemSetor        bool
@@ -102,6 +103,9 @@ func (r *itemRepository) Listar(f FiltroItem) ([]models.Item, int64, error) {
 	if f.CategoriaID != nil {
 		q = q.Where("categoria_id = ?", *f.CategoriaID)
 	}
+	if f.Consumivel != nil {
+		q = q.Where("categoria_id IN (SELECT id FROM categorias WHERE consumivel = ?)", *f.Consumivel)
+	}
 	if f.SetorID != nil {
 		q = q.Where("setor_id = ?", *f.SetorID)
 	}
@@ -118,7 +122,7 @@ func (r *itemRepository) Listar(f FiltroItem) ([]models.Item, int64, error) {
 		q = q.Where("baixado = ?", *f.SomenteBaixados)
 	}
 	if f.AbaixoDoMinimo {
-		q = q.Where("estoque_minimo > 0 AND quantidade < estoque_minimo")
+		q = q.Where("estoque_minimo > 0 AND quantidade < estoque_minimo AND categoria_id IN (SELECT id FROM categorias WHERE consumivel = ?)", true)
 	}
 
 	var total int64
@@ -158,7 +162,7 @@ func (r *itemRepository) Remover(id uint) error {
 func (r *itemRepository) ListarAbaixoDoMinimo() ([]models.Item, error) {
 	var itens []models.Item
 	err := r.preloads(r.db).
-		Where("baixado = ? AND estoque_minimo > 0 AND quantidade < estoque_minimo", false).
+		Where("baixado = ? AND estoque_minimo > 0 AND quantidade < estoque_minimo AND categoria_id IN (SELECT id FROM categorias WHERE consumivel = ?)", false, true).
 		Order("descricao ASC").
 		Find(&itens).Error
 	return itens, err

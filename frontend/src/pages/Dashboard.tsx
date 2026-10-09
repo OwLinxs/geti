@@ -2,6 +2,7 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 import {
   Package,
+  Monitor,
   AlertTriangle,
   ArrowLeftRight,
   Archive,
@@ -24,19 +25,22 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [carregando, setCarregando] = React.useState(true);
   const [totalItens, setTotalItens] = React.useState(0);
+  const [totalPatrimonio, setTotalPatrimonio] = React.useState(0);
   const [inventario, setInventario] = React.useState<Item[]>([]);
   const [alertas, setAlertas] = React.useState<Item[]>([]);
   const [ultimasMovs, setUltimasMovs] = React.useState<Movimentacao[]>([]);
 
   React.useEffect(() => {
     Promise.all([
-      itensApi.listar({ tamanho: 1, pagina: 1 }),
+      itensApi.listar({ tipo: "consumo", tamanho: 1, pagina: 1 }),
+      itensApi.listar({ tipo: "patrimonio", tamanho: 1, pagina: 1 }),
       relatoriosApi.inventario(),
       itensApi.alertasEstoqueBaixo(),
       movimentacoesApi.listar({ tamanho: 6, pagina: 1 }),
     ])
-      .then(([pag, inv, al, movs]) => {
+      .then(([pag, patrimonio, inv, al, movs]) => {
         setTotalItens(pag.total);
+        setTotalPatrimonio(patrimonio.total);
         setInventario(inv);
         setAlertas(al);
         setUltimasMovs(movs.dados);
@@ -66,12 +70,20 @@ export default function Dashboard() {
         descricao="Resumo geral do estoque e do patrimônio de T.I."
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <CardResumo
-          titulo="Itens cadastrados"
+          titulo="Itens de consumo"
           valor={totalItens}
           icone={Package}
           cor="text-primary"
+          link="/itens"
+        />
+        <CardResumo
+          titulo="Bens patrimoniais"
+          valor={totalPatrimonio}
+          icone={Monitor}
+          cor="text-primary"
+          link="/patrimonio"
         />
         <CardResumo
           titulo="Alertas de estoque"
@@ -200,6 +212,7 @@ export default function Dashboard() {
 
       <div className="mt-6 flex flex-wrap gap-3">
         <AcaoRapida to="/itens" icone={Package} rotulo="Cadastrar item" />
+        <AcaoRapida to="/patrimonio" icone={Monitor} rotulo="Cadastrar bem" />
         <AcaoRapida
           to="/movimentacoes"
           icone={ArrowLeftRight}

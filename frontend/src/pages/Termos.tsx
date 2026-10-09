@@ -47,11 +47,10 @@ export default function Termos() {
 
   React.useEffect(carregar, [carregar]);
 
-  // Itens não baixados para o seletor (apenas patrimoniados fazem sentido,
-  // mas o backend valida; aqui carregamos todos para simplicidade).
+  // Termos são emitidos para bens patrimoniais ativos.
   React.useEffect(() => {
     itensApi
-      .listar({ tamanho: 500 })
+      .listar({ tipo: "patrimonio", tamanho: 500 })
       .then((r) => setItens(r.dados.filter((i) => !i.baixado)))
       .catch(() => {
         /* silencioso */

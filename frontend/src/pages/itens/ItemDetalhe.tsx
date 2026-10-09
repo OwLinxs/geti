@@ -88,7 +88,7 @@ export default function ItemDetalhe() {
         variant="ghost"
         size="sm"
         className="mb-2"
-        onClick={() => navigate("/itens")}
+        onClick={() => navigate(item.categoria?.consumivel ? "/itens" : "/patrimonio")}
       >
         <ArrowLeft className="h-4 w-4" /> Voltar
       </Button>
@@ -106,9 +106,9 @@ export default function ItemDetalhe() {
             <Button variant="outline" onClick={() => abrirMovimentacao()}>
               <ArrowLeftRight className="h-4 w-4" /> Movimentar
             </Button>
-            <Button variant="outline" onClick={() => setTermoAberto(true)}>
+            {bemPermanente && <Button variant="outline" onClick={() => setTermoAberto(true)}>
               <FileText className="h-4 w-4" /> Emitir termo
-            </Button>
+            </Button>}
             <Button variant="outline" onClick={() => setEditAberto(true)}>
               <Pencil className="h-4 w-4" /> Editar
             </Button>
@@ -164,9 +164,9 @@ export default function ItemDetalhe() {
               </span>
             </Campo>
             {!bemPermanente && <Campo rotulo="Estoque mínimo">{item.estoque_minimo}</Campo>}
-            <Campo rotulo="Nº patrimônio">
+            {bemPermanente && <Campo rotulo="Nº patrimônio">
               {item.numero_patrimonio ?? "Aguardando tombamento"}
-            </Campo>
+            </Campo>}
             <Campo rotulo="Nº série">{item.numero_serie ?? "—"}</Campo>
             <Campo rotulo="Marca / modelo">
               {[item.marca, item.modelo].filter(Boolean).join(" · ") || "—"}
@@ -199,7 +199,7 @@ export default function ItemDetalhe() {
       <ItemForm
         aberto={editAberto}
         item={item}
-        categorias={categorias}
+        categorias={categorias.filter((c) => c.consumivel === item.categoria?.consumivel)}
         setores={setores}
         servidores={servidores}
         onFechar={() => setEditAberto(false)}

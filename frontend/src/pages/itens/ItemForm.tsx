@@ -114,7 +114,7 @@ export function ItemForm({
   const categoriaSelecionada = categorias.find(
     (c) => c.id === form.categoria_id
   );
-  const ehConsumivel = categoriaSelecionada?.consumivel ?? false;
+  const ehConsumivel = categoriaSelecionada?.consumivel ?? categorias[0]?.consumivel ?? false;
 
   function set<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -185,7 +185,7 @@ export function ItemForm({
     <Dialog open={aberto} onOpenChange={(o) => !o && onFechar()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{item ? "Editar item" : "Novo item"}</DialogTitle>
+          <DialogTitle>{item ? "Editar item" : categorias[0]?.consumivel ? "Novo item de consumo" : "Novo bem patrimonial"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={salvar} className="space-y-4" noValidate>
@@ -199,7 +199,7 @@ export function ItemForm({
               id="descricao"
               value={form.descricao}
               onChange={(e) => set("descricao", e.target.value)}
-              placeholder="Ex.: Notebook Dell Latitude 5440"
+              placeholder={categorias[0]?.consumivel ? "Ex.: Cabo de rede CAT6" : "Ex.: Monitor LG 24 polegadas"}
             />
           </FormField>
 

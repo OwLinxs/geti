@@ -211,6 +211,7 @@ export const servidoresApi = {
 
 // ===== Itens =====
 export interface FiltroItens {
+  tipo?: "consumo" | "patrimonio";
   q?: string;
   categoria_id?: number;
   setor_id?: number;

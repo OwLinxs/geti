@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
+  Monitor,
   ArrowLeftRight,
   Wrench,
   FileText,
@@ -31,6 +32,7 @@ interface ItemMenu {
 const PRINCIPAL: ItemMenu[] = [
   { rotulo: "Painel", para: "/", icone: LayoutDashboard },
   { rotulo: "Itens", para: "/itens", icone: Package },
+  { rotulo: "Patrimônio", para: "/patrimonio", icone: Monitor },
   { rotulo: "Movimentações", para: "/movimentacoes", icone: ArrowLeftRight },
   { rotulo: "Manutenção", para: "/manutencao", icone: Wrench },
   { rotulo: "Reservas", para: "/reservas", icone: CalendarClock },
