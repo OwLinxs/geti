@@ -303,6 +303,7 @@ export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" })
                   <TableHead>Descrição</TableHead>
                   <TableHead>Categoria</TableHead>
                   {ehPatrimonio && <TableHead>Patrimônio</TableHead>}
+                  {ehPatrimonio && <TableHead>Nº de série</TableHead>}
                   <TableHead>Departamento</TableHead>
                   {!ehPatrimonio && <TableHead className="text-center">Qtd.</TableHead>}
                   <TableHead>Estado</TableHead>
@@ -343,6 +344,7 @@ export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" })
                         {item.categoria?.nome ?? "—"}
                       </TableCell>
                       {ehPatrimonio && <TableCell>{item.numero_patrimonio ?? "Pendente"}</TableCell>}
+                      {ehPatrimonio && <TableCell>{item.numero_serie ?? "—"}</TableCell>}
                       <TableCell className="text-muted-foreground">
                         {item.setor?.nome ?? (ehPatrimonio ? "Local pendente" : "—")}
                       </TableCell>
