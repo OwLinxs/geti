@@ -9,13 +9,19 @@ import { ordensServicoApi } from "@/services/api";
 import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { rotuloStatusOS, rotuloPrioridadeOS } from "@/lib/rotulos";
+import { slaAtrasado } from "@/lib/sla";
+import { useAuth } from "@/contexts/AuthContext";
 import type { ContagemRotulo, DashboardChamados as Dados } from "@/types";
+
+const ATIVOS = new Set(["aberta", "em_andamento", "aguardando_peca"]);
 
 export default function DashboardChamados() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { usuario } = useAuth();
   const [d, setD] = React.useState<Dados | null>(null);
   const [carregando, setCarregando] = React.useState(true);
+  const [meus, setMeus] = React.useState({ abertos: 0, sla: 0 });
 
   React.useEffect(() => {
     ordensServicoApi
@@ -30,6 +36,21 @@ export default function DashboardChamados() {
       )
       .finally(() => setCarregando(false));
   }, [toast]);
+
+  // Meus chamados (do técnico logado): abertos + vencendo SLA.
+  React.useEffect(() => {
+    if (!usuario?.id) return;
+    ordensServicoApi
+      .listar({ tecnico_id: usuario.id, tamanho: 200 })
+      .then((r) => {
+        const ativos = r.dados.filter((o) => ATIVOS.has(o.status));
+        setMeus({
+          abertos: ativos.length,
+          sla: ativos.filter((o) => slaAtrasado(o)).length,
+        });
+      })
+      .catch(() => undefined);
+  }, [usuario?.id]);
 
   return (
     <div>
@@ -47,6 +68,27 @@ export default function DashboardChamados() {
         <CarregandoTela />
       ) : !d ? null : (
         <div className="space-y-6">
+          <div>
+            <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
+              Meus chamados
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => navigate("/manutencao/kanban")}
+                className="text-left"
+              >
+                <Kpi rotulo="Meus abertos" valor={meus.abertos} />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/manutencao/kanban")}
+                className="text-left"
+              >
+                <Kpi rotulo="Meus vencendo SLA" valor={meus.sla} alerta={meus.sla > 0} />
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <Kpi rotulo="Abertos" valor={d.abertos_total} />
             <Kpi rotulo="Sem técnico" valor={d.sem_tecnico} alerta={d.sem_tecnico > 0} />

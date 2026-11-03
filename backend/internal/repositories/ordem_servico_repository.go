@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pmfb/sige-ti/internal/models"
@@ -17,6 +18,7 @@ type FiltroOrdemServico struct {
 	AbertoPorID        *uint // filtra pelos chamados abertos por um usuário (portal)
 	ReferenciaExterna  string
 	Contato            string // filtra pelo telefone/WhatsApp do solicitante
+	Busca              string // texto livre: número, equipamento, defeito, solicitante
 	De                 *time.Time
 	Ate                *time.Time
 	Pagina             int
@@ -189,6 +191,13 @@ func (r *ordemServicoRepository) Listar(f FiltroOrdemServico) ([]models.OrdemSer
 	}
 	if f.Contato != "" {
 		q = q.Where("solicitante_contato = ?", f.Contato)
+	}
+	if f.Busca != "" {
+		termo := "%" + strings.ToLower(f.Busca) + "%"
+		q = q.Where(
+			"LOWER(numero) LIKE ? OR LOWER(equipamento_snapshot) LIKE ? OR LOWER(defeito_relatado) LIKE ? OR LOWER(solicitante_nome_snapshot) LIKE ? OR LOWER(assunto) LIKE ?",
+			termo, termo, termo, termo, termo,
+		)
 	}
 	if f.CategoriaChamadoID != nil {
 		q = q.Where("categoria_chamado_id = ?", *f.CategoriaChamadoID)

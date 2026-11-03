@@ -62,6 +62,7 @@ type Container struct {
 	ReservaHandler          *handlers.ReservaHandler
 	IntegracaoHandler       *handlers.IntegracaoHandler
 	ZapGovHandler           *handlers.ZapGovHandler
+	MidiaHandler            *handlers.MidiaHandler
 }
 
 func New(cfg *config.Config, db *gorm.DB) *Container {
@@ -174,5 +175,6 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		ReservaHandler:          handlers.NewReservaHandler(reservaSvc),
 		IntegracaoHandler:       handlers.NewIntegracaoHandler(ordemServicoSvc),
 		ZapGovHandler:           handlers.NewZapGovHandler(ordemServicoSvc, mensagemSvc),
+		MidiaHandler:            handlers.NewMidiaHandler(mensagemSvc, cfg.JWTSecret),
 	}
 }

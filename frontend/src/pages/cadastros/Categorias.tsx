@@ -242,15 +242,17 @@ export default function Categorias() {
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Material de consumo
+                  Patrimoniável
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Controlado por quantidade e estoque mínimo.
+                  {form.consumivel
+                    ? "Material de consumo: controlado por quantidade e estoque mínimo (sem nº de patrimônio)."
+                    : "Bem patrimoniado: controlado individualmente, com nº de patrimônio."}
                 </p>
               </div>
               <Switch
-                checked={form.consumivel}
-                onCheckedChange={(v) => setForm({ ...form, consumivel: v })}
+                checked={!form.consumivel}
+                onCheckedChange={(v) => setForm({ ...form, consumivel: !v })}
               />
             </div>
             <DialogFooter className="gap-2">

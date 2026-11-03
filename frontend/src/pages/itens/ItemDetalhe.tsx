@@ -24,6 +24,8 @@ import { useToast } from "@/components/ui/toast";
 import { useReferencias } from "@/hooks/useReferencias";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { codigoInterno } from "@/lib/patrimonio";
+import QRCode from "qrcode";
+import { QrCode, Printer } from "lucide-react";
 import type { Item, Movimentacao, TipoMovimentacao } from "@/types";
 
 export default function ItemDetalhe() {
@@ -196,6 +198,8 @@ export default function ItemDetalhe() {
         </Card>
       </div>
 
+      {bemPermanente && <EtiquetaQR item={item} />}
+
       <ItemForm
         aberto={editAberto}
         item={item}
@@ -249,5 +253,74 @@ function Campo({
       <span className="text-muted-foreground">{rotulo}</span>
       <span className="text-right font-medium text-foreground">{children}</span>
     </div>
+  );
+}
+
+// EtiquetaQR gera um QR Code que aponta para a página do bem. ColadA no
+// equipamento, abre o item ao escanear com o celular. Permite imprimir a
+// etiqueta (QR + código TI + patrimônio).
+function EtiquetaQR({ item }: { item: Item }) {
+  const [dataUrl, setDataUrl] = React.useState("");
+  const url = `${window.location.origin}/patrimonio/${item.id}`;
+  const codigo = codigoInterno(item.id);
+
+  React.useEffect(() => {
+    QRCode.toDataURL(url, { width: 220, margin: 1 })
+      .then(setDataUrl)
+      .catch(() => setDataUrl(""));
+  }, [url]);
+
+  function imprimir() {
+    const w = window.open("", "_blank", "width=400,height=500");
+    if (!w) return;
+    w.document.write(`
+      <html><head><title>Etiqueta ${codigo}</title>
+      <style>
+        body{font-family:system-ui,sans-serif;text-align:center;padding:16px;margin:0}
+        img{width:200px;height:200px}
+        .cod{font-family:monospace;font-size:14px;margin-top:8px}
+        .desc{font-size:13px;color:#333;margin-top:4px}
+        .pat{font-size:12px;color:#555;margin-top:2px}
+      </style></head><body>
+        <img src="${dataUrl}" alt="QR"/>
+        <div class="cod">${codigo}</div>
+        <div class="desc">${(item.descricao || "").replace(/</g, "&lt;")}</div>
+        ${item.numero_patrimonio ? `<div class="pat">Patrimônio ${item.numero_patrimonio}</div>` : ""}
+      </body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 300);
+  }
+
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <QrCode className="h-4 w-4" /> Etiqueta QR
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-6">
+        {dataUrl ? (
+          <img src={dataUrl} alt="QR Code do item" className="h-36 w-36" />
+        ) : (
+          <div className="h-36 w-36 animate-pulse rounded bg-muted" />
+        )}
+        <div className="text-center sm:text-left">
+          <p className="text-sm text-muted-foreground">
+            Escaneie para abrir este bem no celular.
+          </p>
+          <p className="mt-1 font-mono text-xs">{codigo}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={imprimir}
+            disabled={!dataUrl}
+          >
+            <Printer className="h-4 w-4" /> Imprimir etiqueta
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -4,9 +4,9 @@ API REST do **Sistema de Gestão de Estoque de T.I.** (SIGE-TI), para o
 Departamento de T.I. de uma Prefeitura. Controle de estoque e patrimônio de
 equipamentos e materiais de consumo.
 
-Stack: **Go + Gin + GORM**, banco **SQLite** por padrão (troca para PostgreSQL
-apenas por configuração), autenticação **JWT** com dois perfis
-(`administrador` e `operador`).
+Stack: **Go + Gin + GORM**. A execução local aceita SQLite por padrão;
+o Docker Compose usa PostgreSQL. A autenticação JWT tem três perfis:
+`administrador`, `operador` e `solicitante`.
 
 ---
 
@@ -24,7 +24,7 @@ internal/
   middlewares         -> autenticação JWT e checagem de perfil
   router              -> registro de rotas
   container           -> injeção de dependências (repos -> services -> handlers)
-  seed                -> dados iniciais de exemplo
+  seed                -> dados iniciais; exemplos opcionais em desenvolvimento
 ```
 
 Fluxo de dependências: **models → repositories → services → handlers**.
@@ -151,16 +151,24 @@ go test ./...
 
 ## Endpoints principais
 
-Base: `/api/v1`. Todas as rotas (exceto `/auth/login` e `/health`) exigem
-`Authorization: Bearer <token>`.
+Base: `/api/v1`. As rotas operacionais exigem `Authorization: Bearer <token>`.
+Login, auto cadastro de solicitante e health são públicos; as integrações
+externas usam autenticação própria.
 
 - `POST /auth/login` — autenticação (público)
 - `GET  /auth/eu` — dados do usuário logado
 - `GET/POST/PUT/DELETE /categorias` `/setores` — leitura: ambos; escrita: admin
 - `GET/POST/PUT /servidores` — operador+admin; `DELETE`: admin
-- `GET/POST/PUT /itens` — cadastro/consulta/busca (filtros via query: `q`,
-  `categoria_id`, `setor_id`, `responsavel_id`, `estado`, `baixado`,
-  `abaixo_minimo`, `pagina`, `tamanho`)
+- `GET/POST/PUT /itens` — cadastro/consulta/busca. A listagem aceita `q`,
+  `tipo=consumo|patrimonio`, `categoria_id`, `setor_id`, `responsavel_id`,
+  `estado`, `baixado`, `abaixo_minimo`, `lote`, `sem_patrimonio=true`,
+  `sem_setor=true`, `pagina` e `tamanho`. Sem `tipo`, retorna os dois grupos.
+- `POST /itens/lote` — cria de 1 a 200 bens permanentes individuais em uma
+  transação. Envie `descricao`, `categoria_id`, `unidades` e os campos opcionais
+  de aquisição; o retorno traz `lote_codigo`, `quantidade` e `ids`. Cada ID
+  gera o código interno `TI-000001` etc. Patrimônio, série e destino podem ser
+  preenchidos depois. A interface apresenta os bens em **Patrimônio** e os
+  materiais de consumo em **Itens**.
 - `DELETE /itens/:id` — exclui (soft delete) item criado por engano
   (**somente administrador**). Recusado se o item tiver histórico de
   movimentações ou termos (use a baixa patrimonial nesses casos)
@@ -179,43 +187,13 @@ Base: `/api/v1`. Todas as rotas (exceto `/auth/login` e `/health`) exigem
 
 ---
 
-## Backup do banco (SQLite)
+## Backup e restauração
 
-O banco SQLite é um único arquivo. Para backup **consistente**, use o comando
-`.backup` (seguro mesmo com a aplicação rodando, graças ao WAL). **Nunca** copie
-o `.db` com `cp` enquanto a app roda — pode corromper a cópia.
-
-### Script pronto (recomendado)
-
-Há um script na raiz que faz backup com timestamp, compactação e **retenção**:
-
-```bash
-scripts/backup.sh            # gera backups/sige-ti-AAAAMMDD-HHMMSS.db.gz
-```
-
-Por padrão lê do volume Docker `geti_sige_data` (não precisa instalar `sqlite3`
-no host — usa um container efêmero), guarda em `./backups` e mantém **14 dias**.
-Configurável por env: `SIGE_VOLUME`, `SIGE_DB_PATH`, `BACKUP_DIR`, `RETENCAO_DIAS`.
-
-### Agendamento via cron
-
-Faça backup diário às 2h da manhã (edite com `crontab -e`):
-
-```cron
-0 2 * * * cd /caminho/para/geti && /caminho/para/geti/scripts/backup.sh >> /var/log/sige-backup.log 2>&1
-```
-
-### Restaurar
-
-Pare a aplicação, restaure e suba novamente:
-
-```bash
-docker compose stop backend
-scripts/restore.sh backups/sige-ti-AAAAMMDD-HHMMSS.db.gz
-docker compose start backend
-```
-
-> Para PostgreSQL, use `pg_dump`/`pg_restore`.
+No Docker Compose, `scripts/backup.sh` salva o PostgreSQL em `.sql.gz` e os
+anexos em `.tar.gz`. Para restaurar, pare o backend e execute
+`scripts/restore.sh backups/sige-ti-AAAAMMDD-HHMMSS.sql.gz`; o script procura
+o arquivo de anexos do mesmo horário. Consulte [o guia de backup](../docs/BACKUP.md)
+para os comandos, retenção e variáveis.
 
 ---
 

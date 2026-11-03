@@ -295,7 +295,11 @@ function TabelaItens({ itens }: { itens: Item[] }) {
             <TableCell className="text-muted-foreground">
               {i.categoria?.nome ?? "—"}
             </TableCell>
-            <TableCell>{i.numero_patrimonio ?? "Pendente"}</TableCell>
+            <TableCell>
+              {i.categoria?.consumivel
+                ? "—"
+                : (i.numero_patrimonio ?? "Pendente")}
+            </TableCell>
             <TableCell className="text-muted-foreground">
               {i.setor?.nome ?? "—"}
             </TableCell>

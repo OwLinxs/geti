@@ -2,6 +2,7 @@ import { LogOut, Menu, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SinoNotificacoes } from "@/components/SinoNotificacoes";
+import { BuscaGlobal } from "@/components/BuscaGlobal";
 import { useAuth } from "@/contexts/AuthContext";
 import { rotuloPerfil } from "@/lib/rotulos";
 
@@ -31,6 +32,7 @@ export function Header({ onToggleMenu }: { onToggleMenu: () => void }) {
       </div>
 
       <div className="flex items-center gap-3">
+        <BuscaGlobal />
         <SinoNotificacoes />
         {usuario && (
           <div className="hidden items-center gap-2 sm:flex">

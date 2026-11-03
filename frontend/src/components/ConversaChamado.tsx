@@ -105,7 +105,7 @@ export function ConversaChamado({ osId, modo }: Props) {
     };
   }, [msgs, base, osId, imagens]);
 
-  async function enviar(e: React.FormEvent) {
+  async function enviar(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!texto.trim() && !arquivo) return;
     setEnviando(true);
@@ -269,7 +269,14 @@ export function ConversaChamado({ osId, modo }: Props) {
           <Textarea
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            placeholder="Escreva uma mensagem…"
+            onKeyDown={(e) => {
+              // Enter envia; Shift+Enter quebra linha.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void enviar(e);
+              }
+            }}
+            placeholder="Escreva uma mensagem… (Enter envia, Shift+Enter quebra linha)"
             rows={1}
             className="min-h-10 flex-1 resize-none"
           />

@@ -69,6 +69,8 @@ services:
       ZAPGOV_API_KEY: "${ZAPGOV_API_KEY:-}"
       # Segredo HMAC p/ validar a assinatura dos webhooks recebidos do ZapGov.
       INTEGRACAO_HMAC_SECRET: "${INTEGRACAO_HMAC_SECRET:-}"
+      # URL pública do SIGE p/ servir a mídia dos anexos ao WhatsApp.
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-}"
 
       # --- Anexos das mensagens de chamado (persistem no volume de dados) ---
       ANEXOS_DIR: "/app/data/anexos"

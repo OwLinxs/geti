@@ -141,6 +141,7 @@ func (h *OrdemServicoHandler) Listar(c *gin.Context) {
 	f := repositories.FiltroOrdemServico{
 		Status:    c.Query("status"),
 		TecnicoID: queryUint(c, "tecnico_id"),
+		Busca:     c.Query("q"),
 		De:        parseDataQuery(c.Query("de"), false),
 		Ate:       parseDataQuery(c.Query("ate"), true),
 		Pagina:    queryInt(c, "pagina", 1),

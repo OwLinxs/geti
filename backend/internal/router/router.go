@@ -55,6 +55,9 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 		middlewares.WebhookZapGov(cfg.IntegracaoAPIKey, cfg.IntegracaoHMACSecret),
 		ct.ZapGovHandler.Eventos,
 	)
+	// Mídia pública assinada dos anexos (o ZapGov busca o arquivo que o técnico
+	// enviou). Sem login; protegida por assinatura HMAC no parâmetro ?sig=.
+	r.GET("/midia/:osId/:msgId", ct.MidiaHandler.Servir)
 
 	// Rotas autenticadas.
 	auth := api.Group("")
@@ -222,6 +225,7 @@ func registrarOrdensServico(g *gin.RouterGroup, ct *container.Container) {
 	// Conversa do chamado (mensagens + anexos).
 	o.GET("/:id/mensagens", ct.MensagemHandler.Listar)
 	o.POST("/:id/mensagens", ct.MensagemHandler.Enviar)
+	o.POST("/:id/template", ct.MensagemHandler.EnviarTemplate)
 	o.GET("/:id/mensagens/:msgId/anexo", ct.MensagemHandler.BaixarAnexo)
 }
 

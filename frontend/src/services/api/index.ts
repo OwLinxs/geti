@@ -321,6 +321,7 @@ export const termosApi = {
 export interface FiltroOrdensServico {
   status?: string;
   tecnico_id?: number;
+  q?: string;
   de?: string;
   ate?: string;
   pagina?: number;
@@ -359,6 +360,8 @@ export const ordensServicoApi = {
     api
       .patch<OrdemServico>(`/ordens-servico/${id}/classificacao`, dados)
       .then((r) => r.data),
+  enviarTemplate: (id: number, dados: { template: string; params: string[] }) =>
+    api.post(`/ordens-servico/${id}/template`, dados).then((r) => r.data),
   exportar: (f: FiltroOrdensServico = {}) =>
     api
       .get("/ordens-servico/exportar", {

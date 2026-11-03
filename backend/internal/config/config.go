@@ -67,6 +67,11 @@ type Config struct {
 	// Segredo HMAC-SHA256 para validar a assinatura (X-Signature) dos webhooks
 	// recebidos do ZapGov. Vazio = validação de assinatura desligada.
 	IntegracaoHMACSecret string
+
+	// URL pública do SIGE (acessível pelo ZapGov) para montar links de mídia dos
+	// anexos enviados ao WhatsApp. Vazio = envio de mídia ao WhatsApp desligado
+	// (só o texto é enviado). Ex.: https://sige.prefeitura.gov.br
+	PublicBaseURL string
 }
 
 // Load lê as variáveis de ambiente e devolve a configuração validada.
@@ -93,6 +98,7 @@ func Load() (*Config, error) {
 		ZapGovBaseURL:        strings.TrimRight(getEnv("ZAPGOV_BASE_URL", ""), "/"),
 		ZapGovAPIKey:         getEnv("ZAPGOV_API_KEY", ""),
 		IntegracaoHMACSecret: getEnv("INTEGRACAO_HMAC_SECRET", ""),
+		PublicBaseURL:        strings.TrimRight(getEnv("PUBLIC_BASE_URL", ""), "/"),
 	}
 
 	expHours, err := strconv.Atoi(getEnv("JWT_EXPIRES_HOURS", "8"))

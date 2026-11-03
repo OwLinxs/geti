@@ -13,7 +13,8 @@ import {
   rotuloStatusOS,
   variantePrioridadeOS,
 } from "@/lib/rotulos";
-import { estadoSLA } from "@/lib/sla";
+import { estadoSLA, slaAtrasado } from "@/lib/sla";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import type { OrdemServico, StatusOS } from "@/types";
 
@@ -28,11 +29,14 @@ const COLUNAS: StatusOS[] = [
 export default function KanbanManutencao() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { usuario } = useAuth();
 
   const [lista, setLista] = React.useState<OrdemServico[]>([]);
   const [carregando, setCarregando] = React.useState(true);
   const [arrastando, setArrastando] = React.useState<number | null>(null);
   const [sobreColuna, setSobreColuna] = React.useState<StatusOS | null>(null);
+  const [soMeus, setSoMeus] = React.useState(false);
+  const [soSLA, setSoSLA] = React.useState(false);
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
@@ -51,6 +55,16 @@ export default function KanbanManutencao() {
 
   React.useEffect(carregar, [carregar]);
 
+  const listaFiltrada = React.useMemo(
+    () =>
+      lista.filter((os) => {
+        if (soMeus && os.tecnico_id !== usuario?.id) return false;
+        if (soSLA && !slaAtrasado(os)) return false;
+        return true;
+      }),
+    [lista, soMeus, soSLA, usuario?.id]
+  );
+
   const porColuna = React.useMemo(() => {
     const mapa: Record<StatusOS, OrdemServico[]> = {
       aberta: [],
@@ -59,9 +73,9 @@ export default function KanbanManutencao() {
       concluida: [],
       cancelada: [],
     };
-    for (const os of lista) mapa[os.status]?.push(os);
+    for (const os of listaFiltrada) mapa[os.status]?.push(os);
     return mapa;
-  }, [lista]);
+  }, [listaFiltrada]);
 
   async function soltarNaColuna(coluna: StatusOS) {
     const id = arrastando;
@@ -102,6 +116,23 @@ export default function KanbanManutencao() {
           </Button>
         }
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant={soMeus ? "default" : "outline"}
+          onClick={() => setSoMeus((v) => !v)}
+        >
+          Meus chamados
+        </Button>
+        <Button
+          size="sm"
+          variant={soSLA ? "default" : "outline"}
+          onClick={() => setSoSLA((v) => !v)}
+        >
+          SLA estourando
+        </Button>
+      </div>
 
       {carregando ? (
         <CarregandoTela />

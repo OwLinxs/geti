@@ -31,6 +31,7 @@ Campos principais:
 - **Categoria** — escolha na lista. Se faltar, peça ao administrador para criar.
 - **Código interno** — identificador de controle da T.I., gerado automaticamente e diferente do número oficial de patrimônio.
 - **Número de patrimônio** — preencha quando o bem for tombado oficialmente.
+- **Número de série** — identifica a unidade pelo fabricante; pode ser informado depois do recebimento.
 - **Estado de conservação** — novo, bom, regular ou inservível.
 - **Setor / Responsável** — onde está e quem responde pelo item (opcional).
 
@@ -41,6 +42,8 @@ Clique em **Salvar**. Pronto.
 Em **Patrimônio → Receber lote**, informe a categoria, a descrição e o número de unidades. Por exemplo, para 48 monitores, o sistema cria **48 registros**, cada um com quantidade 1 e código interno próprio. O patrimônio, a série e o destino podem ficar pendentes. Depois do cadastro, baixe a lista de códigos e identifique fisicamente cada monitor para saber qual registro corresponde a cada unidade. Use os filtros **Sem patrimônio** e **Sem local definido** para acompanhar as pendências.
 
 Ao entregar uma unidade, abra seu registro pelo código interno, clique em **Movimentar** e escolha **Transferência** e o departamento de destino. Essa operação registra o histórico sem reduzir a quantidade do bem. Para preencher o número oficial de patrimônio ou a série depois, use **Editar**.
+
+Na tabela **Patrimônio**, cada bem mostra o número de patrimônio e o **Nº de série** em colunas próprias. A série ainda não cadastrada aparece como **—**.
 
 ---
 

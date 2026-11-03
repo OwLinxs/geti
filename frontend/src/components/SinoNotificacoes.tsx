@@ -30,6 +30,15 @@ export function SinoNotificacoes() {
     return () => clearInterval(t);
   }, [atualizarContador]);
 
+  // Reflete o nº de não lidas no título da aba (visível mesmo fora da tela).
+  React.useEffect(() => {
+    const base = document.title.replace(/^\(\d+\)\s*/, "");
+    document.title = naoLidas > 0 ? `(${naoLidas}) ${base}` : base;
+    return () => {
+      document.title = document.title.replace(/^\(\d+\)\s*/, "");
+    };
+  }, [naoLidas]);
+
   // Fecha ao clicar fora.
   React.useEffect(() => {
     function onClick(e: MouseEvent) {

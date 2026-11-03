@@ -2,8 +2,8 @@
 
 Controle de estoque e patrimônio de equipamentos e materiais de consumo para o
 Departamento de T.I. de uma Prefeitura. Backend em **Go (Gin + GORM)**, frontend
-em **React (Vite + TypeScript + Tailwind)**, banco **SQLite** (troca para
-PostgreSQL por configuração). Interface 100% em **português do Brasil**.
+em **React (Vite + TypeScript + Tailwind)**. O Docker Compose usa **PostgreSQL**;
+o backend também aceita SQLite em desenvolvimento. Interface em **português do Brasil**.
 
 - Backend: [`backend/README.md`](backend/README.md)
 - Frontend: [`frontend/README.md`](frontend/README.md)
@@ -26,6 +26,7 @@ Defina **obrigatoriamente** (sem eles o backend não sobe em produção):
 
 - `JWT_SECRET` — segredo do token. Gere com: `openssl rand -base64 48`
 - `ADMIN_SENHA` — senha inicial do administrador (troque após o 1º acesso)
+- `POSTGRES_PASSWORD` — senha do banco PostgreSQL usado pelo Compose
 
 Ajuste também `CORS_ALLOWED_ORIGINS` para o IP/hostname do servidor
 (ex.: `http://192.168.0.50`) e os campos `PREFEITURA_*`/`TERMO_*` do termo.
@@ -41,8 +42,9 @@ docker compose up -d --build
 
 Isso sobe:
 
-- **backend** (API Go, SQLite em volume `sige_data`) — não exposto diretamente
-- **frontend** (Nginx na **porta 80**) — serve a SPA e faz proxy de `/api` para
+- **PostgreSQL** (dados no volume `sige_pgdata`)
+- **backend** (API Go; anexos no volume `sige_data`) — não exposto diretamente
+- **frontend** (Nginx na porta 80 do host por padrão; configurável por `SIGE_HTTP_PORT`) — serve a SPA e faz proxy de `/api` para
   o backend
 
 Na **primeira execução**, o seed **base** cria o administrador, as categorias
@@ -73,11 +75,11 @@ docker compose up -d --build      # atualizar após mudanças de código
 
 ## Backup e restauração do banco
 
-Os dados ficam no volume Docker `geti_sige_data`. Use os scripts prontos
-(backup consistente via `.backup` do sqlite3, com timestamp e retenção):
+O banco fica no volume PostgreSQL `sige_pgdata`, e os anexos no volume
+`sige_data`. O script cria um dump do banco e um arquivo dos anexos:
 
 ```bash
-scripts/backup.sh                 # gera backups/sige-ti-<timestamp>.db.gz (retém 14 dias)
+scripts/backup.sh                 # gera .sql.gz e .tar.gz (retém 14 dias)
 ```
 
 Agende um backup diário às 2h (em `crontab -e`):
@@ -90,12 +92,19 @@ Restaurar a partir de um backup:
 
 ```bash
 docker compose stop backend
-scripts/restore.sh backups/sige-ti-<timestamp>.db.gz
+scripts/restore.sh backups/sige-ti-<timestamp>.sql.gz
 docker compose start backend
 ```
 
-Detalhes e variáveis de configuração dos scripts no
-[`backend/README.md`](backend/README.md#backup-do-banco-sqlite).
+Detalhes e variáveis de configuração em [`docs/BACKUP.md`](docs/BACKUP.md).
+
+## Cadastro de patrimônio
+
+O menu **Itens** controla materiais de consumo por quantidade. O menu
+**Patrimônio** controla cada equipamento separadamente, com código interno,
+número oficial de patrimônio, número de série, departamento e histórico.
+**Receber lote** cria até 200 unidades individuais; patrimônio, série e destino
+podem ser definidos depois. Veja o [guia do funcionário](docs/GUIA-FUNCIONARIO.md).
 
 ---
 

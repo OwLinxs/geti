@@ -2,15 +2,27 @@ package services
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/pmfb/sige-ti/internal/config"
 )
+
+// AssinaturaMidia assina o par (osID,msgID) para expor o anexo publicamente ao
+// ZapGov sem exigir login (link temporário/não adivinhável).
+func AssinaturaMidia(secret string, osID, msgID uint) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(strconv.FormatUint(uint64(osID), 10) + ":" + strconv.FormatUint(uint64(msgID), 10)))
+	return hex.EncodeToString(mac.Sum(nil))
+}
 
 // ErrJanelaFechada indica que a janela de 24h do WhatsApp está fechada: o envio
 // de texto livre foi recusado e é preciso usar um template aprovado.

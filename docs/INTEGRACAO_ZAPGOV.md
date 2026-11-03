@@ -129,10 +129,22 @@ O WhatsApp só deixa texto livre até 24h após a última mensagem da pessoa. Ca
   aceita) → a resposta e o encerramento voltam certo.
 - `wa_message_id` em toda mensagem → dedup (entrada) e casamento de status (saída).
 
-## Pendências (Fase 3/4)
+## Saída de mídia (anexos do técnico)
 
-- **Saída de mídia**: técnico anexa arquivo → hoje só o TEXTO vai ao WhatsApp
-  (`EnviarMidia` existe no client, falta ligar na UI).
-- **Envio por template** fora da janela: `EnviarTemplate` existe, falta o botão na
-  tela do chamado.
-- Download da mídia recebida é best-effort (a `midia_url` é temporária/assinada).
+Quando o técnico anexa um arquivo numa resposta de chamado WhatsApp, o SIGE envia
+a mídia pelo `POST /v1/mensagens` (`tipo: midia`). O ZapGov busca o arquivo num
+link PÚBLICO assinado: `GET {PUBLIC_BASE_URL}/midia/:osId/:msgId?sig=<hmac>`
+(HMAC-SHA256 com `JWT_SECRET`). Requer `PUBLIC_BASE_URL` configurado e acessível
+pelo ZapGov; vazio = envia só o texto.
+
+## Envio por template (fora da janela)
+
+Na tela do chamado, quando a janela de 24h está fechada, aparece **"Enviar por
+template"** → `POST /api/v1/ordens-servico/:id/template {template, params[]}` →
+`/v1/mensagens` (`tipo: template`). O nome do template deve ser um aprovado no
+ZapGov.
+
+## Pendências
+
+- Download da mídia recebida é best-effort (a `midia_url` de entrada é
+  temporária/assinada).

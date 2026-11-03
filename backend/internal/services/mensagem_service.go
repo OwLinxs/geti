@@ -150,7 +150,7 @@ func (s *MensagemService) Enviar(in EntradaMensagem) (*models.MensagemChamado, e
 		// Saída para o WhatsApp: só resposta pública da equipe em chamado de
 		// origem WhatsApp, quando o ZapGov está configurado.
 		if autorTipo == models.AutorTecnico && !interna && os.Origem == "whatsapp" {
-			s.enviarWhatsApp(os, msg.ID, texto, in.AutorNome)
+			s.enviarWhatsApp(os, msg, in.AutorNome)
 		}
 	}
 	return s.repo.BuscarPorID(msg.ID)
@@ -159,19 +159,32 @@ func (s *MensagemService) Enviar(in EntradaMensagem) (*models.MensagemChamado, e
 // enviarWhatsApp entrega a resposta da equipe ao contato via ZapGov (best-effort,
 // assíncrono). Dentro da janela de 24h envia texto livre; fora dela marca a
 // mensagem como falha (é preciso um template aprovado). Nunca quebra o fluxo.
-func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msgID uint, texto, autorNome string) {
+func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msg *models.MensagemChamado, autorNome string) {
 	if s.zap == nil || !s.zap.Configurado() {
 		return
 	}
 	contato := strings.TrimSpace(os.SolicitanteContato)
-	if contato == "" || strings.TrimSpace(texto) == "" {
+	if contato == "" {
 		return
 	}
+	msgID := msg.ID
+	texto := strings.TrimSpace(msg.Texto)
 	// Prefixa com o nome do técnico (negrito no WhatsApp) para o contato saber
 	// quem respondeu. Mensagens automáticas ("Sistema") vão sem prefixo.
 	corpo := texto
-	if nome := strings.TrimSpace(autorNome); nome != "" && nome != "Sistema" {
+	if nome := strings.TrimSpace(autorNome); nome != "" && nome != "Sistema" && texto != "" {
 		corpo = "*" + nome + "* (T.I.):\n" + texto
+	}
+
+	// Link público (assinado) do anexo, para o ZapGov buscar a mídia.
+	midiaURL := ""
+	if msg.TemAnexo() && s.cfg.PublicBaseURL != "" {
+		sig := AssinaturaMidia(s.cfg.JWTSecret, os.ID, msgID)
+		midiaURL = fmt.Sprintf("%s/midia/%d/%d?sig=%s", s.cfg.PublicBaseURL, os.ID, msgID, sig)
+	}
+
+	if contato == "" || (corpo == "" && midiaURL == "") {
+		return
 	}
 	dentroJanela := os.UltimaMsgSolicitanteEm != nil &&
 		time.Since(*os.UltimaMsgSolicitanteEm) < 24*time.Hour
@@ -182,7 +195,17 @@ func (s *MensagemService) enviarWhatsApp(os *models.OrdemServico, msgID uint, te
 			_ = s.repo.AtualizarEnvioExterno(msgID, "", models.MsgFalhou)
 			return
 		}
-		waID, err := s.zap.EnviarTexto(contato, corpo)
+		var waID string
+		var err error
+		if midiaURL != "" {
+			// Envia a mídia; se houver texto, vai como mensagem separada depois.
+			waID, err = s.zap.EnviarMidia(contato, midiaURL, msg.AnexoTipo)
+			if err == nil && corpo != "" {
+				_, _ = s.zap.EnviarTexto(contato, corpo)
+			}
+		} else {
+			waID, err = s.zap.EnviarTexto(contato, corpo)
+		}
 		if err != nil {
 			if err == ErrJanelaFechada {
 				log.Printf("[zapgov] janela fechada (OS %s); mensagem %d requer template", os.Numero, msgID)
@@ -352,6 +375,48 @@ func (s *MensagemService) RegistrarRecebida(in EntradaRecebida) (*models.Mensage
 // pelo wa_message_id (webhook mensagem.status).
 func (s *MensagemService) AtualizarStatusExterno(waMessageID string, status models.StatusMensagem) error {
 	return s.repo.AtualizarStatusPorIdExterno(waMessageID, status)
+}
+
+// EnviarTemplateWhatsApp envia um template aprovado ao contato (usado fora da
+// janela de 24h) e registra a mensagem de saída no chat.
+func (s *MensagemService) EnviarTemplateWhatsApp(osID uint, template string, params []string) (*models.MensagemChamado, error) {
+	os, err := s.osRepo.BuscarPorID(osID)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	template = strings.TrimSpace(template)
+	if template == "" {
+		ev := NovoErroValidacao()
+		ev.Add("template", "Informe o nome do template.")
+		return nil, ev
+	}
+	contato := strings.TrimSpace(os.SolicitanteContato)
+	if s.zap == nil || !s.zap.Configurado() || contato == "" {
+		return nil, fmt.Errorf("%w: WhatsApp indisponível para este chamado", ErrRegraNegocio)
+	}
+	waID, err := s.zap.EnviarTemplate(contato, template, params)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao enviar template: %w", err)
+	}
+	resumo := "[template] " + template
+	if len(params) > 0 {
+		resumo += " (" + strings.Join(params, ", ") + ")"
+	}
+	msg := &models.MensagemChamado{
+		OrdemServicoID: osID,
+		Direcao:        models.MsgSaida,
+		AutorTipo:      models.AutorTecnico,
+		AutorNome:      "Equipe T.I.",
+		Tipo:           "template",
+		Texto:          resumo,
+		Status:         models.MsgEnviada,
+		IdExterno:      waID,
+		EnviadaEm:      time.Now().UTC(),
+	}
+	if err := s.repo.Criar(msg); err != nil {
+		return nil, err
+	}
+	return s.repo.BuscarPorID(msg.ID)
 }
 
 // EncerrarRelayWhatsApp tira a conversa do modo relay no ZapGov (best-effort,

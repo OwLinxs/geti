@@ -107,7 +107,7 @@ src/
 ├── hooks/               # useReferencias (categorias/setores/servidores)
 ├── lib/                 # utils, format (datas/moeda PT-BR), rotulos (enums)
 ├── pages/               # Telas (Login, Dashboard, Itens, Movimentações, ...)
-│   ├── itens/           # Lista, detalhe e formulário de itens
+│   ├── itens/           # Lista compartilhada, detalhe e formulário de itens e patrimônio
 │   └── cadastros/       # Categorias, Setores, Servidores, Usuários
 ├── routes/              # ProtectedRoute (autenticação + perfil)
 ├── services/api/        # Camada de API (client axios + módulos por recurso)
@@ -115,6 +115,20 @@ src/
 ├── App.tsx              # Roteamento
 └── main.tsx             # Entrypoint (Providers)
 ```
+
+## Itens e Patrimônio
+
+- **Itens** (`/itens`) mostra categorias de consumo, com quantidade e estoque
+  mínimo. **Patrimônio** (`/patrimonio`) mostra bens individuais, com número
+  oficial, **Nº de série**, departamento e código interno (`TI-000001` etc.).
+  A categoria define em qual aba o registro aparece.
+- Em **Patrimônio → Receber lote**, cada unidade recebe um registro próprio;
+  série, patrimônio e local podem ficar pendentes. A lista permite filtrar bens
+  sem número oficial, sem local e pelo lote recém-criado.
+- A tela de detalhe permite preencher série e patrimônio posteriormente.
+  Transferências mudam a custódia por movimentação, preservando o histórico.
+
+Veja também o [guia do funcionário](../docs/GUIA-FUNCIONARIO.md).
 
 ## Perfis de acesso (RBAC no frontend)
 

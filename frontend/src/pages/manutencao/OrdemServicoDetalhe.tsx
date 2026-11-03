@@ -604,7 +604,13 @@ export default function OrdemServicoDetalhe() {
             </CardHeader>
             <CardContent>
               {os.origem && os.origem !== "interno" && (
-                <JanelaWhatsApp em={os.ultima_msg_solicitante_em} />
+                <>
+                  <JanelaWhatsApp em={os.ultima_msg_solicitante_em} />
+                  <EnviarTemplateWhatsApp
+                    osId={os.id}
+                    em={os.ultima_msg_solicitante_em}
+                  />
+                </>
               )}
               <ConversaChamado osId={os.id} modo="equipe" />
             </CardContent>
@@ -744,6 +750,98 @@ function Campo({
     <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-2 last:border-0">
       <span className="text-muted-foreground">{rotulo}</span>
       <span className="text-right font-medium text-foreground">{children}</span>
+    </div>
+  );
+}
+
+// EnviarTemplateWhatsApp mostra, quando a janela de 24h está FECHADA, um botão
+// para disparar um template aprovado (único jeito de falar com a pessoa fora da
+// janela).
+function EnviarTemplateWhatsApp({
+  osId,
+  em,
+}: {
+  osId: number;
+  em?: string | null;
+}) {
+  const { toast } = useToast();
+  const fechada = em
+    ? Date.now() >= new Date(em).getTime() + 24 * 60 * 60 * 1000
+    : true;
+  const [aberto, setAberto] = React.useState(false);
+  const [nome, setNome] = React.useState("");
+  const [params, setParams] = React.useState("");
+  const [enviando, setEnviando] = React.useState(false);
+
+  if (!fechada) return null;
+
+  async function enviar() {
+    if (!nome.trim()) {
+      toast({ titulo: "Informe o nome do template.", variant: "destructive" });
+      return;
+    }
+    setEnviando(true);
+    try {
+      await ordensServicoApi.enviarTemplate(osId, {
+        template: nome.trim(),
+        params: params
+          .split(",")
+          .map((p) => p.trim())
+          .filter(Boolean),
+      });
+      toast({ titulo: "Template enviado.", variant: "success" });
+      setAberto(false);
+      setNome("");
+      setParams("");
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível enviar",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="mb-2">
+      <Button size="sm" variant="outline" onClick={() => setAberto(true)}>
+        Enviar por template
+      </Button>
+      <Dialog open={aberto} onOpenChange={setAberto}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar template aprovado</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <FormField label="Nome do template" htmlFor="tpl-nome">
+              <Input
+                id="tpl-nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Ex.: retomada_atendimento"
+              />
+            </FormField>
+            <FormField label="Parâmetros (separados por vírgula)" htmlFor="tpl-params">
+              <Input
+                id="tpl-params"
+                value={params}
+                onChange={(e) => setParams(e.target.value)}
+                placeholder="Ex.: João, OS-2026-0123"
+              />
+            </FormField>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setAberto(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={enviar} disabled={enviando}>
+              {enviando ? <Spinner className="h-4 w-4" /> : "Enviar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
