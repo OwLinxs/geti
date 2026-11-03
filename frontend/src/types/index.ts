@@ -25,6 +25,25 @@ export interface Usuario extends Base {
   email: string;
   perfil: Perfil;
   ativo: boolean;
+  // Permissões efetivas do usuário logado (presente só em /auth/eu).
+  permissoes?: string[];
+}
+
+// Permissão delegável do catálogo (gestão de permissões por usuário).
+export interface Permissao {
+  chave: string;
+  rotulo: string;
+  grupo: string;
+  descricao: string;
+}
+
+// Estado das permissões de um usuário específico.
+export interface EstadoPermissoes {
+  usuario_id: number;
+  perfil: Perfil;
+  todas_fixas: boolean; // administrador: tem tudo, não editável
+  editavel: boolean; // só operador pode ter permissões ajustadas
+  concedidas: string[];
 }
 
 export interface Categoria extends Base {

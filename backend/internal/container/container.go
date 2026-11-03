@@ -17,6 +17,7 @@ type Container struct {
 
 	// Services (expostos para uso em seed/testes).
 	UsuarioService          *services.UsuarioService
+	PermissaoService        *services.PermissaoService
 	AuthService             *services.AuthService
 	CategoriaService        *services.CategoriaService
 	SetorService            *services.SetorService
@@ -41,6 +42,7 @@ type Container struct {
 	HealthHandler           *handlers.HealthHandler
 	AuthHandler             *handlers.AuthHandler
 	UsuarioHandler          *handlers.UsuarioHandler
+	PermissaoHandler        *handlers.PermissaoHandler
 	CategoriaHandler        *handlers.CategoriaHandler
 	SetorHandler            *handlers.SetorHandler
 	ServidorHandler         *handlers.ServidorHandler
@@ -68,6 +70,7 @@ type Container struct {
 func New(cfg *config.Config, db *gorm.DB) *Container {
 	// Repositories
 	usuarioRepo := repositories.NewUsuarioRepository(db)
+	permissaoRepo := repositories.NewPermissaoUsuarioRepository(db)
 	categoriaRepo := repositories.NewCategoriaRepository(db)
 	setorRepo := repositories.NewSetorRepository(db)
 	servidorRepo := repositories.NewServidorRepository(db)
@@ -89,6 +92,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 
 	// Services
 	usuarioSvc := services.NewUsuarioService(usuarioRepo)
+	permissaoSvc := services.NewPermissaoService(permissaoRepo, usuarioRepo)
 	authSvc := services.NewAuthService(usuarioSvc, cfg.JWTSecret, cfg.JWTExpiresIn)
 	categoriaSvc := services.NewCategoriaService(categoriaRepo)
 	setorSvc := services.NewSetorService(setorRepo)
@@ -131,6 +135,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		Config:                  cfg,
 		DB:                      db,
 		UsuarioService:          usuarioSvc,
+		PermissaoService:        permissaoSvc,
 		AuthService:             authSvc,
 		CategoriaService:        categoriaSvc,
 		SetorService:            setorSvc,
@@ -152,8 +157,9 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		ReservaService:          reservaSvc,
 
 		HealthHandler:           handlers.NewHealthHandler(db),
-		AuthHandler:             handlers.NewAuthHandler(authSvc, usuarioSvc),
+		AuthHandler:             handlers.NewAuthHandler(authSvc, usuarioSvc, permissaoSvc),
 		UsuarioHandler:          handlers.NewUsuarioHandler(usuarioSvc),
+		PermissaoHandler:        handlers.NewPermissaoHandler(permissaoSvc),
 		CategoriaHandler:        handlers.NewCategoriaHandler(categoriaSvc),
 		SetorHandler:            handlers.NewSetorHandler(setorSvc),
 		ServidorHandler:         handlers.NewServidorHandler(servidorSvc),

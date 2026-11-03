@@ -79,10 +79,14 @@ export default function App() {
           <Route path="/fornecedores" element={<Fornecedores />} />
           <Route path="/contratos" element={<Contratos />} />
 
-          {/* Rotas exclusivas de administrador. */}
-          <Route element={<ProtectedRoute somenteAdmin />}>
+          {/* Rotas privilegiadas: administrador ou operador com a permissão. */}
+          <Route element={<ProtectedRoute permissao="usuarios.gerenciar" />}>
             <Route path="/usuarios" element={<Usuarios />} />
+          </Route>
+          <Route element={<ProtectedRoute permissao="config.gerenciar" />}>
             <Route path="/config/chamados" element={<ConfigChamadosPage />} />
+          </Route>
+          <Route element={<ProtectedRoute permissao="auditoria.ver" />}>
             <Route path="/auditoria" element={<Auditoria />} />
           </Route>
 

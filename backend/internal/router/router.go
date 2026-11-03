@@ -8,6 +8,7 @@ import (
 	"github.com/pmfb/sige-ti/internal/config"
 	"github.com/pmfb/sige-ti/internal/container"
 	"github.com/pmfb/sige-ti/internal/middlewares"
+	"github.com/pmfb/sige-ti/internal/models"
 )
 
 // Setup constrói o engine Gin, aplica middlewares globais e registra todas as
@@ -89,6 +90,7 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 		// Área da equipe de T.I. (administrador/operador). Solicitantes são
 		// barrados aqui.
 		equipe := auth.Group("", middlewares.SomenteEquipe())
+		registrarPermissoes(equipe, ct)
 		registrarUsuarios(equipe, ct)
 		registrarCategorias(equipe, ct)
 		registrarSetores(equipe, ct)
@@ -112,9 +114,21 @@ func Setup(cfg *config.Config, ct *container.Container) *gin.Engine {
 // adminOnly é atalho para o middleware de perfil administrador.
 func adminOnly() gin.HandlerFunc { return middlewares.SomenteAdministrador() }
 
+// exigir é atalho para o middleware de permissão por usuário. O administrador
+// sempre passa; os demais perfis dependem de concessão explícita.
+func exigir(ct *container.Container, chave string) gin.HandlerFunc {
+	return middlewares.ExigirPermissao(ct.PermissaoService, chave)
+}
+
+func registrarPermissoes(g *gin.RouterGroup, ct *container.Container) {
+	// Catálogo de permissões delegáveis (consultado pela tela de gestão). Só
+	// administradores enxergam/gerenciam permissões.
+	g.GET("/permissoes/catalogo", adminOnly(), ct.PermissaoHandler.Catalogo)
+}
+
 func registrarUsuarios(g *gin.RouterGroup, ct *container.Container) {
-	// Gestão de usuários é exclusiva de administradores.
-	u := g.Group("/usuarios", adminOnly())
+	// Gestão de usuários: delegável via permissão "usuarios.gerenciar".
+	u := g.Group("/usuarios", exigir(ct, models.PermUsuariosGerenciar))
 	u.GET("", ct.UsuarioHandler.Listar)
 	u.POST("", ct.UsuarioHandler.Criar)
 	u.GET("/:id", ct.UsuarioHandler.BuscarPorID)
@@ -123,6 +137,12 @@ func registrarUsuarios(g *gin.RouterGroup, ct *container.Container) {
 	u.PATCH("/:id/senha", ct.UsuarioHandler.RedefinirSenha)
 	u.PATCH("/:id/ativo", ct.UsuarioHandler.DefinirAtivo)
 	u.PATCH("/:id/perfil", ct.UsuarioHandler.DefinirPerfil)
+
+	// Permissões por usuário: atribuir/consultar é SEMPRE exclusivo de
+	// administradores (adminOnly reforça, mesmo que a gestão de usuários tenha
+	// sido delegada a um operador) — evita escalonamento de privilégio.
+	u.GET("/:id/permissoes", adminOnly(), ct.PermissaoHandler.DoUsuario)
+	u.PUT("/:id/permissoes", adminOnly(), ct.PermissaoHandler.Salvar)
 }
 
 func registrarCategorias(g *gin.RouterGroup, ct *container.Container) {
@@ -131,18 +151,18 @@ func registrarCategorias(g *gin.RouterGroup, ct *container.Container) {
 	c.GET("", ct.CategoriaHandler.Listar)
 	c.GET("/:id", ct.CategoriaHandler.BuscarPorID)
 	// Escrita: administrador.
-	c.POST("", adminOnly(), ct.CategoriaHandler.Criar)
-	c.PUT("/:id", adminOnly(), ct.CategoriaHandler.Atualizar)
-	c.DELETE("/:id", adminOnly(), ct.CategoriaHandler.Remover)
+	c.POST("", exigir(ct, models.PermCategoriasGerenciar), ct.CategoriaHandler.Criar)
+	c.PUT("/:id", exigir(ct, models.PermCategoriasGerenciar), ct.CategoriaHandler.Atualizar)
+	c.DELETE("/:id", exigir(ct, models.PermCategoriasGerenciar), ct.CategoriaHandler.Remover)
 }
 
 func registrarSetores(g *gin.RouterGroup, ct *container.Container) {
 	s := g.Group("/setores")
 	s.GET("", ct.SetorHandler.Listar)
 	s.GET("/:id", ct.SetorHandler.BuscarPorID)
-	s.POST("", adminOnly(), ct.SetorHandler.Criar)
-	s.PUT("/:id", adminOnly(), ct.SetorHandler.Atualizar)
-	s.DELETE("/:id", adminOnly(), ct.SetorHandler.Remover)
+	s.POST("", exigir(ct, models.PermSetoresGerenciar), ct.SetorHandler.Criar)
+	s.PUT("/:id", exigir(ct, models.PermSetoresGerenciar), ct.SetorHandler.Atualizar)
+	s.DELETE("/:id", exigir(ct, models.PermSetoresGerenciar), ct.SetorHandler.Remover)
 }
 
 func registrarServidores(g *gin.RouterGroup, ct *container.Container) {
@@ -152,7 +172,7 @@ func registrarServidores(g *gin.RouterGroup, ct *container.Container) {
 	// Operador pode cadastrar/editar servidores (fluxo operacional).
 	s.POST("", ct.ServidorHandler.Criar)
 	s.PUT("/:id", ct.ServidorHandler.Atualizar)
-	s.DELETE("/:id", adminOnly(), ct.ServidorHandler.Remover)
+	s.DELETE("/:id", exigir(ct, models.PermServidoresExcluir), ct.ServidorHandler.Remover)
 }
 
 func registrarItens(g *gin.RouterGroup, ct *container.Container) {
@@ -172,7 +192,7 @@ func registrarItens(g *gin.RouterGroup, ct *container.Container) {
 	i.PATCH("/:id/reservavel", ct.ItemHandler.DefinirReservavel)
 	// Exclusão (correção de cadastro errado): só administrador, e somente se o
 	// item não tiver histórico (caso contrário, usar baixa patrimonial).
-	i.DELETE("/:id", adminOnly(), ct.ItemHandler.Excluir)
+	i.DELETE("/:id", exigir(ct, models.PermItensExcluir), ct.ItemHandler.Excluir)
 }
 
 func registrarMovimentacoes(g *gin.RouterGroup, ct *container.Container) {
@@ -201,7 +221,7 @@ func registrarRelatorios(g *gin.RouterGroup, ct *container.Container) {
 
 func registrarAuditoria(g *gin.RouterGroup, ct *container.Container) {
 	// Consulta da trilha de auditoria é exclusiva de administradores.
-	a := g.Group("/auditoria", adminOnly())
+	a := g.Group("/auditoria", exigir(ct, models.PermAuditoriaVer))
 	a.GET("", ct.AuditoriaHandler.Listar)
 }
 
@@ -221,7 +241,7 @@ func registrarOrdensServico(g *gin.RouterGroup, ct *container.Container) {
 	o.PATCH("/:id/classificacao", ct.OrdemServicoHandler.Classificar)
 	o.PUT("/:id/passos", ct.OrdemServicoHandler.SalvarPassos)
 	o.POST("/:id/documento", ct.OrdemServicoHandler.Documento)
-	o.DELETE("/:id", adminOnly(), ct.OrdemServicoHandler.Excluir)
+	o.DELETE("/:id", exigir(ct, models.PermChamadosExcluir), ct.OrdemServicoHandler.Excluir)
 	// Conversa do chamado (mensagens + anexos).
 	o.GET("/:id/mensagens", ct.MensagemHandler.Listar)
 	o.POST("/:id/mensagens", ct.MensagemHandler.Enviar)
@@ -237,7 +257,7 @@ func registrarConhecimento(g *gin.RouterGroup, ct *container.Container) {
 	k.GET("/:id", ct.ConhecimentoHandler.BuscarPorID)
 	k.POST("", ct.ConhecimentoHandler.Criar)
 	k.PUT("/:id", ct.ConhecimentoHandler.Atualizar)
-	k.DELETE("/:id", adminOnly(), ct.ConhecimentoHandler.Excluir)
+	k.DELETE("/:id", exigir(ct, models.PermConhecimentoExcluir), ct.ConhecimentoHandler.Excluir)
 }
 
 func registrarFornecedores(g *gin.RouterGroup, ct *container.Container) {
@@ -245,9 +265,9 @@ func registrarFornecedores(g *gin.RouterGroup, ct *container.Container) {
 	f := g.Group("/fornecedores")
 	f.GET("", ct.FornecedorHandler.Listar)
 	f.GET("/:id", ct.FornecedorHandler.BuscarPorID)
-	f.POST("", adminOnly(), ct.FornecedorHandler.Criar)
-	f.PUT("/:id", adminOnly(), ct.FornecedorHandler.Atualizar)
-	f.DELETE("/:id", adminOnly(), ct.FornecedorHandler.Excluir)
+	f.POST("", exigir(ct, models.PermFornecedoresGerenciar), ct.FornecedorHandler.Criar)
+	f.PUT("/:id", exigir(ct, models.PermFornecedoresGerenciar), ct.FornecedorHandler.Atualizar)
+	f.DELETE("/:id", exigir(ct, models.PermFornecedoresGerenciar), ct.FornecedorHandler.Excluir)
 }
 
 func registrarContratos(g *gin.RouterGroup, ct *container.Container) {
@@ -255,9 +275,9 @@ func registrarContratos(g *gin.RouterGroup, ct *container.Container) {
 	ct2 := g.Group("/contratos")
 	ct2.GET("", ct.ContratoHandler.Listar)
 	ct2.GET("/:id", ct.ContratoHandler.BuscarPorID)
-	ct2.POST("", adminOnly(), ct.ContratoHandler.Criar)
-	ct2.PUT("/:id", adminOnly(), ct.ContratoHandler.Atualizar)
-	ct2.DELETE("/:id", adminOnly(), ct.ContratoHandler.Excluir)
+	ct2.POST("", exigir(ct, models.PermContratosGerenciar), ct.ContratoHandler.Criar)
+	ct2.PUT("/:id", exigir(ct, models.PermContratosGerenciar), ct.ContratoHandler.Atualizar)
+	ct2.DELETE("/:id", exigir(ct, models.PermContratosGerenciar), ct.ContratoHandler.Excluir)
 }
 
 func registrarIntegracao(api *gin.RouterGroup, cfg *config.Config, ct *container.Container) {
@@ -273,9 +293,9 @@ func registrarIntegracao(api *gin.RouterGroup, cfg *config.Config, ct *container
 func registrarCategoriasChamado(g *gin.RouterGroup, ct *container.Container) {
 	c := g.Group("/categorias-chamado")
 	c.GET("", ct.CategoriaChamadoHandler.Listar)
-	c.POST("", adminOnly(), ct.CategoriaChamadoHandler.Criar)
-	c.PUT("/:id", adminOnly(), ct.CategoriaChamadoHandler.Atualizar)
-	c.DELETE("/:id", adminOnly(), ct.CategoriaChamadoHandler.Excluir)
+	c.POST("", exigir(ct, models.PermChamadosCategorias), ct.CategoriaChamadoHandler.Criar)
+	c.PUT("/:id", exigir(ct, models.PermChamadosCategorias), ct.CategoriaChamadoHandler.Atualizar)
+	c.DELETE("/:id", exigir(ct, models.PermChamadosCategorias), ct.CategoriaChamadoHandler.Excluir)
 }
 
 func registrarNotificacoes(g *gin.RouterGroup, ct *container.Container) {
@@ -290,13 +310,13 @@ func registrarRespostasRapidas(g *gin.RouterGroup, ct *container.Container) {
 	// Leitura para a equipe (usada no chat); escrita só administrador.
 	r := g.Group("/respostas-rapidas")
 	r.GET("", ct.RespostaRapidaHandler.Listar)
-	r.POST("", adminOnly(), ct.RespostaRapidaHandler.Criar)
-	r.PUT("/:id", adminOnly(), ct.RespostaRapidaHandler.Atualizar)
-	r.DELETE("/:id", adminOnly(), ct.RespostaRapidaHandler.Excluir)
+	r.POST("", exigir(ct, models.PermChamadosRespostas), ct.RespostaRapidaHandler.Criar)
+	r.PUT("/:id", exigir(ct, models.PermChamadosRespostas), ct.RespostaRapidaHandler.Atualizar)
+	r.DELETE("/:id", exigir(ct, models.PermChamadosRespostas), ct.RespostaRapidaHandler.Excluir)
 }
 
 func registrarConfiguracoes(g *gin.RouterGroup, ct *container.Container) {
-	c := g.Group("/config", adminOnly())
+	c := g.Group("/config", exigir(ct, models.PermConfigGerenciar))
 	c.GET("/chamados", ct.ConfiguracaoHandler.ObterChamados)
 	c.PUT("/chamados", ct.ConfiguracaoHandler.SalvarChamados)
 }
@@ -324,7 +344,7 @@ func registrarReservas(g *gin.RouterGroup, ct *container.Container) {
 	res.POST("", ct.ReservaHandler.Criar)
 	res.PUT("/:id", ct.ReservaHandler.Atualizar)
 	res.PATCH("/:id/status", ct.ReservaHandler.DefinirStatus)
-	res.DELETE("/:id", adminOnly(), ct.ReservaHandler.Excluir)
+	res.DELETE("/:id", exigir(ct, models.PermReservasExcluir), ct.ReservaHandler.Excluir)
 }
 
 func corsMiddleware(cfg *config.Config) gin.HandlerFunc {

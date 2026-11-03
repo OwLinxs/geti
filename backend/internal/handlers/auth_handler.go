@@ -5,16 +5,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pmfb/sige-ti/internal/middlewares"
+	"github.com/pmfb/sige-ti/internal/models"
 	"github.com/pmfb/sige-ti/internal/services"
 )
 
 type AuthHandler struct {
 	auth           *services.AuthService
 	usuarioService *services.UsuarioService
+	permissaoSvc   *services.PermissaoService
 }
 
-func NewAuthHandler(auth *services.AuthService, usuarioService *services.UsuarioService) *AuthHandler {
-	return &AuthHandler{auth: auth, usuarioService: usuarioService}
+func NewAuthHandler(auth *services.AuthService, usuarioService *services.UsuarioService, permissaoSvc *services.PermissaoService) *AuthHandler {
+	return &AuthHandler{auth: auth, usuarioService: usuarioService, permissaoSvc: permissaoSvc}
 }
 
 type loginRequest struct {
@@ -68,7 +70,15 @@ func (h *AuthHandler) Registrar(c *gin.Context) {
 	c.JSON(http.StatusCreated, res)
 }
 
-// EuMesmo devolve os dados do usuário autenticado (a partir do token).
+// euMesmoResposta embute o usuário e acrescenta as permissões efetivas (para o
+// frontend esconder/desabilitar ações que o usuário não pode executar).
+type euMesmoResposta struct {
+	*models.Usuario
+	Permissoes []string `json:"permissoes"`
+}
+
+// EuMesmo devolve os dados do usuário autenticado (a partir do token), incluindo
+// as permissões efetivas.
 func (h *AuthHandler) EuMesmo(c *gin.Context) {
 	id, ok := middlewares.UsuarioIDDoContexto(c)
 	if !ok {
@@ -80,5 +90,11 @@ func (h *AuthHandler) EuMesmo(c *gin.Context) {
 		responderErro(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, u)
+	perms := []string{}
+	if h.permissaoSvc != nil {
+		if est, err := h.permissaoSvc.DoUsuario(id); err == nil {
+			perms = est.Concedidas
+		}
+	}
+	c.JSON(http.StatusOK, euMesmoResposta{Usuario: u, Permissoes: perms})
 }

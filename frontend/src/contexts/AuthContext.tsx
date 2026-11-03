@@ -15,6 +15,9 @@ interface AuthContextValue {
   ehAdministrador: boolean;
   ehEquipe: boolean; // administrador ou operador (área interna de T.I.)
   ehSolicitante: boolean; // usuário final (portal de chamados)
+  // pode verifica uma permissão delegável: administrador sempre pode; os demais
+  // dependem das permissões concedidas (vindas de /auth/eu).
+  pode: (chave: string) => boolean;
   entrar: (email: string, senha: string) => Promise<void>;
   registrar: (nome: string, email: string, senha: string) => Promise<void>;
   sair: () => void;
@@ -61,7 +64,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const entrar = React.useCallback(async (email: string, senha: string) => {
     const res = await authApi.login(email, senha);
     setToken(res.token);
-    setUsuario(res.usuario);
+    // O login não traz as permissões; busca o usuário completo (/auth/eu) para
+    // popular `permissoes` e habilitar o gate de UI imediatamente.
+    try {
+      const eu = await authApi.euMesmo();
+      setUsuario(eu);
+    } catch {
+      setUsuario(res.usuario);
+    }
   }, []);
 
   const registrar = React.useCallback(
@@ -74,13 +84,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const perfil = usuario?.perfil;
+  const ehAdministrador = perfil === ("administrador" as Perfil);
+  const pode = React.useCallback(
+    (chave: string) =>
+      ehAdministrador || !!usuario?.permissoes?.includes(chave),
+    [ehAdministrador, usuario]
+  );
   const value: AuthContextValue = {
     usuario,
     carregando,
     autenticado: !!usuario,
-    ehAdministrador: perfil === ("administrador" as Perfil),
+    ehAdministrador,
     ehEquipe: perfil === "administrador" || perfil === "operador",
     ehSolicitante: perfil === "solicitante",
+    pode,
     entrar,
     registrar,
     sair,

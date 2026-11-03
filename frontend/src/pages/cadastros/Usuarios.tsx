@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus, KeyRound, UserCheck, UserX } from "lucide-react";
+import { Plus, KeyRound, UserCheck, UserX, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { FormField } from "@/components/FormField";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { DialogPermissoesUsuario } from "@/components/DialogPermissoesUsuario";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { usuariosApi } from "@/services/api";
@@ -48,7 +49,7 @@ const VAZIO: UsuarioPayload = {
 
 export default function Usuarios() {
   const { toast } = useToast();
-  const { usuario: usuarioAtual } = useAuth();
+  const { usuario: usuarioAtual, ehAdministrador } = useAuth();
   const [lista, setLista] = React.useState<Usuario[]>([]);
   const [carregando, setCarregando] = React.useState(true);
 
@@ -67,6 +68,9 @@ export default function Usuarios() {
   // Ativar/desativar.
   const [ativoAlvo, setAtivoAlvo] = React.useState<Usuario | null>(null);
   const [processandoAtivo, setProcessandoAtivo] = React.useState(false);
+
+  // Permissões por usuário.
+  const [permAlvo, setPermAlvo] = React.useState<Usuario | null>(null);
 
   // Alteração de perfil (linha sendo salva).
   const [perfilSalvandoId, setPerfilSalvandoId] = React.useState<number | null>(null);
@@ -233,7 +237,7 @@ export default function Usuarios() {
                   <TableHead>E-mail</TableHead>
                   <TableHead>Perfil</TableHead>
                   <TableHead>Situação</TableHead>
-                  <TableHead className="w-48 text-right">Ações</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -296,6 +300,17 @@ export default function Usuarios() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          {ehAdministrador && u.perfil !== "solicitante" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setPermAlvo(u)}
+                              aria-label="Permissões"
+                              title="Definir permissões"
+                            >
+                              <ShieldCheck className="h-4 w-4" /> Permissões
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -474,6 +489,13 @@ export default function Usuarios() {
         processando={processandoAtivo}
         onConfirmar={confirmarAtivo}
         onCancelar={() => setAtivoAlvo(null)}
+      />
+
+      {/* Permissões por usuário */}
+      <DialogPermissoesUsuario
+        usuario={permAlvo}
+        aberto={!!permAlvo}
+        onClose={() => setPermAlvo(null)}
       />
     </div>
   );

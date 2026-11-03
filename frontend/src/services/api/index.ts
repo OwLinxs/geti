@@ -39,6 +39,8 @@ import type {
   TermoResponsabilidade,
   Usuario,
   UsuarioPayload,
+  Permissao,
+  EstadoPermissoes,
 } from "@/types";
 
 // ===== Autenticação =====
@@ -500,6 +502,18 @@ export const usuariosApi = {
     api.patch<Usuario>(`/usuarios/${id}/ativo`, { ativo }).then((r) => r.data),
   definirPerfil: (id: number, perfil: Perfil) =>
     api.patch<Usuario>(`/usuarios/${id}/perfil`, { perfil }).then((r) => r.data),
+};
+
+// ===== Permissões por usuário (admin) =====
+export const permissoesApi = {
+  catalogo: () =>
+    api.get<Permissao[]>("/permissoes/catalogo").then((r) => r.data),
+  doUsuario: (id: number) =>
+    api.get<EstadoPermissoes>(`/usuarios/${id}/permissoes`).then((r) => r.data),
+  salvar: (id: number, chaves: string[]) =>
+    api
+      .put<EstadoPermissoes>(`/usuarios/${id}/permissoes`, { chaves })
+      .then((r) => r.data),
 };
 
 // ===== Auditoria (admin) =====

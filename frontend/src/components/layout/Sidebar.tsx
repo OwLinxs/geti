@@ -26,7 +26,8 @@ interface ItemMenu {
   rotulo: string;
   para: string;
   icone: React.ComponentType<{ className?: string }>;
-  somenteAdmin?: boolean;
+  // Exige uma permissão delegável para aparecer (administrador sempre vê).
+  permissao?: string;
 }
 
 const PRINCIPAL: ItemMenu[] = [
@@ -52,14 +53,24 @@ const CADASTROS: ItemMenu[] = [
     rotulo: "Chamados (config)",
     para: "/config/chamados",
     icone: Tag,
-    somenteAdmin: true,
+    permissao: "config.gerenciar",
   },
-  { rotulo: "Usuários", para: "/usuarios", icone: UserCog, somenteAdmin: true },
-  { rotulo: "Auditoria", para: "/auditoria", icone: ShieldCheck, somenteAdmin: true },
+  {
+    rotulo: "Usuários",
+    para: "/usuarios",
+    icone: UserCog,
+    permissao: "usuarios.gerenciar",
+  },
+  {
+    rotulo: "Auditoria",
+    para: "/auditoria",
+    icone: ShieldCheck,
+    permissao: "auditoria.ver",
+  },
 ];
 
 export function Sidebar({ aberto }: { aberto: boolean }) {
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
 
   return (
     <aside
@@ -79,8 +90,8 @@ export function Sidebar({ aberto }: { aberto: boolean }) {
       </div>
 
       <nav className="flex flex-col gap-6 overflow-y-auto px-3 py-4">
-        <Grupo titulo="Geral" itens={PRINCIPAL} ehAdmin={ehAdministrador} />
-        <Grupo titulo="Cadastros" itens={CADASTROS} ehAdmin={ehAdministrador} />
+        <Grupo titulo="Geral" itens={PRINCIPAL} pode={pode} />
+        <Grupo titulo="Cadastros" itens={CADASTROS} pode={pode} />
       </nav>
     </aside>
   );
@@ -89,13 +100,13 @@ export function Sidebar({ aberto }: { aberto: boolean }) {
 function Grupo({
   titulo,
   itens,
-  ehAdmin,
+  pode,
 }: {
   titulo: string;
   itens: ItemMenu[];
-  ehAdmin: boolean;
+  pode: (chave: string) => boolean;
 }) {
-  const visiveis = itens.filter((i) => !i.somenteAdmin || ehAdmin);
+  const visiveis = itens.filter((i) => !i.permissao || pode(i.permissao));
   return (
     <div>
       <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
