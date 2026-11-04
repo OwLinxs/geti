@@ -8,6 +8,7 @@ import (
 
 	"github.com/pmfb/sige-ti/internal/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // FiltroItem agrupa os critérios de busca/filtragem de itens.
@@ -157,11 +158,14 @@ func (r *itemRepository) Listar(f FiltroItem) ([]models.Item, int64, error) {
 }
 
 func (r *itemRepository) Atualizar(i *models.Item) error {
-	return r.db.Save(i).Error
+	// Omit(clause.Associations): o item vem com Categoria/Setor/Responsável
+	// precarregados. Sem o Omit, o Save reescreveria as FKs a partir dos PKs
+	// dessas associações antigas, ignorando a troca de categoria/setor.
+	return r.db.Omit(clause.Associations).Save(i).Error
 }
 
 func (r *itemRepository) AtualizarComTx(tx *gorm.DB, i *models.Item) error {
-	return tx.Save(i).Error
+	return tx.Omit(clause.Associations).Save(i).Error
 }
 
 func (r *itemRepository) Remover(id uint) error {
