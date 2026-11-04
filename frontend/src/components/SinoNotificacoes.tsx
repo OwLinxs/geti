@@ -58,7 +58,7 @@ export function SinoNotificacoes() {
   // Polling do contador.
   React.useEffect(() => {
     atualizarContador();
-    const t = setInterval(atualizarContador, 30000);
+    const t = setInterval(atualizarContador, 10000);
     return () => clearInterval(t);
   }, [atualizarContador]);
 

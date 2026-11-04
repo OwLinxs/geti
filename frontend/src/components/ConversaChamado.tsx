@@ -85,7 +85,7 @@ export function ConversaChamado({ osId, modo }: Props) {
   React.useEffect(() => {
     carregar(true);
     // Polling leve para receber respostas do outro lado.
-    const t = setInterval(() => carregar(false), 8000);
+    const t = setInterval(() => carregar(false), 4000);
     return () => clearInterval(t);
   }, [carregar]);
 
