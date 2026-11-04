@@ -13,6 +13,7 @@ import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { formatarDataHora } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { tocarSomNotificacao } from "@/lib/som";
 import type { MensagemChamado, RespostaRapida } from "@/types";
 
 interface Props {
@@ -37,12 +38,31 @@ export function ConversaChamado({ osId, modo }: Props) {
   const [respostas, setRespostas] = React.useState<RespostaRapida[]>([]);
   const [mostrarRespostas, setMostrarRespostas] = React.useState(false);
   const fimRef = React.useRef<HTMLDivElement | null>(null);
+  // Maior id de mensagem já visto: detecta mensagem nova do outro lado p/ som.
+  const ultimoIdRef = React.useRef<number | null>(null);
 
   const carregar = React.useCallback(
     (rolar = false) => {
       chamadoMensagensApi
         .listar(base, osId)
         .then((lista) => {
+          // Toca som se chegou mensagem nova do outro lado (não na 1ª carga).
+          const maiorId = lista.reduce((m, x) => (x.id > m ? x.id : m), 0);
+          const anterior = ultimoIdRef.current;
+          if (anterior !== null && maiorId > anterior) {
+            const mudo = (() => {
+              try {
+                return localStorage.getItem("notif_som") === "off";
+              } catch {
+                return false;
+              }
+            })();
+            const temNova = lista.some(
+              (x) => x.id > anterior && x.autor_tipo !== meuTipo
+            );
+            if (temNova && !mudo) tocarSomNotificacao();
+          }
+          ultimoIdRef.current = maiorId;
           setMsgs(lista);
           if (rolar)
             setTimeout(
@@ -59,7 +79,7 @@ export function ConversaChamado({ osId, modo }: Props) {
         )
         .finally(() => setCarregando(false));
     },
-    [base, osId, toast]
+    [base, osId, toast, meuTipo]
   );
 
   React.useEffect(() => {

@@ -1,10 +1,11 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, Volume2, VolumeX } from "lucide-react";
 import { notificacoesApi } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatarDataHora } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { tocarSomNotificacao } from "@/lib/som";
 import type { Notificacao } from "@/types";
 
 export function SinoNotificacoes() {
@@ -14,14 +15,45 @@ export function SinoNotificacoes() {
   const [naoLidas, setNaoLidas] = React.useState(0);
   const [lista, setLista] = React.useState<Notificacao[]>([]);
   const [carregando, setCarregando] = React.useState(false);
+  const [silencioso, setSilencioso] = React.useState(() => {
+    try {
+      return localStorage.getItem("notif_som") === "off";
+    } catch {
+      return false;
+    }
+  });
   const ref = React.useRef<HTMLDivElement | null>(null);
+  // Último contador conhecido: se o novo for maior, chegou algo -> toca som.
+  const anteriorRef = React.useRef<number | null>(null);
+  // Mantém o valor atual acessível dentro do callback de polling.
+  const silenciosoRef = React.useRef(silencioso);
+  silenciosoRef.current = silencioso;
 
   const atualizarContador = React.useCallback(() => {
     notificacoesApi
       .contarNaoLidas()
-      .then(setNaoLidas)
+      .then((valor) => {
+        setNaoLidas(valor);
+        const anterior = anteriorRef.current;
+        if (anterior !== null && valor > anterior && !silenciosoRef.current) {
+          tocarSomNotificacao();
+        }
+        anteriorRef.current = valor;
+      })
       .catch(() => undefined);
   }, []);
+
+  function alternarSom() {
+    setSilencioso((v) => {
+      const novo = !v;
+      try {
+        localStorage.setItem("notif_som", novo ? "off" : "on");
+      } catch {
+        /* best-effort */
+      }
+      return novo;
+    });
+  }
 
   // Polling do contador.
   React.useEffect(() => {
@@ -68,6 +100,7 @@ export function SinoNotificacoes() {
         .then((r) => {
           setLista(r.dados);
           setNaoLidas(r.nao_lidas);
+          anteriorRef.current = r.nao_lidas;
         })
         .catch(() => undefined)
         .finally(() => setCarregando(false));
@@ -96,6 +129,7 @@ export function SinoNotificacoes() {
       await notificacoesApi.marcarTodasLidas();
       setLista((prev) => prev.map((n) => ({ ...n, lida: true })));
       setNaoLidas(0);
+      anteriorRef.current = 0;
     } catch {
       /* best-effort */
     }
@@ -120,14 +154,28 @@ export function SinoNotificacoes() {
         <div className="absolute right-0 z-50 mt-2 w-80 rounded-lg border border-border bg-card shadow-lg">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="text-sm font-semibold">Notificações</span>
-            {naoLidas > 0 && (
+            <div className="flex items-center gap-3">
+              {naoLidas > 0 && (
+                <button
+                  onClick={marcarTodas}
+                  className="flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <Check className="h-3 w-3" /> Marcar todas
+                </button>
+              )}
               <button
-                onClick={marcarTodas}
-                className="flex items-center gap-1 text-xs text-primary hover:underline"
+                onClick={alternarSom}
+                className="text-muted-foreground hover:text-foreground"
+                title={silencioso ? "Ativar som" : "Silenciar som"}
+                aria-label={silencioso ? "Ativar som" : "Silenciar som"}
               >
-                <Check className="h-3 w-3" /> Marcar todas
+                {silencioso ? (
+                  <VolumeX className="h-4 w-4" />
+                ) : (
+                  <Volume2 className="h-4 w-4" />
+                )}
               </button>
-            )}
+            </div>
           </div>
           <div className="max-h-96 overflow-y-auto">
             {carregando ? (
