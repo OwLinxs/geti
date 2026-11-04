@@ -333,7 +333,7 @@ export default function OrdemServicoDetalhe() {
                   onValueChange={alterarStatus}
                   disabled={mudandoStatus}
                 >
-                  <SelectTrigger className="h-8 w-44">
+                  <SelectTrigger className="h-8 w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -353,7 +353,7 @@ export default function OrdemServicoDetalhe() {
                 onValueChange={(v) => classificar("prioridade", v)}
                 disabled={classificando}
               >
-                <SelectTrigger className="h-8 w-44">
+                <SelectTrigger className="h-8 w-36">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -402,7 +402,7 @@ export default function OrdemServicoDetalhe() {
                 onValueChange={(v) => classificar("categoria", v)}
                 disabled={classificando}
               >
-                <SelectTrigger className="h-8 w-44">
+                <SelectTrigger className="h-8 w-36">
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
@@ -421,7 +421,7 @@ export default function OrdemServicoDetalhe() {
                 onValueChange={(v) => classificar("setor", v)}
                 disabled={classificando}
               >
-                <SelectTrigger className="h-8 w-44">
+                <SelectTrigger className="h-8 w-36">
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>

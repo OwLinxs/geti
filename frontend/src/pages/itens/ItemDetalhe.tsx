@@ -64,16 +64,10 @@ export default function ItemDetalhe() {
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
-    Promise.all([
-      itensApi.buscarPorId(itemId),
-      itensApi.historico(itemId),
-      itensApi.timeline(itemId),
-    ])
-      .then(([it, hist, tl]) => {
-        setItem(it);
-        setHistorico(hist);
-        setTimeline(tl);
-      })
+    // Item é o dado crítico: se carregar, a tela renderiza.
+    itensApi
+      .buscarPorId(itemId)
+      .then((it) => setItem(it))
       .catch((err) =>
         toast({
           titulo: "Erro ao carregar o item",
@@ -82,6 +76,16 @@ export default function ItemDetalhe() {
         })
       )
       .finally(() => setCarregando(false));
+    // Histórico e linha do tempo são secundários: falha neles não derruba a
+    // tela (ex.: backend antigo sem o endpoint /timeline).
+    itensApi
+      .historico(itemId)
+      .then(setHistorico)
+      .catch(() => setHistorico([]));
+    itensApi
+      .timeline(itemId)
+      .then(setTimeline)
+      .catch(() => setTimeline([]));
   }, [itemId, toast]);
 
   React.useEffect(carregar, [carregar]);

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Pencil, Eye, AlertTriangle, X, Trash2, Upload } from "lucide-react";
+import { Plus, Search, Pencil, Eye, AlertTriangle, X, Trash2, Upload, QrCode } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import { ImportarItensDialog } from "@/components/ImportarItensDialog";
 import { CadastrarLoteDialog } from "@/components/CadastrarLoteDialog";
 import { itensApi, type FiltroItens } from "@/services/api";
 import { codigoInterno } from "@/lib/patrimonio";
+import { imprimirEtiquetasQR } from "@/lib/etiquetas";
 import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,6 +75,64 @@ export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" })
   // Exclusão (admin): correção de cadastro errado.
   const [excluindoAlvo, setExcluindoAlvo] = React.useState<Item | null>(null);
   const [excluindo, setExcluindo] = React.useState(false);
+
+  // Seleção para impressão de etiquetas QR em lote (só patrimônio).
+  const [selecionados, setSelecionados] = React.useState<Set<number>>(
+    () => new Set()
+  );
+  const todosDaPaginaSelecionados =
+    itens.length > 0 && itens.every((i) => selecionados.has(i.id));
+
+  function alternarSelecao(id: number) {
+    setSelecionados((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
+  }
+
+  function alternarTodosDaPagina() {
+    setSelecionados((prev) => {
+      const novo = new Set(prev);
+      if (todosDaPaginaSelecionados) {
+        itens.forEach((i) => novo.delete(i.id));
+      } else {
+        itens.forEach((i) => novo.add(i.id));
+      }
+      return novo;
+    });
+  }
+
+  function limparSelecao() {
+    setSelecionados(new Set());
+  }
+
+  async function imprimirEtiquetas() {
+    // Puxa os itens selecionados (podem estar em páginas diferentes). Usa a
+    // listagem atual quando possível; busca o resto por id.
+    const ids = Array.from(selecionados);
+    const naPagina = new Map(itens.map((i) => [i.id, i]));
+    try {
+      const alvos = await Promise.all(
+        ids.map((id) => naPagina.get(id) ?? itensApi.buscarPorId(id))
+      );
+      const ok = await imprimirEtiquetasQR(alvos);
+      if (!ok) {
+        toast({
+          titulo: "Pop-up bloqueado",
+          descricao: "Libere pop-ups para este site e tente novamente.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível gerar as etiquetas",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    }
+  }
 
   // Debounce da busca textual.
   React.useEffect(() => {
@@ -283,6 +342,20 @@ export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" })
         {lote && <Badge variant="secondary">Lote {lote} <button className="ml-2" onClick={() => { setLote(""); setPagina(1); }} aria-label="Limpar lote">×</button></Badge>}
       </div>}
 
+      {ehPatrimonio && selecionados.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-2 text-sm">
+          <span className="font-medium">
+            {selecionados.size} selecionado{selecionados.size > 1 ? "s" : ""}
+          </span>
+          <Button size="sm" onClick={imprimirEtiquetas}>
+            <QrCode className="h-4 w-4" /> Imprimir etiquetas
+          </Button>
+          <Button size="sm" variant="ghost" onClick={limparSelecao}>
+            <X className="h-4 w-4" /> Limpar seleção
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           {carregando ? (
@@ -300,6 +373,17 @@ export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" })
             <Table>
               <TableHeader>
                 <TableRow>
+                  {ehPatrimonio && (
+                    <TableHead className="w-10">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 align-middle"
+                        checked={todosDaPaginaSelecionados}
+                        onChange={alternarTodosDaPagina}
+                        aria-label="Selecionar todos da página"
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>Descrição</TableHead>
                   <TableHead>Categoria</TableHead>
                   {ehPatrimonio && <TableHead>Patrimônio</TableHead>}
@@ -321,6 +405,17 @@ export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" })
                       className="cursor-pointer"
                       onClick={() => navigate(`${rotaBase}/${item.id}`)}
                     >
+                      {ehPatrimonio && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 align-middle"
+                            checked={selecionados.has(item.id)}
+                            onChange={() => alternarSelecao(item.id)}
+                            aria-label={`Selecionar ${item.descricao}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           {item.descricao}
