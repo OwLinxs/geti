@@ -70,6 +70,12 @@ type Item struct {
 	DataAquisicao *time.Time `json:"data_aquisicao,omitempty"`
 	Valor         *float64   `json:"valor,omitempty"`
 
+	// Garantia: data de término (opcional). Dispara alerta de vencimento.
+	GarantiaAte *time.Time `gorm:"index" json:"garantia_ate,omitempty"`
+	// Controle interno do alerta de garantia (evita notificação repetida). É
+	// zerado quando GarantiaAte muda.
+	AlertaGarantiaEnviado bool `gorm:"not null;default:false" json:"-"`
+
 	// Reservável: equipamento disponível para reserva/alocação temporária
 	// (entra no pool da aba Reservas).
 	Reservavel bool `gorm:"not null;default:false;index" json:"reservavel"`

@@ -62,6 +62,8 @@ type OrdemServicoRepository interface {
 	// (abre a janela de 24h).
 	MarcarMsgSolicitante(osID uint, t time.Time) error
 	Listar(f FiltroOrdemServico) ([]models.OrdemServico, int64, error)
+	// ListarPorItem devolve todas as OS vinculadas a um item (linha do tempo).
+	ListarPorItem(itemID uint) ([]models.OrdemServico, error)
 	Remover(id uint) error
 	// SubstituirPassos troca todos os passos de uma OS numa transação.
 	SubstituirPassos(osID uint, passos []models.OrdemServicoPasso) error
@@ -235,6 +237,15 @@ func (r *ordemServicoRepository) Listar(f FiltroOrdemServico) ([]models.OrdemSer
 
 func (r *ordemServicoRepository) Remover(id uint) error {
 	return r.db.Delete(&models.OrdemServico{}, id).Error
+}
+
+func (r *ordemServicoRepository) ListarPorItem(itemID uint) ([]models.OrdemServico, error) {
+	var lista []models.OrdemServico
+	err := r.preloads(r.db).
+		Where("item_id = ?", itemID).
+		Order("data_abertura DESC, id DESC").
+		Find(&lista).Error
+	return lista, err
 }
 
 func (r *ordemServicoRepository) SubstituirPassos(osID uint, passos []models.OrdemServicoPasso) error {

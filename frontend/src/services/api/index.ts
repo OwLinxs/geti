@@ -9,6 +9,7 @@ import type {
   CategoriaChamado,
   CategoriaChamadoPayload,
   ConfigChamados,
+  EventoTimeline,
   Notificacao,
   RespostaRapida,
   RespostaRapidaPayload,
@@ -216,6 +217,22 @@ export const servidoresApi = {
   atualizar: (id: number, p: ServidorPayload) =>
     api.put<Servidor>(`/servidores/${id}`, p).then((r) => r.data),
   remover: (id: number) => api.delete(`/servidores/${id}`).then(() => undefined),
+
+  // Importação em massa via CSV. validar=true faz apenas simulação (dry-run).
+  importar: (arquivo: File, validar: boolean) => {
+    const form = new FormData();
+    form.append("arquivo", arquivo);
+    return api
+      .post<ResultadoImportacao>("/servidores/importar", form, {
+        params: validar ? { validar: "true" } : {},
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data);
+  },
+  baixarModeloCsv: () =>
+    api
+      .get("/servidores/modelo-csv", { responseType: "blob" })
+      .then((r) => r.data as Blob),
 };
 
 // ===== Itens =====
@@ -267,6 +284,8 @@ export const itensApi = {
     api.put<Item>(`/itens/${id}`, p).then((r) => r.data),
   historico: (id: number) =>
     api.get<Movimentacao[]>(`/itens/${id}/historico`).then((r) => r.data),
+  timeline: (id: number) =>
+    api.get<EventoTimeline[]>(`/itens/${id}/timeline`).then((r) => r.data),
   alertasEstoqueBaixo: () =>
     api.get<Item[]>("/itens/alertas/estoque-baixo").then((r) => r.data),
   excluir: (id: number) => api.delete(`/itens/${id}`).then(() => undefined),

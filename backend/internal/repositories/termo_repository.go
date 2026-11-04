@@ -16,6 +16,8 @@ type TermoRepository interface {
 	Listar() ([]models.TermoResponsabilidade, error)
 	// ContarPorItem informa quantos termos foram emitidos para o item.
 	ContarPorItem(itemID uint) (int64, error)
+	// ListarPorItem devolve os termos emitidos para o item (linha do tempo).
+	ListarPorItem(itemID uint) ([]models.TermoResponsabilidade, error)
 	// ProximoNumero gera o próximo número sequencial no formato TR-AAAA-NNNN.
 	ProximoNumero(tx *gorm.DB, ano int) (string, error)
 	// DB expõe o handle para abertura de transações no serviço.
@@ -69,6 +71,15 @@ func (r *termoRepository) ContarPorItem(itemID uint) (int64, error) {
 	var n int64
 	err := r.db.Model(&models.TermoResponsabilidade{}).Where("item_id = ?", itemID).Count(&n).Error
 	return n, err
+}
+
+func (r *termoRepository) ListarPorItem(itemID uint) ([]models.TermoResponsabilidade, error) {
+	var lista []models.TermoResponsabilidade
+	err := r.preloads(r.db).
+		Where("item_id = ?", itemID).
+		Order("data_emissao DESC, id DESC").
+		Find(&lista).Error
+	return lista, err
 }
 
 func (r *termoRepository) ProximoNumero(tx *gorm.DB, ano int) (string, error) {

@@ -63,6 +63,7 @@ interface FormState {
   responsavel_id: number | null;
   data_aquisicao: string;
   valor: string;
+  garantia_ate: string;
   reservavel: boolean;
 }
 
@@ -81,6 +82,7 @@ function estadoInicial(item: Item | null): FormState {
     responsavel_id: item?.responsavel_id ?? null,
     data_aquisicao: isoParaDateInput(item?.data_aquisicao),
     valor: item?.valor != null ? String(item.valor) : "",
+    garantia_ate: isoParaDateInput(item?.garantia_ate),
     reservavel: item?.reservavel ?? false,
   };
 }
@@ -154,6 +156,7 @@ export function ItemForm({
       responsavel_id: form.responsavel_id,
       data_aquisicao: dateInputParaISO(form.data_aquisicao),
       valor: form.valor ? Number(form.valor) : null,
+      garantia_ate: dateInputParaISO(form.garantia_ate),
       reservavel: form.reservavel,
     };
 
@@ -417,6 +420,16 @@ export function ItemForm({
                 placeholder="Opcional"
               />
             </FormField>
+            {!ehConsumivel && (
+              <FormField label="Garantia até" htmlFor="garantia_ate">
+                <Input
+                  id="garantia_ate"
+                  type="date"
+                  value={form.garantia_ate}
+                  onChange={(e) => set("garantia_ate", e.target.value)}
+                />
+              </FormField>
+            )}
           </div>
 
           {!ehConsumivel && (

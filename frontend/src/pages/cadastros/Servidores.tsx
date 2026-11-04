@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { FormField } from "@/components/FormField";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ImportarServidoresDialog } from "@/components/ImportarServidoresDialog";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { servidoresApi, setoresApi } from "@/services/api";
@@ -60,6 +61,7 @@ export default function Servidores() {
 
   const [removendo, setRemovendo] = React.useState<Servidor | null>(null);
   const [processandoRemocao, setProcessandoRemocao] = React.useState(false);
+  const [importarAberto, setImportarAberto] = React.useState(false);
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
@@ -160,9 +162,14 @@ export default function Servidores() {
         titulo="Servidores"
         descricao="Responsáveis por equipamentos. Conforme a LGPD, coletamos apenas nome e matrícula."
         acao={
-          <Button onClick={abrirCriacao}>
-            <Plus className="h-4 w-4" /> Novo servidor
-          </Button>
+          <>
+            <Button variant="outline" onClick={() => setImportarAberto(true)}>
+              <Upload className="h-4 w-4" /> Importar CSV
+            </Button>
+            <Button onClick={abrirCriacao}>
+              <Plus className="h-4 w-4" /> Novo servidor
+            </Button>
+          </>
         }
       />
 
@@ -304,6 +311,12 @@ export default function Servidores() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ImportarServidoresDialog
+        aberto={importarAberto}
+        onFechar={() => setImportarAberto(false)}
+        onConcluido={carregar}
+      />
 
       <ConfirmDialog
         aberto={!!removendo}

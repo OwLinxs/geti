@@ -42,6 +42,10 @@ type Config struct {
 	// (0 = desligado).
 	SLACheckMinutos int
 
+	// Antecedência (dias) para alertar vencimento de garantia de itens e de
+	// contratos. 0 = desligado.
+	AlertaVencimentoDias int
+
 	// Parametrização do termo de responsabilidade (PDF)
 	PrefeituraNome     string
 	PrefeituraDepto    string
@@ -130,6 +134,9 @@ func Load() (*Config, error) {
 
 	slaCheck, _ := strconv.Atoi(getEnv("SLA_CHECK_MINUTOS", "15"))
 	cfg.SLACheckMinutos = slaCheck
+
+	vencDias, _ := strconv.Atoi(getEnv("ALERTA_VENCIMENTO_DIAS", "30"))
+	cfg.AlertaVencimentoDias = vencDias
 
 	origins := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 	cfg.CORSAllowedOrigins = splitAndTrim(origins)

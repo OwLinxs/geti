@@ -26,6 +26,9 @@ type ContratoRepository interface {
 	Atualizar(c *models.Contrato) error
 	BuscarPorID(id uint) (*models.Contrato, error)
 	Listar(f FiltroContrato) ([]models.Contrato, int64, error)
+	// ListarVencendoNaoNotificados devolve contratos vigentes que vencem até
+	// `limite` e ainda não foram alertados.
+	ListarVencendoNaoNotificados(limite time.Time) ([]models.Contrato, error)
 	Remover(id uint) error
 }
 
@@ -102,4 +105,14 @@ func (r *contratoRepository) Listar(f FiltroContrato) ([]models.Contrato, int64,
 
 func (r *contratoRepository) Remover(id uint) error {
 	return r.db.Delete(&models.Contrato{}, id).Error
+}
+
+func (r *contratoRepository) ListarVencendoNaoNotificados(limite time.Time) ([]models.Contrato, error) {
+	var lista []models.Contrato
+	err := r.db.Preload("Fornecedor").
+		Where("status = ? AND alerta_vencimento_enviado = ? AND data_fim IS NOT NULL AND data_fim <= ?",
+			models.ContratoVigente, false, limite).
+		Order("data_fim ASC").
+		Find(&lista).Error
+	return lista, err
 }

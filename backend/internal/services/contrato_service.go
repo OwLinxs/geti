@@ -101,6 +101,10 @@ func (s *ContratoService) Atualizar(id uint, in EntradaContrato) (*models.Contra
 	if err != nil {
 		return nil, err
 	}
+	// Se a data de vencimento mudou, rearma o alerta.
+	if !mesmaData(c.DataFim, in.DataFim) {
+		c.AlertaVencimentoEnviado = false
+	}
 	aplicarContrato(c, in, status)
 	c.Fornecedor = nil // evita upsert da associação no Save
 	if err := s.repo.Atualizar(c); err != nil {

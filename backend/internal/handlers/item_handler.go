@@ -36,6 +36,7 @@ type itemRequest struct {
 	ResponsavelID     *uint                    `json:"responsavel_id"`
 	DataAquisicao     *time.Time               `json:"data_aquisicao"`
 	Valor             *float64                 `json:"valor"`
+	GarantiaAte       *time.Time               `json:"garantia_ate"`
 	Reservavel        bool                     `json:"reservavel"`
 }
 
@@ -54,6 +55,7 @@ func (r itemRequest) toEntrada() services.EntradaItem {
 		ResponsavelID:     r.ResponsavelID,
 		DataAquisicao:     r.DataAquisicao,
 		Valor:             r.Valor,
+		GarantiaAte:       r.GarantiaAte,
 		Reservavel:        r.Reservavel,
 	}
 }
@@ -216,6 +218,21 @@ func (h *ItemHandler) Historico(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, movs)
+}
+
+// Timeline devolve a linha do tempo consolidada do item (movimentações, ordens
+// de serviço e termos), em ordem cronológica decrescente.
+func (h *ItemHandler) Timeline(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	eventos, err := h.svc.Timeline(id)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, eventos)
 }
 
 // AlertasEstoqueBaixo lista consumíveis abaixo do mínimo.

@@ -168,6 +168,9 @@ func registrarSetores(g *gin.RouterGroup, ct *container.Container) {
 func registrarServidores(g *gin.RouterGroup, ct *container.Container) {
 	s := g.Group("/servidores")
 	s.GET("", ct.ServidorHandler.Listar)
+	// Importação em massa via CSV (operador e administrador).
+	s.GET("/modelo-csv", ct.ServidorHandler.ModeloCSV)
+	s.POST("/importar", ct.ServidorHandler.Importar)
 	s.GET("/:id", ct.ServidorHandler.BuscarPorID)
 	// Operador pode cadastrar/editar servidores (fluxo operacional).
 	s.POST("", ct.ServidorHandler.Criar)
@@ -186,6 +189,7 @@ func registrarItens(g *gin.RouterGroup, ct *container.Container) {
 	i.POST("/importar", ct.ItemHandler.Importar)
 	i.GET("/:id", ct.ItemHandler.BuscarPorID)
 	i.GET("/:id/historico", ct.ItemHandler.Historico)
+	i.GET("/:id/timeline", ct.ItemHandler.Timeline)
 	// Cadastro/edição: operador e administrador.
 	i.POST("", ct.ItemHandler.Criar)
 	i.PUT("/:id", ct.ItemHandler.Atualizar)

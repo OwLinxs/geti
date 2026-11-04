@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pmfb/sige-ti/internal/middlewares"
 	"github.com/pmfb/sige-ti/internal/services"
 )
 
@@ -95,4 +98,45 @@ func (h *ServidorHandler) Remover(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// Importar recebe um CSV (campo "arquivo" em multipart, ou o corpo bruto) e
+// cadastra servidores em massa. Query ?validar=true faz apenas simulação.
+func (h *ServidorHandler) Importar(c *gin.Context) {
+	dryRun := c.Query("validar") == "true"
+	if dryRun {
+		c.Set(middlewares.CtxAuditSkip, true)
+	}
+
+	reader := c.Request.Body
+	if arquivo, _, err := c.Request.FormFile("arquivo"); err == nil {
+		defer arquivo.Close()
+		res, err := h.svc.ImportarCSV(arquivo, dryRun)
+		h.responderImportacao(c, res, err, dryRun)
+		return
+	}
+	res, err := h.svc.ImportarCSV(reader, dryRun)
+	h.responderImportacao(c, res, err, dryRun)
+}
+
+func (h *ServidorHandler) responderImportacao(c *gin.Context, res *services.ResultadoImportacao, err error, dryRun bool) {
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	if !dryRun {
+		c.Set(middlewares.CtxAuditDetalhe,
+			fmt.Sprintf("Importou %d servidor(es) via CSV (%d erro(s)).", res.Importados, len(res.Erros)))
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+// ModeloCSV devolve um CSV modelo (cabeçalho + linha de exemplo).
+func (h *ServidorHandler) ModeloCSV(c *gin.Context) {
+	exemplo := []string{"Maria da Silva", "12345", "Departamento de T.I.", "sim"}
+	conteudo := strings.Join(services.CabecalhoCSVServidores, ",") + "\n" +
+		strings.Join(exemplo, ",") + "\n"
+
+	c.Header("Content-Disposition", "attachment; filename=modelo-servidores.csv")
+	c.Data(http.StatusOK, "text/csv; charset=utf-8", []byte(conteudo))
 }

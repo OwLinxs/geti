@@ -130,6 +130,12 @@ func (s *NotificacaoService) emitir(dest []models.Usuario, titulo, msg, tipo str
 	}(emails, titulo, corpo)
 }
 
+// NotificarEquipe envia uma notificação avulsa a toda a equipe (admin/operador).
+// Usado por alertas do sistema, como vencimento de garantia/contrato.
+func (s *NotificacaoService) NotificarEquipe(titulo, msg, tipo string, recursoID uint) {
+	s.emitir(s.usuariosEquipe(0), titulo, msg, tipo, recursoID)
+}
+
 // NotificarNovoChamado avisa a equipe quando um chamado é aberto.
 func (s *NotificacaoService) NotificarNovoChamado(os *models.OrdemServico) {
 	if os == nil || !s.config().NotificarEquipeNovoChamado {

@@ -32,6 +32,7 @@ type Container struct {
 	CategoriaChamadoService *services.CategoriaChamadoService
 	ConfiguracaoService     *services.ConfiguracaoService
 	NotificacaoService      *services.NotificacaoService
+	AlertaVencimentoService *services.AlertaVencimentoService
 	RespostaRapidaService   *services.RespostaRapidaService
 	ConhecimentoService     *services.ConhecimentoService
 	FornecedorService       *services.FornecedorService
@@ -98,6 +99,8 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	setorSvc := services.NewSetorService(setorRepo)
 	servidorSvc := services.NewServidorService(servidorRepo, setorRepo)
 	itemSvc := services.NewItemService(itemRepo, categoriaRepo, setorRepo, servidorRepo, movRepo, termoRepo)
+	// Linha do tempo do item depende das OS (injeção opcional via setter).
+	itemSvc.DefinirOrdemServicoRepo(ordemServicoRepo)
 	movSvc := services.NewMovimentacaoService(movRepo, itemRepo, setorRepo, servidorRepo)
 	termoSvc := services.NewTermoService(termoRepo, itemRepo, servidorRepo, cfg)
 	relatorioSvc := services.NewRelatorioService(itemRepo, movRepo, setorRepo, cfg)
@@ -128,6 +131,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	authSvc.SetConfig(configuracaoSvc)
 	fornecedorSvc := services.NewFornecedorService(fornecedorRepo)
 	contratoSvc := services.NewContratoService(contratoRepo, fornecedorRepo)
+	alertaVencimentoSvc := services.NewAlertaVencimentoService(itemRepo, contratoRepo, notificacaoSvc, cfg.AlertaVencimentoDias)
 	reservaSvc := services.NewReservaService(reservaRepo, itemRepo, servidorRepo)
 
 	// Handlers
@@ -150,6 +154,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		CategoriaChamadoService: categoriaChamadoSvc,
 		ConfiguracaoService:     configuracaoSvc,
 		NotificacaoService:      notificacaoSvc,
+		AlertaVencimentoService: alertaVencimentoSvc,
 		RespostaRapidaService:   respostaRapidaSvc,
 		ConhecimentoService:     conhecimentoSvc,
 		FornecedorService:       fornecedorSvc,

@@ -41,6 +41,10 @@ type Contrato struct {
 	Status     StatusContrato `gorm:"size:20;not null;default:vigente;index" json:"status"`
 	Observacao string         `gorm:"size:1000" json:"observacao,omitempty"`
 
+	// Controle interno do alerta de vencimento (evita notificação repetida). É
+	// zerado quando DataFim muda.
+	AlertaVencimentoEnviado bool `gorm:"not null;default:false" json:"-"`
+
 	DeletadoEm gorm.DeletedAt `gorm:"index" json:"-"`
 }
 

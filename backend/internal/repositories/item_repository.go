@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pmfb/sige-ti/internal/models"
 	"gorm.io/gorm"
@@ -37,6 +38,9 @@ type ItemRepository interface {
 	// Remover faz soft delete (GORM): o registro fica oculto nas consultas.
 	Remover(id uint) error
 	ListarAbaixoDoMinimo() ([]models.Item, error)
+	// ListarGarantiaVencendo devolve itens ativos com garantia até `limite` e que
+	// ainda não foram alertados.
+	ListarGarantiaVencendo(limite time.Time) ([]models.Item, error)
 	// AtualizarComTx permite ajustar o item dentro de uma transação externa
 	// (usado pelo serviço de movimentação para recalcular estoque atomicamente).
 	AtualizarComTx(tx *gorm.DB, i *models.Item) error
@@ -168,6 +172,16 @@ func (r *itemRepository) ListarAbaixoDoMinimo() ([]models.Item, error) {
 	err := r.preloads(r.db).
 		Where("baixado = ? AND estoque_minimo > 0 AND quantidade < estoque_minimo AND categoria_id IN (SELECT id FROM categorias WHERE consumivel = ?)", false, true).
 		Order("descricao ASC").
+		Find(&itens).Error
+	return itens, err
+}
+
+func (r *itemRepository) ListarGarantiaVencendo(limite time.Time) ([]models.Item, error) {
+	var itens []models.Item
+	err := r.preloads(r.db).
+		Where("baixado = ? AND alerta_garantia_enviado = ? AND garantia_ate IS NOT NULL AND garantia_ate <= ?",
+			false, false, limite).
+		Order("garantia_ate ASC").
 		Find(&itens).Error
 	return itens, err
 }

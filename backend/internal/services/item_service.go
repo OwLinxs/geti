@@ -19,6 +19,14 @@ type ItemService struct {
 	servidorRepo  repositories.ServidorRepository
 	movRepo       repositories.MovimentacaoRepository
 	termoRepo     repositories.TermoRepository
+	// osRepo é opcional (injetado via setter) para a linha do tempo do item.
+	osRepo repositories.OrdemServicoRepository
+}
+
+// DefinirOrdemServicoRepo injeta o repositório de OS usado pela linha do tempo
+// (dependência opcional, evita ciclo e mantém o construtor estável).
+func (s *ItemService) DefinirOrdemServicoRepo(r repositories.OrdemServicoRepository) {
+	s.osRepo = r
 }
 
 func NewItemService(
@@ -53,6 +61,7 @@ type EntradaItem struct {
 	ResponsavelID     *uint
 	DataAquisicao     *time.Time
 	Valor             *float64
+	GarantiaAte       *time.Time
 	Reservavel        bool
 }
 
@@ -76,6 +85,7 @@ func (s *ItemService) Criar(in EntradaItem) (*models.Item, error) {
 		ResponsavelID:     in.ResponsavelID,
 		DataAquisicao:     in.DataAquisicao,
 		Valor:             in.Valor,
+		GarantiaAte:       in.GarantiaAte,
 		Reservavel:        in.Reservavel,
 	}
 	// Bens permanentes têm controle unitário, inclusive antes do tombamento.
@@ -172,6 +182,11 @@ func (s *ItemService) Atualizar(id uint, in EntradaItem) (*models.Item, error) {
 	item.ResponsavelID = in.ResponsavelID
 	item.DataAquisicao = in.DataAquisicao
 	item.Valor = in.Valor
+	// Se a data de garantia mudou, rearma o alerta de vencimento.
+	if !mesmaData(item.GarantiaAte, in.GarantiaAte) {
+		item.GarantiaAte = in.GarantiaAte
+		item.AlertaGarantiaEnviado = false
+	}
 	item.Reservavel = in.Reservavel
 	// Observação: a Quantidade NÃO é editada aqui — só muda via movimentações
 	// (regra de negócio: estoque é sempre recalculado por movimentação).
@@ -187,6 +202,13 @@ func mesmoID(a, b *uint) bool {
 		return a == nil && b == nil
 	}
 	return *a == *b
+}
+
+func mesmaData(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
 }
 
 // DefinirReservavel marca/desmarca o item como reservável (pool de reservas).

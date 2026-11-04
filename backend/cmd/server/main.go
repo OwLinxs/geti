@@ -77,6 +77,20 @@ func main() {
 		}()
 	}
 
+	// Monitor de vencimentos: avisa a equipe sobre garantias de itens e
+	// contratos próximos do fim do prazo (varredura diária).
+	if cfg.AlertaVencimentoDias > 0 {
+		go func() {
+			log.Printf("[venc] monitor ativo (antecedência de %d dia(s), a cada 24h)", cfg.AlertaVencimentoDias)
+			ct.AlertaVencimentoService.Verificar()
+			t := time.NewTicker(24 * time.Hour)
+			defer t.Stop()
+			for range t.C {
+				ct.AlertaVencimentoService.Verificar()
+			}
+		}()
+	}
+
 	engine := router.Setup(cfg, ct)
 
 	srv := &http.Server{

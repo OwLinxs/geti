@@ -193,6 +193,7 @@ export default function Manutencao() {
                 <TableRow>
                   <TableHead>Número</TableHead>
                   <TableHead>Equipamento</TableHead>
+                  <TableHead>Diagnóstico</TableHead>
                   <TableHead>Prioridade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Técnico</TableHead>
@@ -208,6 +209,18 @@ export default function Manutencao() {
                   >
                     <TableCell className="font-medium">{os.numero}</TableCell>
                     <TableCell>{os.equipamento_snapshot}</TableCell>
+                    <TableCell className="max-w-[18rem] text-muted-foreground">
+                      {os.diagnostico ? (
+                        <span
+                          className="line-clamp-2 text-sm"
+                          title={os.diagnostico}
+                        >
+                          {os.diagnostico}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={variantePrioridadeOS(os.prioridade)}>
                         {rotuloPrioridadeOS(os.prioridade)}

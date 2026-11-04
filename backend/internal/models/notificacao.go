@@ -5,6 +5,7 @@ const (
 	NotifChamadoNovo = "chamado_novo"
 	NotifMensagem    = "mensagem"
 	NotifStatus      = "status"
+	NotifVencimento  = "vencimento"
 )
 
 // Notificacao é um aviso in-app destinado a um usuário (sino do sistema).

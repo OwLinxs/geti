@@ -87,6 +87,7 @@ export interface Item extends Base {
   responsavel?: Servidor | null;
   data_aquisicao?: string | null;
   valor?: number | null;
+  garantia_ate?: string | null;
   baixado: boolean;
   data_baixa?: string | null;
   motivo_baixa?: string;
@@ -111,6 +112,15 @@ export interface Movimentacao extends Base {
   destino_descricao?: string;
   observacao?: string;
   data_evento: string;
+}
+
+// Evento unificado da linha do tempo de um item (movimentação, OS ou termo).
+export interface EventoTimeline {
+  tipo: "movimentacao" | "os" | "termo";
+  data: string;
+  titulo: string;
+  detalhe?: string;
+  ref_id: number;
 }
 
 export interface TermoResponsabilidade extends Base {
@@ -441,6 +451,7 @@ export interface ItemPayload {
   responsavel_id?: number | null;
   data_aquisicao?: string | null;
   valor?: number | null;
+  garantia_ate?: string | null;
   reservavel?: boolean;
 }
 
