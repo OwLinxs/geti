@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, SlidersHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { FormField } from "@/components/FormField";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { GerenciarCamposDialog } from "@/components/GerenciarCamposDialog";
 import { EstadoVazio } from "@/components/EstadoVazio";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { categoriasApi } from "@/services/api";
@@ -51,6 +52,9 @@ export default function Categorias() {
 
   const [removendo, setRemovendo] = React.useState<Categoria | null>(null);
   const [processandoRemocao, setProcessandoRemocao] = React.useState(false);
+
+  // Gestão de campos customizados da categoria.
+  const [camposDe, setCamposDe] = React.useState<Categoria | null>(null);
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
@@ -190,6 +194,15 @@ export default function Categorias() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => setCamposDe(c)}
+                            aria-label="Campos personalizados"
+                            title="Campos personalizados"
+                          >
+                            <SlidersHorizontal className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => abrirEdicao(c)}
                             aria-label="Editar"
                           >
@@ -270,6 +283,12 @@ export default function Categorias() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <GerenciarCamposDialog
+        aberto={!!camposDe}
+        categoria={camposDe}
+        onFechar={() => setCamposDe(null)}
+      />
 
       <ConfirmDialog
         aberto={!!removendo}

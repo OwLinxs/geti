@@ -21,12 +21,19 @@ type ItemService struct {
 	termoRepo     repositories.TermoRepository
 	// osRepo é opcional (injetado via setter) para a linha do tempo do item.
 	osRepo repositories.OrdemServicoRepository
+	// campoRepo é opcional (injetado via setter) para os campos customizados.
+	campoRepo repositories.CampoCategoriaRepository
 }
 
 // DefinirOrdemServicoRepo injeta o repositório de OS usado pela linha do tempo
 // (dependência opcional, evita ciclo e mantém o construtor estável).
 func (s *ItemService) DefinirOrdemServicoRepo(r repositories.OrdemServicoRepository) {
 	s.osRepo = r
+}
+
+// DefinirCampoRepo injeta o repositório de campos customizados (atributos).
+func (s *ItemService) DefinirCampoRepo(r repositories.CampoCategoriaRepository) {
+	s.campoRepo = r
 }
 
 func NewItemService(
@@ -63,6 +70,16 @@ type EntradaItem struct {
 	Valor             *float64
 	GarantiaAte       *time.Time
 	Reservavel        bool
+	// Atributos: valores dos campos customizados da categoria. Quando nil, os
+	// atributos do item não são alterados; quando não-nil (mesmo vazio),
+	// substituem os atuais.
+	Atributos []EntradaAtributo
+}
+
+// EntradaAtributo é o valor de um campo customizado enviado no cadastro/edição.
+type EntradaAtributo struct {
+	CampoID uint
+	Valor   string
 }
 
 func (s *ItemService) Criar(in EntradaItem) (*models.Item, error) {
@@ -96,7 +113,31 @@ func (s *ItemService) Criar(in EntradaItem) (*models.Item, error) {
 	if err := s.repo.Criar(item); err != nil {
 		return nil, err
 	}
+	if err := s.salvarAtributos(item.ID, in.Atributos); err != nil {
+		return nil, err
+	}
 	return s.repo.BuscarPorID(item.ID)
+}
+
+// salvarAtributos grava os valores dos campos customizados do item. Entradas
+// com valor vazio são descartadas (não guarda atributo em branco). Não faz nada
+// se o repositório de campos não foi injetado ou se atributos for nil.
+func (s *ItemService) salvarAtributos(itemID uint, entradas []EntradaAtributo) error {
+	if s.campoRepo == nil || entradas == nil {
+		return nil
+	}
+	var atributos []models.ItemAtributo
+	for _, e := range entradas {
+		valor := strings.TrimSpace(e.Valor)
+		if e.CampoID == 0 || valor == "" {
+			continue
+		}
+		atributos = append(atributos, models.ItemAtributo{
+			CampoID: e.CampoID,
+			Valor:   valor,
+		})
+	}
+	return s.campoRepo.SubstituirAtributosDoItem(itemID, atributos)
 }
 
 // ResultadoLote identifica um recebimento e as unidades criadas nele.
@@ -192,6 +233,9 @@ func (s *ItemService) Atualizar(id uint, in EntradaItem) (*models.Item, error) {
 	// (regra de negócio: estoque é sempre recalculado por movimentação).
 
 	if err := s.repo.Atualizar(item); err != nil {
+		return nil, err
+	}
+	if err := s.salvarAtributos(item.ID, in.Atributos); err != nil {
 		return nil, err
 	}
 	return s.repo.BuscarPorID(item.ID)

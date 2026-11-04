@@ -70,7 +70,8 @@ func (r *itemRepository) CriarLote(itens []models.Item) error {
 
 func (r *itemRepository) BuscarPorID(id uint) (*models.Item, error) {
 	var i models.Item
-	if err := r.preloads(r.db).First(&i, id).Error; err != nil {
+	q := r.preloads(r.db).Preload("Atributos").Preload("Atributos.Campo")
+	if err := q.First(&i, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNaoEncontrado
 		}

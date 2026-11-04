@@ -31,6 +31,7 @@ import { QrCode, Printer } from "lucide-react";
 import type {
   EventoTimeline,
   Item,
+  ItemAtributo,
   Movimentacao,
   TipoMovimentacao,
 } from "@/types";
@@ -206,6 +207,16 @@ export default function ItemDetalhe() {
                 <Garantia ate={item.garantia_ate} />
               </Campo>
             )}
+            {(item.atributos ?? [])
+              .slice()
+              .sort(
+                (a, b) => (a.campo?.ordem ?? 0) - (b.campo?.ordem ?? 0)
+              )
+              .map((a) => (
+                <Campo key={a.id} rotulo={a.campo?.nome ?? "Campo"}>
+                  {formatarValorAtributo(a)}
+                </Campo>
+              ))}
           </CardContent>
         </Card>
 
@@ -282,6 +293,21 @@ export default function ItemDetalhe() {
       />
     </div>
   );
+}
+
+// formatarValorAtributo converte o valor bruto do atributo conforme o tipo do
+// campo (booleano -> Sim/Não, data -> dd/mm/aaaa).
+function formatarValorAtributo(a: ItemAtributo): string {
+  const valor = a.valor?.trim();
+  if (!valor) return "—";
+  switch (a.campo?.tipo) {
+    case "booleano":
+      return valor === "true" ? "Sim" : valor === "false" ? "Não" : valor;
+    case "data":
+      return formatarData(valor);
+    default:
+      return valor;
+  }
 }
 
 // Garantia exibe a data de garantia com destaque quando está vencida ou perto.

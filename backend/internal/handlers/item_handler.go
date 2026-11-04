@@ -38,9 +38,25 @@ type itemRequest struct {
 	Valor             *float64                 `json:"valor"`
 	GarantiaAte       *time.Time               `json:"garantia_ate"`
 	Reservavel        bool                     `json:"reservavel"`
+	Atributos         []atributoRequest        `json:"atributos"`
+}
+
+type atributoRequest struct {
+	CampoID uint   `json:"campo_id"`
+	Valor   string `json:"valor"`
 }
 
 func (r itemRequest) toEntrada() services.EntradaItem {
+	var atributos []services.EntradaAtributo
+	if r.Atributos != nil {
+		atributos = make([]services.EntradaAtributo, 0, len(r.Atributos))
+		for _, a := range r.Atributos {
+			atributos = append(atributos, services.EntradaAtributo{
+				CampoID: a.CampoID,
+				Valor:   a.Valor,
+			})
+		}
+	}
 	return services.EntradaItem{
 		Descricao:         r.Descricao,
 		CategoriaID:       r.CategoriaID,
@@ -57,6 +73,7 @@ func (r itemRequest) toEntrada() services.EntradaItem {
 		Valor:             r.Valor,
 		GarantiaAte:       r.GarantiaAte,
 		Reservavel:        r.Reservavel,
+		Atributos:         atributos,
 	}
 }
 

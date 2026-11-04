@@ -20,6 +20,7 @@ type Container struct {
 	PermissaoService        *services.PermissaoService
 	AuthService             *services.AuthService
 	CategoriaService        *services.CategoriaService
+	CampoCategoriaService   *services.CampoCategoriaService
 	SetorService            *services.SetorService
 	ServidorService         *services.ServidorService
 	ItemService             *services.ItemService
@@ -45,6 +46,7 @@ type Container struct {
 	UsuarioHandler          *handlers.UsuarioHandler
 	PermissaoHandler        *handlers.PermissaoHandler
 	CategoriaHandler        *handlers.CategoriaHandler
+	CampoCategoriaHandler   *handlers.CampoCategoriaHandler
 	SetorHandler            *handlers.SetorHandler
 	ServidorHandler         *handlers.ServidorHandler
 	ItemHandler             *handlers.ItemHandler
@@ -96,11 +98,15 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	permissaoSvc := services.NewPermissaoService(permissaoRepo, usuarioRepo)
 	authSvc := services.NewAuthService(usuarioSvc, cfg.JWTSecret, cfg.JWTExpiresIn)
 	categoriaSvc := services.NewCategoriaService(categoriaRepo)
+	campoCategoriaRepo := repositories.NewCampoCategoriaRepository(db)
+	campoCategoriaSvc := services.NewCampoCategoriaService(campoCategoriaRepo, categoriaRepo)
 	setorSvc := services.NewSetorService(setorRepo)
 	servidorSvc := services.NewServidorService(servidorRepo, setorRepo)
 	itemSvc := services.NewItemService(itemRepo, categoriaRepo, setorRepo, servidorRepo, movRepo, termoRepo)
 	// Linha do tempo do item depende das OS (injeção opcional via setter).
 	itemSvc.DefinirOrdemServicoRepo(ordemServicoRepo)
+	// Campos customizados (atributos) da categoria (injeção opcional via setter).
+	itemSvc.DefinirCampoRepo(campoCategoriaRepo)
 	movSvc := services.NewMovimentacaoService(movRepo, itemRepo, setorRepo, servidorRepo)
 	termoSvc := services.NewTermoService(termoRepo, itemRepo, servidorRepo, cfg)
 	relatorioSvc := services.NewRelatorioService(itemRepo, movRepo, setorRepo, cfg)
@@ -142,6 +148,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		PermissaoService:        permissaoSvc,
 		AuthService:             authSvc,
 		CategoriaService:        categoriaSvc,
+		CampoCategoriaService:   campoCategoriaSvc,
 		SetorService:            setorSvc,
 		ServidorService:         servidorSvc,
 		ItemService:             itemSvc,
@@ -166,6 +173,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		UsuarioHandler:          handlers.NewUsuarioHandler(usuarioSvc),
 		PermissaoHandler:        handlers.NewPermissaoHandler(permissaoSvc),
 		CategoriaHandler:        handlers.NewCategoriaHandler(categoriaSvc),
+		CampoCategoriaHandler:   handlers.NewCampoCategoriaHandler(campoCategoriaSvc),
 		SetorHandler:            handlers.NewSetorHandler(setorSvc),
 		ServidorHandler:         handlers.NewServidorHandler(servidorSvc),
 		ItemHandler:             handlers.NewItemHandler(itemSvc, movSvc),

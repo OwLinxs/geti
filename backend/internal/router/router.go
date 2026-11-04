@@ -154,6 +154,12 @@ func registrarCategorias(g *gin.RouterGroup, ct *container.Container) {
 	c.POST("", exigir(ct, models.PermCategoriasGerenciar), ct.CategoriaHandler.Criar)
 	c.PUT("/:id", exigir(ct, models.PermCategoriasGerenciar), ct.CategoriaHandler.Atualizar)
 	c.DELETE("/:id", exigir(ct, models.PermCategoriasGerenciar), ct.CategoriaHandler.Remover)
+
+	// Campos customizados (atributos) da categoria.
+	c.GET("/:id/campos", ct.CampoCategoriaHandler.Listar)
+	c.POST("/:id/campos", exigir(ct, models.PermCategoriasGerenciar), ct.CampoCategoriaHandler.Criar)
+	c.PUT("/:id/campos/:campoId", exigir(ct, models.PermCategoriasGerenciar), ct.CampoCategoriaHandler.Atualizar)
+	c.DELETE("/:id/campos/:campoId", exigir(ct, models.PermCategoriasGerenciar), ct.CampoCategoriaHandler.Remover)
 }
 
 func registrarSetores(g *gin.RouterGroup, ct *container.Container) {

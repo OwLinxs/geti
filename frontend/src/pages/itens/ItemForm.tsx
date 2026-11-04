@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { FormField } from "@/components/FormField";
 import { Spinner } from "@/components/ui/spinner";
-import { itensApi } from "@/services/api";
+import { itensApi, categoriasApi } from "@/services/api";
 import { camposInvalidos, mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { ESTADOS_CONSERVACAO } from "@/lib/rotulos";
@@ -27,6 +27,7 @@ import { dateInputParaISO, isoParaDateInput } from "@/lib/format";
 import { ordenarComoArvore, prefixoIndentacao } from "@/lib/setores";
 import type {
   Categoria,
+  CampoCategoria,
   EstadoConservacao,
   Item,
   ItemPayload,
@@ -102,6 +103,11 @@ export function ItemForm({
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [salvando, setSalvando] = React.useState(false);
 
+  // Campos customizados (atributos) da categoria selecionada e seus valores.
+  const [campos, setCampos] = React.useState<CampoCategoria[]>([]);
+  const [valores, setValores] = React.useState<Record<number, string>>({});
+  const [carregandoCampos, setCarregandoCampos] = React.useState(false);
+
   // Setores em ordem hierárquica (Secretaria › Departamento › Unidade) para
   // exibição indentada no seletor.
   const setoresArvore = React.useMemo(() => ordenarComoArvore(setores), [setores]);
@@ -110,8 +116,37 @@ export function ItemForm({
     if (aberto) {
       setForm(estadoInicial(item));
       setErros({});
+      // Pré-preenche os valores dos atributos ao abrir (modo edição).
+      const init: Record<number, string> = {};
+      (item?.atributos ?? []).forEach((a) => {
+        init[a.campo_id] = a.valor;
+      });
+      setValores(init);
     }
   }, [aberto, item]);
+
+  // Carrega a definição dos campos sempre que a categoria muda (com o diálogo
+  // aberto).
+  React.useEffect(() => {
+    if (!aberto || !form.categoria_id) {
+      setCampos([]);
+      return;
+    }
+    let ativo = true;
+    setCarregandoCampos(true);
+    categoriasApi
+      .listarCampos(form.categoria_id)
+      .then((cs) => ativo && setCampos(cs))
+      .catch(() => ativo && setCampos([]))
+      .finally(() => ativo && setCarregandoCampos(false));
+    return () => {
+      ativo = false;
+    };
+  }, [aberto, form.categoria_id]);
+
+  function setValorCampo(campoId: number, valor: string) {
+    setValores((v) => ({ ...v, [campoId]: valor }));
+  }
 
   const categoriaSelecionada = categorias.find(
     (c) => c.id === form.categoria_id
@@ -136,6 +171,12 @@ export function ItemForm({
       novosErros.estoque_minimo = "Estoque mínimo inválido.";
     if (form.valor && Number.isNaN(Number(form.valor)))
       novosErros.valor = "Valor inválido.";
+    // Campos customizados obrigatórios.
+    for (const c of campos) {
+      if (c.obrigatorio && !(valores[c.id] ?? "").trim()) {
+        novosErros[`campo_${c.id}`] = `Preencha "${c.nome}".`;
+      }
+    }
     if (Object.keys(novosErros).length) {
       setErros(novosErros);
       return;
@@ -158,6 +199,11 @@ export function ItemForm({
       valor: form.valor ? Number(form.valor) : null,
       garantia_ate: dateInputParaISO(form.garantia_ate),
       reservavel: form.reservavel,
+      // Envia todos os campos da categoria (vazios inclusos: limpam o valor).
+      atributos: campos.map((c) => ({
+        campo_id: c.id,
+        valor: (valores[c.id] ?? "").trim(),
+      })),
     };
 
     setSalvando(true);
@@ -287,6 +333,29 @@ export function ItemForm({
               />
             </FormField>
           </div>
+
+          {(carregandoCampos || campos.length > 0) && (
+            <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
+              <p className="text-sm font-medium">Especificações da categoria</p>
+              {carregandoCampos ? (
+                <div className="flex justify-center py-2">
+                  <Spinner className="h-4 w-4" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {campos.map((c) => (
+                    <CampoDinamico
+                      key={c.id}
+                      campo={c}
+                      valor={valores[c.id] ?? ""}
+                      erro={erros[`campo_${c.id}`]}
+                      onChange={(v) => setValorCampo(c.id, v)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
@@ -459,5 +528,80 @@ export function ItemForm({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// CampoDinamico renderiza o input apropriado para cada tipo de campo
+// customizado da categoria.
+function CampoDinamico({
+  campo,
+  valor,
+  erro,
+  onChange,
+}: {
+  campo: CampoCategoria;
+  valor: string;
+  erro?: string;
+  onChange: (v: string) => void;
+}) {
+  const comum = { label: campo.nome, obrigatorio: campo.obrigatorio, erro };
+
+  if (campo.tipo === "lista") {
+    const opcoes = (campo.opcoes ?? "")
+      .split("\n")
+      .map((o) => o.trim())
+      .filter(Boolean);
+    return (
+      <FormField {...comum}>
+        <Select
+          value={valor || SEM}
+          onValueChange={(v) => onChange(v === SEM ? "" : v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SEM}>Não definido</SelectItem>
+            {opcoes.map((o) => (
+              <SelectItem key={o} value={o}>
+                {o}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+    );
+  }
+
+  if (campo.tipo === "booleano") {
+    return (
+      <FormField {...comum}>
+        <Select
+          value={valor || SEM}
+          onValueChange={(v) => onChange(v === SEM ? "" : v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SEM}>Não definido</SelectItem>
+            <SelectItem value="true">Sim</SelectItem>
+            <SelectItem value="false">Não</SelectItem>
+          </SelectContent>
+        </Select>
+      </FormField>
+    );
+  }
+
+  const tipoInput =
+    campo.tipo === "numero" ? "number" : campo.tipo === "data" ? "date" : "text";
+  return (
+    <FormField {...comum}>
+      <Input
+        type={tipoInput}
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </FormField>
   );
 }

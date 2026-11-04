@@ -23,9 +23,9 @@ func setupDB(t *testing.T) *gorm.DB {
 		t.Fatalf("falha ao abrir banco: %v", err)
 	}
 	if err := db.AutoMigrate(
-		&models.Usuario{}, &models.Categoria{}, &models.Setor{},
-		&models.Servidor{}, &models.Item{}, &models.Movimentacao{},
-		&models.TermoResponsabilidade{},
+		&models.Usuario{}, &models.Categoria{}, &models.CampoCategoria{},
+		&models.Setor{}, &models.Servidor{}, &models.Item{}, &models.ItemAtributo{},
+		&models.Movimentacao{}, &models.TermoResponsabilidade{},
 	); err != nil {
 		t.Fatalf("falha na migração: %v", err)
 	}

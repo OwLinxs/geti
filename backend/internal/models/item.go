@@ -91,6 +91,10 @@ type Item struct {
 	// soft delete remove da lista um registro criado por engano. GORM filtra
 	// automaticamente registros com DeletedAt preenchido.
 	DeletadoEm gorm.DeletedAt `gorm:"index" json:"-"`
+
+	// Atributos: valores dos campos customizados da categoria (ex.: Processador,
+	// Memória). Carregados sob demanda (detalhe do item).
+	Atributos []ItemAtributo `gorm:"foreignKey:ItemID" json:"atributos,omitempty"`
 }
 
 func (Item) TableName() string { return "itens" }

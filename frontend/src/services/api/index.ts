@@ -2,6 +2,8 @@ import { api } from "./client";
 import type {
   Categoria,
   CategoriaPayload,
+  CampoCategoria,
+  CampoCategoriaPayload,
   Item,
   ItemPayload,
   ArtigoConhecimento,
@@ -198,6 +200,28 @@ export const categoriasApi = {
   atualizar: (id: number, p: CategoriaPayload) =>
     api.put<Categoria>(`/categorias/${id}`, p).then((r) => r.data),
   remover: (id: number) => api.delete(`/categorias/${id}`).then(() => undefined),
+
+  // Campos customizados (atributos) por categoria.
+  listarCampos: (categoriaId: number) =>
+    api
+      .get<CampoCategoria[]>(`/categorias/${categoriaId}/campos`)
+      .then((r) => r.data),
+  criarCampo: (categoriaId: number, p: CampoCategoriaPayload) =>
+    api
+      .post<CampoCategoria>(`/categorias/${categoriaId}/campos`, p)
+      .then((r) => r.data),
+  atualizarCampo: (
+    categoriaId: number,
+    campoId: number,
+    p: CampoCategoriaPayload
+  ) =>
+    api
+      .put<CampoCategoria>(`/categorias/${categoriaId}/campos/${campoId}`, p)
+      .then((r) => r.data),
+  removerCampo: (categoriaId: number, campoId: number) =>
+    api
+      .delete(`/categorias/${categoriaId}/campos/${campoId}`)
+      .then(() => undefined),
 };
 
 // ===== Setores =====

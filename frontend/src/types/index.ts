@@ -52,6 +52,41 @@ export interface Categoria extends Base {
   consumivel: boolean;
 }
 
+export type TipoCampo = "texto" | "numero" | "lista" | "data" | "booleano";
+
+// Definição de um campo customizado (atributo) de uma categoria.
+export interface CampoCategoria extends Base {
+  categoria_id: number;
+  nome: string;
+  chave: string;
+  tipo: TipoCampo;
+  opcoes?: string; // opções do tipo "lista", uma por linha
+  obrigatorio: boolean;
+  ordem: number;
+}
+
+export interface CampoCategoriaPayload {
+  nome: string;
+  tipo: TipoCampo;
+  opcoes?: string;
+  obrigatorio: boolean;
+  ordem: number;
+}
+
+// Valor de um campo customizado num item.
+export interface ItemAtributo extends Base {
+  item_id: number;
+  campo_id: number;
+  campo?: CampoCategoria | null;
+  valor: string;
+}
+
+// Enviado no cadastro/edição de item.
+export interface AtributoPayload {
+  campo_id: number;
+  valor: string;
+}
+
 export interface Setor extends Base {
   nome: string;
   sigla: string;
@@ -92,6 +127,7 @@ export interface Item extends Base {
   data_baixa?: string | null;
   motivo_baixa?: string;
   reservavel?: boolean;
+  atributos?: ItemAtributo[] | null;
 }
 
 export interface Movimentacao extends Base {
@@ -453,6 +489,7 @@ export interface ItemPayload {
   valor?: number | null;
   garantia_ate?: string | null;
   reservavel?: boolean;
+  atributos?: AtributoPayload[];
 }
 
 export interface MovimentacaoPayload {

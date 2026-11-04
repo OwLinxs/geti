@@ -23,7 +23,7 @@ func TestCriarLoteHTTPComCamposPendentes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&models.Categoria{}, &models.Setor{}, &models.Servidor{}, &models.Item{}); err != nil {
+	if err := db.AutoMigrate(&models.Categoria{}, &models.CampoCategoria{}, &models.Setor{}, &models.Servidor{}, &models.Item{}, &models.ItemAtributo{}); err != nil {
 		t.Fatal(err)
 	}
 	cat := &models.Categoria{Nome: "Monitor"}
