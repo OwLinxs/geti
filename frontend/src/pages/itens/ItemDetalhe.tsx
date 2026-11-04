@@ -80,11 +80,11 @@ export default function ItemDetalhe() {
     // tela (ex.: backend antigo sem o endpoint /timeline).
     itensApi
       .historico(itemId)
-      .then(setHistorico)
+      .then((h) => setHistorico(h ?? []))
       .catch(() => setHistorico([]));
     itensApi
       .timeline(itemId)
-      .then(setTimeline)
+      .then((tl) => setTimeline(tl ?? []))
       .catch(() => setTimeline([]));
   }, [itemId, toast]);
 
@@ -336,7 +336,7 @@ function LinhaDoTempo({
   eventos: EventoTimeline[];
   onAbrirOS: (id: number) => void;
 }) {
-  if (eventos.length === 0) {
+  if (!eventos || eventos.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-muted-foreground">
         Nenhum evento registrado para este item.

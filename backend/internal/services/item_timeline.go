@@ -23,7 +23,7 @@ func (s *ItemService) Timeline(itemID uint) ([]EventoTimeline, error) {
 		return nil, traduzErroRepo(err)
 	}
 
-	var eventos []EventoTimeline
+	eventos := []EventoTimeline{}
 
 	// Movimentações.
 	movs, err := s.movRepo.ListarPorItem(itemID)
