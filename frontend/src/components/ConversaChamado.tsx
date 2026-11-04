@@ -82,12 +82,13 @@ export function ConversaChamado({ osId, modo }: Props) {
     setMostrarRespostas(false);
   }
 
-  // Carrega miniaturas de anexos de imagem.
+  // Carrega miniaturas de anexos de imagem e o áudio das notas de voz.
   React.useEffect(() => {
     let ativo = true;
     for (const m of msgs) {
       if (
-        m.anexo_tipo?.startsWith("image/") &&
+        (m.anexo_tipo?.startsWith("image/") ||
+          m.anexo_tipo?.startsWith("audio/")) &&
         !imagens[m.id]
       ) {
         chamadoMensagensApi
@@ -187,12 +188,18 @@ export function ConversaChamado({ osId, modo }: Props) {
                   {m.texto && <p className="whitespace-pre-wrap">{m.texto}</p>}
                   {m.anexo_nome && (
                     <div className="mt-1">
-                      {imagens[m.id] ? (
+                      {m.anexo_tipo?.startsWith("image/") && imagens[m.id] ? (
                         <img
                           src={imagens[m.id]}
                           alt={m.anexo_nome}
                           className="max-h-48 cursor-pointer rounded-md"
                           onClick={() => abrirAnexo(m)}
+                        />
+                      ) : m.anexo_tipo?.startsWith("audio/") && imagens[m.id] ? (
+                        <audio
+                          controls
+                          src={imagens[m.id]}
+                          className="h-9 max-w-full"
                         />
                       ) : (
                         <button

@@ -23,8 +23,10 @@ import (
 // executáveis e formatos arbitrários.
 func tipoAnexoPermitido(tipo string) bool {
 	return strings.HasPrefix(tipo, "image/") ||
+		strings.HasPrefix(tipo, "audio/") ||
 		strings.HasPrefix(tipo, "text/plain") ||
-		tipo == "application/pdf"
+		tipo == "application/pdf" ||
+		tipo == "application/ogg" // contêiner ogg (nota de voz do WhatsApp)
 }
 
 // tamanhoMaxAnexo limita o tamanho de um anexo (10 MB).
@@ -258,7 +260,7 @@ func (s *MensagemService) anexar(msg *models.MensagemChamado, fh *multipart.File
 	tipoReal := http.DetectContentType(cabeca[:n])
 	if !tipoAnexoPermitido(tipoReal) {
 		ev := NovoErroValidacao()
-		ev.Add("arquivo", "Tipo de arquivo não permitido. Envie imagem, PDF ou texto.")
+		ev.Add("arquivo", "Tipo de arquivo não permitido. Envie imagem, áudio, PDF ou texto.")
 		return ev
 	}
 	if _, err := src.Seek(0, io.SeekStart); err != nil {
@@ -353,7 +355,7 @@ func (s *MensagemService) RegistrarRecebida(in EntradaRecebida) (*models.Mensage
 	}
 	if in.MidiaURL != "" {
 		// A URL é temporária/assinada: baixa para manter histórico (best-effort).
-		if err := s.baixarAnexoDeURL(msg, in.MidiaURL); err != nil {
+		if err := s.baixarAnexoDeURL(msg, in.MidiaURL, in.MidiaMime); err != nil {
 			log.Printf("[msg] falha ao baixar mídia (%s): %v", in.MidiaURL, err)
 		}
 	}
@@ -435,7 +437,7 @@ func (s *MensagemService) EncerrarRelayWhatsApp(telefone string) {
 
 // baixarAnexoDeURL busca a mídia da URL (timeout curto), valida tipo/tamanho e
 // grava em disco.
-func (s *MensagemService) baixarAnexoDeURL(msg *models.MensagemChamado, url string) error {
+func (s *MensagemService) baixarAnexoDeURL(msg *models.MensagemChamado, url, mimeDeclarado string) error {
 	cliente := &http.Client{Timeout: 20 * time.Second}
 	resp, err := cliente.Get(url)
 	if err != nil {
@@ -448,7 +450,7 @@ func (s *MensagemService) baixarAnexoDeURL(msg *models.MensagemChamado, url stri
 
 	cabeca := make([]byte, 512)
 	n, _ := io.ReadFull(resp.Body, cabeca)
-	tipoReal := http.DetectContentType(cabeca[:n])
+	tipoReal := resolverTipoMidia(http.DetectContentType(cabeca[:n]), mimeDeclarado)
 	if !tipoAnexoPermitido(tipoReal) {
 		return fmt.Errorf("tipo não permitido: %s", tipoReal)
 	}
@@ -490,6 +492,31 @@ func (s *MensagemService) baixarAnexoDeURL(msg *models.MensagemChamado, url stri
 	return nil
 }
 
+// resolverTipoMidia decide o tipo final da mídia recebida. Confia no tipo
+// detectado pelos bytes (sniff), que é seguro, mas cobre dois casos em que o
+// sniff do Go é inconclusivo para áudio:
+//   - contêiner ogg (nota de voz do WhatsApp) é detectado como "application/ogg";
+//     normaliza para "audio/ogg".
+//   - formatos que o sniff não reconhece (ex.: amr) viram "application/octet-stream";
+//     nesse caso, só então, confia no mime declarado pelo ZapGov se for áudio.
+func resolverTipoMidia(detectado, declarado string) string {
+	detectado = strings.TrimSpace(strings.ToLower(detectado))
+	if i := strings.IndexByte(detectado, ';'); i >= 0 {
+		detectado = strings.TrimSpace(detectado[:i])
+	}
+	declarado = strings.TrimSpace(strings.ToLower(declarado))
+	if i := strings.IndexByte(declarado, ';'); i >= 0 {
+		declarado = strings.TrimSpace(declarado[:i])
+	}
+	if detectado == "application/ogg" {
+		return "audio/ogg"
+	}
+	if detectado == "application/octet-stream" && strings.HasPrefix(declarado, "audio/") {
+		return declarado
+	}
+	return detectado
+}
+
 // extPorTipo devolve uma extensão simples para o tipo detectado.
 func extPorTipo(tipo string) string {
 	switch {
@@ -505,6 +532,18 @@ func extPorTipo(tipo string) string {
 		return ".pdf"
 	case strings.HasPrefix(tipo, "text/plain"):
 		return ".txt"
+	case tipo == "audio/ogg" || tipo == "application/ogg":
+		return ".ogg"
+	case tipo == "audio/mpeg":
+		return ".mp3"
+	case tipo == "audio/mp4" || tipo == "audio/aac" || tipo == "audio/x-m4a":
+		return ".m4a"
+	case tipo == "audio/amr" || tipo == "audio/3gpp":
+		return ".amr"
+	case tipo == "audio/wav" || tipo == "audio/x-wav" || tipo == "audio/wave":
+		return ".wav"
+	case strings.HasPrefix(tipo, "audio/"):
+		return ".audio"
 	}
 	return ""
 }
