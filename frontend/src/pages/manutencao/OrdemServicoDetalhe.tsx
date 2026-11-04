@@ -319,9 +319,9 @@ export default function OrdemServicoDetalhe() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
         {/* Dados. */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="text-base">Dados da OS</CardTitle>
           </CardHeader>
@@ -468,7 +468,7 @@ export default function OrdemServicoDetalhe() {
         </Card>
 
         {/* Defeito/diagnóstico/solução + checklist. */}
-        <div className="space-y-6 lg:col-span-2">
+        <div className="space-y-6 lg:col-span-5">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Atendimento</CardTitle>
@@ -595,7 +595,10 @@ export default function OrdemServicoDetalhe() {
               </CardContent>
             </Card>
           )}
+        </div>
 
+        {/* Chat — coluna fixa (sticky): sempre visível enquanto o resto rola. */}
+        <div className="lg:sticky lg:top-4 lg:col-span-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
