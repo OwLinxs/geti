@@ -12,6 +12,9 @@ import (
 type FiltroMovimentacao struct {
 	ItemID        *uint
 	Tipo          *models.TipoMovimentacao
+	Tipos         []models.TipoMovimentacao // conjunto de tipos (OR); usado por relatórios
+	CategoriaID   *uint                     // filtra pela categoria do item movimentado
+	SetorIDs      []uint                    // origem OU destino em qualquer desses setores
 	DataInicio    *time.Time
 	DataFim       *time.Time
 	Pagina        int
@@ -73,6 +76,15 @@ func (r *movimentacaoRepository) Listar(f FiltroMovimentacao) ([]models.Moviment
 	}
 	if f.Tipo != nil {
 		q = q.Where("tipo = ?", *f.Tipo)
+	}
+	if len(f.Tipos) > 0 {
+		q = q.Where("tipo IN ?", f.Tipos)
+	}
+	if f.CategoriaID != nil {
+		q = q.Where("item_id IN (SELECT id FROM itens WHERE categoria_id = ?)", *f.CategoriaID)
+	}
+	if len(f.SetorIDs) > 0 {
+		q = q.Where("setor_origem_id IN ? OR setor_destino_id IN ?", f.SetorIDs, f.SetorIDs)
 	}
 	if f.DataInicio != nil {
 		q = q.Where("data_evento >= ?", *f.DataInicio)

@@ -30,6 +30,14 @@ export function SinoNotificacoes() {
     return () => clearInterval(t);
   }, [atualizarContador]);
 
+  // Atualiza na hora quando outra tela marca notificações como lidas
+  // (ex.: abrir a conversa de um chamado).
+  React.useEffect(() => {
+    window.addEventListener("notificacoes:atualizar", atualizarContador);
+    return () =>
+      window.removeEventListener("notificacoes:atualizar", atualizarContador);
+  }, [atualizarContador]);
+
   // Reflete o nº de não lidas no título da aba (visível mesmo fora da tela).
   React.useEffect(() => {
     const base = document.title.replace(/^\(\d+\)\s*/, "");

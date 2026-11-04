@@ -41,6 +41,10 @@ func (s *NotificacaoService) MarcarTodasLidas(usuarioID uint) error {
 	return s.repo.MarcarTodasLidas(usuarioID)
 }
 
+func (s *NotificacaoService) MarcarLidasPorRecurso(usuarioID, recursoID uint) error {
+	return s.repo.MarcarLidasPorRecurso(usuarioID, recursoID)
+}
+
 // ---- Emissão de eventos (best-effort; nunca quebram a operação principal) ----
 
 func (s *NotificacaoService) config() ConfigChamados {

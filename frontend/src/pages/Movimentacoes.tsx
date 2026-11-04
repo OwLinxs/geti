@@ -88,7 +88,7 @@ export default function Movimentacoes() {
     setBaixando(true);
     try {
       const blob = await relatoriosApi.baixar("movimentacoes", "csv", {
-        tipo: tipo !== TODOS ? tipo : undefined,
+        tipo_mov: tipo !== TODOS ? tipo : undefined,
         data_inicio: dataInicio || undefined,
         data_fim: dataFim || undefined,
       });

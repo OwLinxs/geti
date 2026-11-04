@@ -70,6 +70,13 @@ export const notificacoesApi = {
     api.patch(`/notificacoes/${id}/lida`).then(() => undefined),
   marcarTodasLidas: () =>
     api.patch("/notificacoes/lidas").then(() => undefined),
+  // Marca lidas todas as notificações de um chamado (ao abrir a conversa).
+  marcarLidasPorRecurso: (recursoId: number) =>
+    api
+      .patch("/notificacoes/por-recurso", null, {
+        params: { recurso_id: recursoId },
+      })
+      .then(() => undefined),
 };
 
 // ===== Configuração do módulo de chamados (admin) =====
@@ -539,46 +546,73 @@ export const auditoriaApi = {
 // ===== Relatórios =====
 export type FormatoRelatorio = "json" | "csv" | "pdf";
 
-export interface ParamsMovimentacoesRelatorio {
+export type RelatorioTipo =
+  | "inventario"
+  | "baixados"
+  | "estoque-baixo"
+  | "transferencias"
+  | "emprestimos"
+  | "entradas"
+  | "movimentacoes";
+
+// Catálogo: descreve cada tipo e quais filtros ele aceita (fonte do backend).
+export interface DefinicaoRelatorio {
+  tipo: RelatorioTipo;
+  rotulo: string;
+  descricao: string;
+  eh_evento: boolean;
+  usa_periodo: boolean;
+  usa_setor: boolean;
+  usa_responsavel: boolean;
+  usa_categoria: boolean;
+  usa_estado: boolean;
+  permite_pdf: boolean;
+}
+
+export interface ResultadoRelatorio {
+  tipo: RelatorioTipo;
+  titulo: string;
+  eh_evento: boolean;
+  itens?: Item[];
+  movimentacoes?: Movimentacao[];
+}
+
+export interface ParamsRelatorio {
+  tipo: RelatorioTipo;
+  secretaria_id?: number;
+  setor_id?: number;
+  responsavel_id?: number;
+  categoria_id?: number;
+  estado?: string;
+  tipo_mov?: string;
   data_inicio?: string;
   data_fim?: string;
-  tipo?: string;
 }
 
 export const relatoriosApi = {
-  itensPorSetor: (setor_id?: number) =>
+  // Catálogo de tipos (dirige o construtor no frontend).
+  catalogo: () =>
+    api.get<DefinicaoRelatorio[]>("/relatorios/catalogo").then((r) => r.data),
+
+  // Endpoint único parametrizado do construtor.
+  gerar: (p: ParamsRelatorio) =>
     api
-      .get<Item[]>("/relatorios/itens-por-setor", { params: limpar({ setor_id }) })
+      .get<ResultadoRelatorio>("/relatorios", { params: limpar(p) })
       .then((r) => r.data),
-  itensPorResponsavel: (responsavel_id?: number) =>
-    api
-      .get<Item[]>("/relatorios/itens-por-responsavel", {
-        params: limpar({ responsavel_id }),
-      })
-      .then((r) => r.data),
-  estoqueBaixo: () =>
-    api.get<Item[]>("/relatorios/estoque-baixo").then((r) => r.data),
+
+  // Atalho usado pelo Dashboard: inventário completo como lista de itens.
   inventario: () =>
-    api.get<Item[]>("/relatorios/inventario").then((r) => r.data),
-  movimentacoes: (p: ParamsMovimentacoesRelatorio) =>
-    api
-      .get<Movimentacao[]>("/relatorios/movimentacoes", { params: limpar(p) })
-      .then((r) => r.data),
+    relatoriosApi.gerar({ tipo: "inventario" }).then((r) => r.itens ?? []),
 
   // Download de arquivo (CSV/PDF) como Blob.
   baixar: (
-    recurso:
-      | "itens-por-setor"
-      | "itens-por-responsavel"
-      | "estoque-baixo"
-      | "inventario"
-      | "movimentacoes",
+    tipo: RelatorioTipo,
     formato: "csv" | "pdf",
     params: Record<string, unknown> = {}
   ) =>
     api
-      .get(`/relatorios/${recurso}`, {
-        params: limpar({ ...params, formato }),
+      .get("/relatorios", {
+        params: limpar({ ...params, tipo, formato }),
         responseType: "blob",
       })
       .then((r) => r.data as Blob),

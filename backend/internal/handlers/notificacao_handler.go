@@ -51,6 +51,22 @@ func (h *NotificacaoHandler) MarcarLida(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// MarcarLidasPorRecurso: PATCH /notificacoes/por-recurso?recurso_id=123
+// Marca lidas todas as notificações do chamado ao abrir a conversa.
+func (h *NotificacaoHandler) MarcarLidasPorRecurso(c *gin.Context) {
+	rid := queryUint(c, "recurso_id")
+	if rid == nil {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	uid, _ := middlewares.UsuarioIDDoContexto(c)
+	if err := h.svc.MarcarLidasPorRecurso(uid, *rid); err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func (h *NotificacaoHandler) MarcarTodasLidas(c *gin.Context) {
 	uid, _ := middlewares.UsuarioIDDoContexto(c)
 	if err := h.svc.MarcarTodasLidas(uid); err != nil {

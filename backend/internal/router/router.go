@@ -212,11 +212,8 @@ func registrarTermos(g *gin.RouterGroup, ct *container.Container) {
 
 func registrarRelatorios(g *gin.RouterGroup, ct *container.Container) {
 	rel := g.Group("/relatorios")
-	rel.GET("/itens-por-setor", ct.RelatorioHandler.ItensPorSetor)
-	rel.GET("/itens-por-responsavel", ct.RelatorioHandler.ItensPorResponsavel)
-	rel.GET("/estoque-baixo", ct.RelatorioHandler.EstoqueBaixo)
-	rel.GET("/inventario", ct.RelatorioHandler.Inventario)
-	rel.GET("/movimentacoes", ct.RelatorioHandler.Movimentacoes)
+	rel.GET("/catalogo", ct.RelatorioHandler.Catalogo)
+	rel.GET("", ct.RelatorioHandler.Gerar)
 }
 
 func registrarAuditoria(g *gin.RouterGroup, ct *container.Container) {
@@ -303,6 +300,7 @@ func registrarNotificacoes(g *gin.RouterGroup, ct *container.Container) {
 	n.GET("", ct.NotificacaoHandler.Listar)
 	n.GET("/nao-lidas", ct.NotificacaoHandler.ContarNaoLidas)
 	n.PATCH("/lidas", ct.NotificacaoHandler.MarcarTodasLidas)
+	n.PATCH("/por-recurso", ct.NotificacaoHandler.MarcarLidasPorRecurso)
 	n.PATCH("/:id/lida", ct.NotificacaoHandler.MarcarLida)
 }
 

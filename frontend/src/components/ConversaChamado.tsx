@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import {
   chamadoMensagensApi,
+  notificacoesApi,
   respostasRapidasApi,
   type BaseChamado,
 } from "@/services/api";
@@ -64,9 +65,18 @@ export function ConversaChamado({ osId, modo }: Props) {
   React.useEffect(() => {
     carregar(true);
     // Polling leve para receber respostas do outro lado.
-    const t = setInterval(() => carregar(false), 15000);
+    const t = setInterval(() => carregar(false), 8000);
     return () => clearInterval(t);
   }, [carregar]);
+
+  // Ao abrir a conversa, marca como lidas as notificações deste chamado e
+  // avisa o sino para atualizar o contador na hora.
+  React.useEffect(() => {
+    notificacoesApi
+      .marcarLidasPorRecurso(osId)
+      .then(() => window.dispatchEvent(new Event("notificacoes:atualizar")))
+      .catch(() => undefined);
+  }, [osId]);
 
   // Respostas rápidas (só para a equipe).
   React.useEffect(() => {

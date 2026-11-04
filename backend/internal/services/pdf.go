@@ -164,6 +164,88 @@ func PDFRelatorioItens(titulo string, itens []models.Item, cfg *config.Config) (
 	return buf.Bytes(), nil
 }
 
+// rotuloTipoMov traduz o tipo de movimentação para exibição no relatório.
+var rotuloTipoMov = map[models.TipoMovimentacao]string{
+	models.MovEntradaCompra:      "Entrada (compra)",
+	models.MovEntradaDoacao:      "Entrada (doação)",
+	models.MovEntradaDevolucao:   "Entrada (devolução)",
+	models.MovSaidaEmprestimo:    "Empréstimo",
+	models.MovSaidaTransferencia: "Transferência",
+	models.MovSaidaDescarte:      "Baixa/descarte",
+}
+
+func rotuloMov(t models.TipoMovimentacao) string {
+	if r, ok := rotuloTipoMov[t]; ok {
+		return r
+	}
+	return string(t)
+}
+
+// PDFRelatorioMovimentacoes gera o PDF de um relatório de eventos (transferências,
+// empréstimos, entradas, histórico geral).
+func PDFRelatorioMovimentacoes(titulo string, movs []models.Movimentacao, cfg *config.Config) ([]byte, error) {
+	pdf := gofpdf.New("L", "mm", "A4", "")
+	pdf.SetMargins(10, 12, 10)
+	pdf.AddPage()
+	cabecalhoInstitucional(pdf, cfg)
+
+	pdf.SetFont("Helvetica", "B", 12)
+	pdf.CellFormat(0, 8, traduzir(titulo), "", 1, "L", false, 0, "")
+	pdf.SetFont("Helvetica", "", 8)
+	pdf.CellFormat(0, 5, traduzir(fmt.Sprintf("Emitido em %s", time.Now().Format("02/01/2006 15:04"))), "", 1, "L", false, 0, "")
+	pdf.Ln(2)
+
+	cols := []struct {
+		titulo  string
+		largura float64
+	}{
+		{"Data", 28},
+		{"Item", 60},
+		{"Tipo", 32},
+		{"Qtd", 12},
+		{"Origem", 55},
+		{"Destino", 55},
+		{"Servidor", 35},
+	}
+	pdf.SetFont("Helvetica", "B", 8)
+	pdf.SetFillColor(230, 230, 230)
+	for _, col := range cols {
+		pdf.CellFormat(col.largura, 7, traduzir(col.titulo), "1", 0, "L", true, 0, "")
+	}
+	pdf.Ln(-1)
+
+	pdf.SetFont("Helvetica", "", 8)
+	for _, m := range movs {
+		item := ""
+		if m.Item != nil {
+			item = m.Item.Descricao
+		}
+		serv := ""
+		if m.Servidor != nil {
+			serv = m.Servidor.Nome
+		}
+		vals := []string{
+			m.DataEvento.Format("02/01/2006 15:04"),
+			item,
+			rotuloMov(m.Tipo),
+			fmt.Sprintf("%d", m.Quantidade),
+			m.OrigemDescricao,
+			m.DestinoDescricao,
+			serv,
+		}
+		for idx, col := range cols {
+			pdf.CellFormat(col.largura, 6, traduzir(truncar(vals[idx], 42)), "1", 0, "L", false, 0, "")
+		}
+		pdf.Ln(-1)
+	}
+
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 // rotuloStatusOS / rotuloPrioridadeOS traduzem os enums para exibição.
 var rotuloStatusOS = map[models.StatusOS]string{
 	models.OSAberta:         "Aberta",

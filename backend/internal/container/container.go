@@ -100,7 +100,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	itemSvc := services.NewItemService(itemRepo, categoriaRepo, setorRepo, servidorRepo, movRepo, termoRepo)
 	movSvc := services.NewMovimentacaoService(movRepo, itemRepo, setorRepo, servidorRepo)
 	termoSvc := services.NewTermoService(termoRepo, itemRepo, servidorRepo, cfg)
-	relatorioSvc := services.NewRelatorioService(itemRepo, movRepo, cfg)
+	relatorioSvc := services.NewRelatorioService(itemRepo, movRepo, setorRepo, cfg)
 	auditoriaSvc := services.NewAuditoriaService(auditoriaRepo)
 	categoriaChamadoSvc := services.NewCategoriaChamadoService(categoriaChamadoRepo)
 	configuracaoSvc := services.NewConfiguracaoService(configuracaoRepo)

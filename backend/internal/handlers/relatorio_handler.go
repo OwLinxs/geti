@@ -17,64 +17,35 @@ func NewRelatorioHandler(svc *services.RelatorioService) *RelatorioHandler {
 	return &RelatorioHandler{svc: svc}
 }
 
-// ItensPorSetor: ?setor_id= opcional; ?formato=json|csv|pdf
-func (h *RelatorioHandler) ItensPorSetor(c *gin.Context) {
-	itens, err := h.svc.ItensPorSetor(queryUint(c, "setor_id"))
-	if err != nil {
-		responderErro(c, err)
-		return
-	}
-	h.responderItens(c, "Relatório de Itens por Setor", "itens-por-setor", itens)
+// Catalogo lista os tipos de relatório e os filtros aplicáveis a cada um.
+func (h *RelatorioHandler) Catalogo(c *gin.Context) {
+	c.JSON(http.StatusOK, h.svc.Catalogo())
 }
 
-func (h *RelatorioHandler) ItensPorResponsavel(c *gin.Context) {
-	itens, err := h.svc.ItensPorResponsavel(queryUint(c, "responsavel_id"))
-	if err != nil {
-		responderErro(c, err)
-		return
+// Gerar é o endpoint único do construtor de relatórios.
+//
+//	GET /relatorios?tipo=&secretaria_id=&setor_id=&responsavel_id=&categoria_id=
+//	    &estado=&data_inicio=&data_fim=&formato=json|csv|pdf
+func (h *RelatorioHandler) Gerar(c *gin.Context) {
+	p := services.ParametrosRelatorio{
+		Tipo:          c.Query("tipo"),
+		SecretariaID:  queryUint(c, "secretaria_id"),
+		SetorID:       queryUint(c, "setor_id"),
+		ResponsavelID: queryUint(c, "responsavel_id"),
+		CategoriaID:   queryUint(c, "categoria_id"),
+		DataInicio:    queryData(c, "data_inicio", false),
+		DataFim:       queryData(c, "data_fim", true),
 	}
-	h.responderItens(c, "Relatório de Itens por Responsável", "itens-por-responsavel", itens)
-}
-
-func (h *RelatorioHandler) EstoqueBaixo(c *gin.Context) {
-	itens, err := h.svc.EstoqueBaixo()
-	if err != nil {
-		responderErro(c, err)
-		return
+	if e := c.Query("estado"); e != "" {
+		est := models.EstadoConservacao(e)
+		p.Estado = &est
 	}
-	h.responderItens(c, "Relatório de Estoque Abaixo do Mínimo", "estoque-baixo", itens)
-}
-
-func (h *RelatorioHandler) Inventario(c *gin.Context) {
-	itens, err := h.svc.InventarioCompleto()
-	if err != nil {
-		responderErro(c, err)
-		return
-	}
-	h.responderItens(c, "Inventário Geral", "inventario", itens)
-}
-
-// Movimentacoes por período: ?data_inicio=&data_fim=&tipo=&formato=
-func (h *RelatorioHandler) Movimentacoes(c *gin.Context) {
-	var inicio, fim *time.Time
-	if di := c.Query("data_inicio"); di != "" {
-		if t, err := time.Parse("2006-01-02", di); err == nil {
-			inicio = &t
-		}
-	}
-	if df := c.Query("data_fim"); df != "" {
-		if t, err := time.Parse("2006-01-02", df); err == nil {
-			f := t.Add(24*time.Hour - time.Second)
-			fim = &f
-		}
-	}
-	var tipo *models.TipoMovimentacao
-	if t := c.Query("tipo"); t != "" {
-		tm := models.TipoMovimentacao(t)
-		tipo = &tm
+	if tm := c.Query("tipo_mov"); tm != "" {
+		mv := models.TipoMovimentacao(tm)
+		p.TipoMov = &mv
 	}
 
-	movs, err := h.svc.MovimentacoesPorPeriodo(inicio, fim, tipo)
+	res, err := h.svc.Gerar(p)
 	if err != nil {
 		responderErro(c, err)
 		return
@@ -82,37 +53,65 @@ func (h *RelatorioHandler) Movimentacoes(c *gin.Context) {
 
 	switch c.Query("formato") {
 	case "csv":
-		csv, err := services.CSVMovimentacoes(movs)
-		if err != nil {
-			responderErro(c, err)
-			return
-		}
-		baixarArquivo(c, "movimentacoes.csv", "text/csv", csv)
-	default:
-		c.JSON(http.StatusOK, movs)
-	}
-}
-
-// responderItens devolve a lista no formato solicitado (json padrão / csv / pdf).
-func (h *RelatorioHandler) responderItens(c *gin.Context, titulo, nomeArquivo string, itens []models.Item) {
-	switch c.Query("formato") {
-	case "csv":
-		csv, err := services.CSVItens(itens)
-		if err != nil {
-			responderErro(c, err)
-			return
-		}
-		baixarArquivo(c, nomeArquivo+".csv", "text/csv", csv)
+		h.baixarCSV(c, res)
 	case "pdf":
-		pdf, err := services.PDFRelatorioItens(titulo, itens, h.svc.Config())
+		h.baixarPDF(c, res)
+	default:
+		c.JSON(http.StatusOK, res)
+	}
+}
+
+func (h *RelatorioHandler) baixarCSV(c *gin.Context, res *services.ResultadoRelatorio) {
+	if res.EhEvento {
+		dados, err := services.CSVMovimentacoes(res.Movimentacoes)
 		if err != nil {
 			responderErro(c, err)
 			return
 		}
-		baixarArquivo(c, nomeArquivo+".pdf", "application/pdf", pdf)
-	default:
-		c.JSON(http.StatusOK, itens)
+		baixarArquivo(c, res.Tipo+".csv", "text/csv", dados)
+		return
 	}
+	dados, err := services.CSVItens(res.Itens)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	baixarArquivo(c, res.Tipo+".csv", "text/csv", dados)
+}
+
+func (h *RelatorioHandler) baixarPDF(c *gin.Context, res *services.ResultadoRelatorio) {
+	if res.EhEvento {
+		dados, err := services.PDFRelatorioMovimentacoes(res.Titulo, res.Movimentacoes, h.svc.Config())
+		if err != nil {
+			responderErro(c, err)
+			return
+		}
+		baixarArquivo(c, res.Tipo+".pdf", "application/pdf", dados)
+		return
+	}
+	dados, err := services.PDFRelatorioItens(res.Titulo, res.Itens, h.svc.Config())
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	baixarArquivo(c, res.Tipo+".pdf", "application/pdf", dados)
+}
+
+// queryData faz o parse de uma data YYYY-MM-DD. Quando fimDoDia é true, ajusta
+// para o último instante do dia (filtro inclusivo em data_fim).
+func queryData(c *gin.Context, chave string, fimDoDia bool) *time.Time {
+	v := c.Query(chave)
+	if v == "" {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", v)
+	if err != nil {
+		return nil
+	}
+	if fimDoDia {
+		t = t.Add(24*time.Hour - time.Second)
+	}
+	return &t
 }
 
 func baixarArquivo(c *gin.Context, nome, tipo string, dados []byte) {

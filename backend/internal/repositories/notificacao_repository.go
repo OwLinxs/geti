@@ -11,6 +11,7 @@ type NotificacaoRepository interface {
 	ContarNaoLidas(usuarioID uint) (int64, error)
 	MarcarLida(id, usuarioID uint) error
 	MarcarTodasLidas(usuarioID uint) error
+	MarcarLidasPorRecurso(usuarioID, recursoID uint) error
 }
 
 type notificacaoRepository struct {
@@ -58,5 +59,13 @@ func (r *notificacaoRepository) MarcarLida(id, usuarioID uint) error {
 func (r *notificacaoRepository) MarcarTodasLidas(usuarioID uint) error {
 	return r.db.Model(&models.Notificacao{}).
 		Where("usuario_id = ? AND lida = ?", usuarioID, false).
+		Update("lida", true).Error
+}
+
+// MarcarLidasPorRecurso marca como lidas todas as notificações do usuário
+// vinculadas a um chamado/OS (recurso_id), usado ao abrir a conversa.
+func (r *notificacaoRepository) MarcarLidasPorRecurso(usuarioID, recursoID uint) error {
+	return r.db.Model(&models.Notificacao{}).
+		Where("usuario_id = ? AND recurso_id = ? AND lida = ?", usuarioID, recursoID, false).
 		Update("lida", true).Error
 }

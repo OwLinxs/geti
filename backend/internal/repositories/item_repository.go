@@ -16,10 +16,11 @@ type FiltroItem struct {
 	SetorID         *uint
 	ResponsavelID   *uint
 	Estado          *models.EstadoConservacao
-	SomenteBaixados *bool // nil = todos; true = só baixados; false = só ativos
-	AbaixoDoMinimo  bool  // true = só consumíveis em alerta de estoque
-	Reservavel      *bool // nil = todos; true = só reserváveis
-	Consumivel      *bool // nil = todos; true = materiais de consumo; false = patrimônio
+	SetorIDs        []uint // filtro hierárquico (setor + descendentes); OR lógico
+	SomenteBaixados *bool  // nil = todos; true = só baixados; false = só ativos
+	AbaixoDoMinimo  bool   // true = só consumíveis em alerta de estoque
+	Reservavel      *bool  // nil = todos; true = só reserváveis
+	Consumivel      *bool  // nil = todos; true = materiais de consumo; false = patrimônio
 	LoteCodigo      string
 	SemPatrimonio   bool
 	SemSetor        bool
@@ -108,6 +109,9 @@ func (r *itemRepository) Listar(f FiltroItem) ([]models.Item, int64, error) {
 	}
 	if f.SetorID != nil {
 		q = q.Where("setor_id = ?", *f.SetorID)
+	}
+	if len(f.SetorIDs) > 0 {
+		q = q.Where("setor_id IN ?", f.SetorIDs)
 	}
 	if f.ResponsavelID != nil {
 		q = q.Where("responsavel_id = ?", *f.ResponsavelID)
