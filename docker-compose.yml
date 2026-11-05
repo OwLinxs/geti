@@ -63,6 +63,11 @@ services:
       # Vazio = integração desabilitada. Defina no .env para habilitar.
       INTEGRACAO_API_KEY: "${INTEGRACAO_API_KEY:-}"
 
+      # --- Coletor de inventário (script PowerShell nas máquinas) ---
+      # Chave dedicada do endpoint /api/v1/inventario/coleta.
+      # Vazio = coleta desabilitada. Defina no .env para habilitar.
+      INVENTARIO_API_KEY: "${INVENTARIO_API_KEY:-}"
+
       # --- ZapGov (gateway de WhatsApp) ---
       # Vazio = WhatsApp desabilitado (mensagens só ficam registradas no SIGE).
       ZAPGOV_BASE_URL: "${ZAPGOV_BASE_URL:-}"
