@@ -81,7 +81,7 @@ const VAZIO: FormState = {
 
 export default function Contratos() {
   const { toast } = useToast();
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
 
   const [lista, setLista] = React.useState<Contrato[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -238,7 +238,7 @@ export default function Contratos() {
         titulo="Contratos"
         descricao="Contratos e serviços com fornecedores, com controle de vigência."
         acao={
-          ehAdministrador && (
+          pode("contratos.gerenciar") && (
             <Button onClick={abrirCriacao}>
               <Plus className="h-4 w-4" /> Novo contrato
             </Button>
@@ -299,7 +299,7 @@ export default function Contratos() {
                   <TableHead>Vencimento</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Status</TableHead>
-                  {ehAdministrador && (
+                  {pode("contratos.gerenciar") && (
                     <TableHead className="w-24 text-right">Ações</TableHead>
                   )}
                 </TableRow>
@@ -330,7 +330,7 @@ export default function Contratos() {
                         {rotuloStatusContrato(c.status)}
                       </Badge>
                     </TableCell>
-                    {ehAdministrador && (
+                    {pode("contratos.gerenciar") && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button

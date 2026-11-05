@@ -46,7 +46,7 @@ export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" })
   const rotaBase = ehPatrimonio ? "/patrimonio" : "/itens";
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
   const { categorias, setores, servidores } = useReferencias();
   const categoriasDaAba = React.useMemo(
     () => categorias.filter((c) => c.consumivel !== ehPatrimonio),
@@ -479,7 +479,7 @@ export default function ItensLista({ tipo }: { tipo: "consumo" | "patrimonio" })
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          {ehAdministrador && (
+                          {pode("itens.excluir") && (
                             <Button
                               variant="ghost"
                               size="icon"

@@ -20,7 +20,7 @@ export default function ConhecimentoDetalhe() {
   const artigoId = Number(id);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
 
   const [artigo, setArtigo] = React.useState<ArtigoConhecimento | null>(null);
   const [carregando, setCarregando] = React.useState(true);
@@ -88,7 +88,7 @@ export default function ConhecimentoDetalhe() {
             <Button variant="outline" onClick={() => setEditAberto(true)}>
               <Pencil className="h-4 w-4" /> Editar
             </Button>
-            {ehAdministrador && (
+            {pode("conhecimento.excluir") && (
               <Button
                 variant="outline"
                 className="text-destructive"

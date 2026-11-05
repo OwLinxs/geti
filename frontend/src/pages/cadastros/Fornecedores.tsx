@@ -41,7 +41,7 @@ const VAZIO: FornecedorPayload = {
 
 export default function Fornecedores() {
   const { toast } = useToast();
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
   const [lista, setLista] = React.useState<Fornecedor[]>([]);
   const [carregando, setCarregando] = React.useState(true);
 
@@ -149,7 +149,7 @@ export default function Fornecedores() {
         titulo="Fornecedores"
         descricao="Empresas e prestadores vinculados a contratos e aquisições."
         acao={
-          ehAdministrador && (
+          pode("fornecedores.gerenciar") && (
             <Button onClick={abrirCriacao}>
               <Plus className="h-4 w-4" /> Novo fornecedor
             </Button>
@@ -170,7 +170,7 @@ export default function Fornecedores() {
                   <TableHead>Nome</TableHead>
                   <TableHead>CNPJ</TableHead>
                   <TableHead>Contato</TableHead>
-                  {ehAdministrador && (
+                  {pode("fornecedores.gerenciar") && (
                     <TableHead className="w-24 text-right">Ações</TableHead>
                   )}
                 </TableRow>
@@ -185,7 +185,7 @@ export default function Fornecedores() {
                     <TableCell className="text-muted-foreground">
                       {[f.email, f.telefone].filter(Boolean).join(" · ") || "—"}
                     </TableCell>
-                    {ehAdministrador && (
+                    {pode("fornecedores.gerenciar") && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button

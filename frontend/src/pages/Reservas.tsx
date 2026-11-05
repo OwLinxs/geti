@@ -50,7 +50,7 @@ const SEM = "0";
 
 export default function Reservas() {
   const { toast } = useToast();
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
   const { servidores } = useReferencias();
 
   const [equipamentos, setEquipamentos] = React.useState<
@@ -214,7 +214,7 @@ export default function Reservas() {
                               >
                                 <LogOut className="h-4 w-4" /> Alocar
                               </Button>
-                              {ehAdministrador && (
+                              {pode("reservas.excluir") && (
                                 <Button
                                   variant="ghost"
                                   size="icon"

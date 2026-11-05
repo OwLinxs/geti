@@ -43,7 +43,7 @@ const SEM_SETOR = "0";
 
 export default function Servidores() {
   const { toast } = useToast();
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
   const [lista, setLista] = React.useState<Servidor[]>([]);
   const [setores, setSetores] = React.useState<Setor[]>([]);
   const [carregando, setCarregando] = React.useState(true);
@@ -215,7 +215,7 @@ export default function Servidores() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        {ehAdministrador && (
+                        {pode("servidores.excluir") && (
                           <Button
                             variant="ghost"
                             size="icon"

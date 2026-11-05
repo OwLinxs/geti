@@ -7,9 +7,12 @@ import { CarregandoTela } from "@/components/ui/spinner";
 export function ProtectedRoute({
   somenteAdmin = false,
   permissao,
+  permissoes,
 }: {
   somenteAdmin?: boolean;
   permissao?: string;
+  // "qualquer uma": libera se o usuário tiver ao menos uma destas chaves.
+  permissoes?: string[];
 }) {
   const { autenticado, carregando, ehAdministrador, pode } = useAuth();
   const location = useLocation();
@@ -27,6 +30,10 @@ export function ProtectedRoute({
   }
 
   if (permissao && !pode(permissao)) {
+    return <Navigate to="/sem-permissao" replace />;
+  }
+
+  if (permissoes && permissoes.length > 0 && !permissoes.some((c) => pode(c))) {
     return <Navigate to="/sem-permissao" replace />;
   }
 

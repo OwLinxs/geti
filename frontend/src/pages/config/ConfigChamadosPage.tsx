@@ -9,6 +9,7 @@ import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { configChamadosApi } from "@/services/api";
 import { mensagemErro } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import CategoriasChamado from "./CategoriasChamado";
 import RespostasRapidas from "./RespostasRapidas";
@@ -17,7 +18,32 @@ import type { ConfigChamados } from "@/types";
 type Aba = "notificacoes" | "sla" | "categorias" | "respostas";
 
 export default function ConfigChamadosPage() {
-  const [aba, setAba] = React.useState<Aba>("notificacoes");
+  const { pode } = useAuth();
+
+  // Cada aba exige a permissão da ação que ela expõe. Notificações e SLA são
+  // configuração geral do módulo (config.gerenciar); categorias e respostas têm
+  // chave própria, delegáveis separadamente.
+  const abas = React.useMemo(
+    () =>
+      (
+        [
+          ["notificacoes", "Notificações", "config.gerenciar"],
+          ["sla", "SLA / Prazos", "config.gerenciar"],
+          ["categorias", "Categorias", "chamados.categorias"],
+          ["respostas", "Respostas rápidas", "chamados.respostas"],
+        ] as [Aba, string, string][]
+      ).filter(([, , chave]) => pode(chave)),
+    [pode]
+  );
+
+  const [aba, setAba] = React.useState<Aba>(abas[0]?.[0] ?? "notificacoes");
+
+  // Garante uma aba válida caso a primeira permitida mude.
+  React.useEffect(() => {
+    if (abas.length > 0 && !abas.some(([v]) => v === aba)) {
+      setAba(abas[0][0]);
+    }
+  }, [abas, aba]);
 
   return (
     <div>
@@ -27,14 +53,7 @@ export default function ConfigChamadosPage() {
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
-        {(
-          [
-            ["notificacoes", "Notificações"],
-            ["sla", "SLA / Prazos"],
-            ["categorias", "Categorias"],
-            ["respostas", "Respostas rápidas"],
-          ] as [Aba, string][]
-        ).map(([v, rot]) => (
+        {abas.map(([v, rot]) => (
           <button
             key={v}
             onClick={() => setAba(v)}

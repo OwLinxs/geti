@@ -42,7 +42,7 @@ const VAZIO: SetorPayload = { nome: "", sigla: "", localizacao: "", pai_id: null
 
 export default function Setores() {
   const { toast } = useToast();
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
   const [lista, setLista] = React.useState<Setor[]>([]);
   const [carregando, setCarregando] = React.useState(true);
 
@@ -159,7 +159,7 @@ export default function Setores() {
         titulo="Departamentos"
         descricao="Estrutura organizacional em árvore: Secretarias no topo e departamentos/divisões abaixo."
         acao={
-          ehAdministrador && (
+          pode("setores.gerenciar") && (
             <Button onClick={() => abrirCriacao()}>
               <Plus className="h-4 w-4" /> Nova unidade
             </Button>
@@ -180,7 +180,7 @@ export default function Setores() {
                   <TableHead>Unidade</TableHead>
                   <TableHead>Sigla</TableHead>
                   <TableHead>Localização</TableHead>
-                  {ehAdministrador && (
+                  {pode("setores.gerenciar") && (
                     <TableHead className="w-32 text-right">Ações</TableHead>
                   )}
                 </TableRow>
@@ -203,7 +203,7 @@ export default function Setores() {
                     <TableCell className="text-muted-foreground">
                       {s.localizacao || "—"}
                     </TableCell>
-                    {ehAdministrador && (
+                    {pode("setores.gerenciar") && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button

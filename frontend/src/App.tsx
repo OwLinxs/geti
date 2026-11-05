@@ -83,7 +83,17 @@ export default function App() {
           <Route element={<ProtectedRoute permissao="usuarios.gerenciar" />}>
             <Route path="/usuarios" element={<Usuarios />} />
           </Route>
-          <Route element={<ProtectedRoute permissao="config.gerenciar" />}>
+          <Route
+            element={
+              <ProtectedRoute
+                permissoes={[
+                  "config.gerenciar",
+                  "chamados.categorias",
+                  "chamados.respostas",
+                ]}
+              />
+            }
+          >
             <Route path="/config/chamados" element={<ConfigChamadosPage />} />
           </Route>
           <Route element={<ProtectedRoute permissao="auditoria.ver" />}>

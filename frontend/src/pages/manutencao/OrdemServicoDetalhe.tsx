@@ -72,7 +72,7 @@ export default function OrdemServicoDetalhe() {
   const osId = Number(id);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { ehAdministrador, usuario } = useAuth();
+  const { ehAdministrador, usuario, pode } = useAuth();
   const { setores, servidores } = useReferencias();
 
   const [os, setOs] = React.useState<OrdemServico | null>(null);
@@ -289,7 +289,7 @@ export default function OrdemServicoDetalhe() {
     );
 
   const podeExcluir =
-    ehAdministrador &&
+    pode("chamados.excluir") &&
     (os.status === "aberta" || os.status === "cancelada");
 
   return (

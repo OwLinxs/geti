@@ -28,6 +28,8 @@ interface ItemMenu {
   icone: React.ComponentType<{ className?: string }>;
   // Exige uma permissão delegável para aparecer (administrador sempre vê).
   permissao?: string;
+  // Alternativa "qualquer uma": aparece se tiver ao menos uma dessas chaves.
+  permissoes?: string[];
 }
 
 const PRINCIPAL: ItemMenu[] = [
@@ -53,7 +55,7 @@ const CADASTROS: ItemMenu[] = [
     rotulo: "Chamados (config)",
     para: "/config/chamados",
     icone: Tag,
-    permissao: "config.gerenciar",
+    permissoes: ["config.gerenciar", "chamados.categorias", "chamados.respostas"],
   },
   {
     rotulo: "Usuários",
@@ -106,7 +108,12 @@ function Grupo({
   itens: ItemMenu[];
   pode: (chave: string) => boolean;
 }) {
-  const visiveis = itens.filter((i) => !i.permissao || pode(i.permissao));
+  const visiveis = itens.filter((i) => {
+    if (i.permissoes && i.permissoes.length > 0) {
+      return i.permissoes.some((c) => pode(c));
+    }
+    return !i.permissao || pode(i.permissao);
+  });
   return (
     <div>
       <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

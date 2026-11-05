@@ -25,9 +25,26 @@
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)] [string] $BaseUrl,
-    [Parameter(Mandatory = $true)] [string] $ApiKey
+    [string] $BaseUrl,
+    [string] $ApiKey
 )
+
+# ============================================================================
+# CONFIGURAÇÃO — preencha aqui para rodar sem passar parâmetros.
+# Os parâmetros -BaseUrl / -ApiKey, se informados, têm prioridade sobre isto.
+# ============================================================================
+$ConfigBaseUrl = "https://sige.prefeitura.gov.br"   # URL HTTPS do SIGE
+$ConfigApiKey  = "COLE_A_INVENTARIO_API_KEY_AQUI"   # INVENTARIO_API_KEY do servidor
+# ============================================================================
+
+if ([string]::IsNullOrWhiteSpace($BaseUrl)) { $BaseUrl = $ConfigBaseUrl }
+if ([string]::IsNullOrWhiteSpace($ApiKey))  { $ApiKey  = $ConfigApiKey }
+
+if ([string]::IsNullOrWhiteSpace($BaseUrl) -or [string]::IsNullOrWhiteSpace($ApiKey) -or
+    $ApiKey -eq "COLE_A_INVENTARIO_API_KEY_AQUI") {
+    Write-Error "Configure \$ConfigBaseUrl e \$ConfigApiKey no topo do script (ou use -BaseUrl / -ApiKey)."
+    exit 2
+}
 
 $ErrorActionPreference = "Stop"
 # Garante TLS 1.2 em Windows/PowerShell antigos.

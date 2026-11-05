@@ -29,8 +29,27 @@ Vazio = coleta desabilitada (endpoint responde 503).
 - Em logon script de GPO (SYSVOL), qualquer usuário do domínio lê o `.ps1` e a
   chave. Prefira **Tarefa Agendada como SYSTEM** (abaixo) e rotacione a chave.
 
+## Configuração embutida (sem passar parâmetros)
+No topo do `.ps1`, preencha:
+
+```powershell
+$ConfigBaseUrl = "https://sige.prefeitura.gov.br"
+$ConfigApiKey  = "<INVENTARIO_API_KEY>"
+```
+
+Assim roda só com `.\Coletar-Inventario.ps1`. Os parâmetros `-BaseUrl` / `-ApiKey`,
+se informados, ainda têm prioridade sobre o que está no arquivo.
+
+> **Atenção:** com a chave dentro do arquivo, quem ler o `.ps1` tem a chave.
+> Mantenha o `.ps1` numa pasta com ACL restrita (ex.: `C:\SIGE`, só Administradores
+> + SYSTEM) e **não** o coloque no SYSVOL de um logon script. Rotacione a chave se
+> vazar. Como a chave só permite upsert de inventário, o risco é limitado.
+
 ## Uso manual (teste)
 ```powershell
+# Com config embutida:
+.\Coletar-Inventario.ps1
+# Ou passando na linha de comando:
 .\Coletar-Inventario.ps1 -BaseUrl "https://sige.prefeitura.gov.br" -ApiKey "<chave>"
 ```
 

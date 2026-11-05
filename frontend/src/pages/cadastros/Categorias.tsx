@@ -40,7 +40,7 @@ const VAZIO: CategoriaPayload = { nome: "", descricao: "", consumivel: false };
 
 export default function Categorias() {
   const { toast } = useToast();
-  const { ehAdministrador } = useAuth();
+  const { pode } = useAuth();
   const [lista, setLista] = React.useState<Categoria[]>([]);
   const [carregando, setCarregando] = React.useState(true);
 
@@ -148,7 +148,7 @@ export default function Categorias() {
         titulo="Categorias"
         descricao="Classificação dos itens (patrimoniados e materiais de consumo)."
         acao={
-          ehAdministrador && (
+          pode("categorias.gerenciar") && (
             <Button onClick={abrirCriacao}>
               <Plus className="h-4 w-4" /> Nova categoria
             </Button>
@@ -169,7 +169,7 @@ export default function Categorias() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead>Tipo</TableHead>
-                  {ehAdministrador && (
+                  {pode("categorias.gerenciar") && (
                     <TableHead className="w-24 text-right">Ações</TableHead>
                   )}
                 </TableRow>
@@ -188,7 +188,7 @@ export default function Categorias() {
                         <Badge variant="muted">Patrimoniado</Badge>
                       )}
                     </TableCell>
-                    {ehAdministrador && (
+                    {pode("categorias.gerenciar") && (
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button
