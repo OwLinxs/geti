@@ -135,6 +135,7 @@ type EntradaOS struct {
 	SolicitanteContato string // telefone/WhatsApp do solicitante externo
 	Origem             string // "interno" (padrão) ou "whatsapp"/externo
 	ReferenciaExterna  string // id do card na plataforma externa (idempotência)
+	GrupoAtendimento   string // agrupa OS de um mesmo chamado (desdobramento)
 }
 
 // dadosValidados guarda as entidades resolvidas durante a validação.
@@ -261,6 +262,7 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 	os := &models.OrdemServico{
 		Origem:                  origem,
 		ReferenciaExterna:       strings.TrimSpace(in.ReferenciaExterna),
+		GrupoAtendimento:        strings.TrimSpace(in.GrupoAtendimento),
 		SetorID:                 in.SetorID,
 		CategoriaChamadoID:      in.CategoriaChamadoID,
 		SolicitanteID:           in.SolicitanteID,
@@ -310,6 +312,67 @@ func (s *OrdemServicoService) Criar(in EntradaOS) (*models.OrdemServico, error) 
 	}
 	s.registrarEvento(criada.ID, "aberto", "Chamado aberto", criada.SolicitanteNomeSnapshot)
 	return criada, nil
+}
+
+// Desdobrar cria uma OS irmã, no mesmo atendimento, para um segundo equipamento
+// do mesmo chamado (ex.: o solicitante trouxe 2 computadores). A OS de origem
+// mantém o vínculo externo (card/WhatsApp) e o canal de conversa; a irmã nasce
+// INTERNA, sem ReferenciaExterna e sem contato do solicitante, para não duplicar
+// o sync do ZapGov nem desviar as respostas do solicitante para a OS errada.
+func (s *OrdemServicoService) Desdobrar(id uint, in EntradaOS, abertoPorID uint) (*models.OrdemServico, error) {
+	if abertoPorID == 0 {
+		return nil, ErrNaoAutorizado
+	}
+	origem, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+
+	// Garante o código do atendimento; se a origem ainda não tem grupo, cria um
+	// a partir do seu número e grava, para ambas ficarem agrupadas.
+	grupo := origem.GrupoAtendimento
+	if grupo == "" {
+		grupo = "AT-" + origem.Numero
+		origem.GrupoAtendimento = grupo
+		if err := s.repo.Atualizar(origem); err != nil {
+			return nil, err
+		}
+	}
+
+	defeito := strings.TrimSpace(in.DefeitoRelatado)
+	if defeito == "" {
+		defeito = origem.DefeitoRelatado
+	}
+
+	nova := EntradaOS{
+		ItemID:                   in.ItemID,
+		EquipamentoDescricao:     in.EquipamentoDescricao,
+		EquipamentoIdentificacao: in.EquipamentoIdentificacao,
+		Assunto:                  origem.Assunto,
+		SetorID:                  origem.SetorID,
+		CategoriaChamadoID:       origem.CategoriaChamadoID,
+		SolicitanteID:            origem.SolicitanteID,
+		SolicitanteNome:          origem.SolicitanteNomeSnapshot,
+		DefeitoRelatado:          defeito,
+		Prioridade:               string(origem.Prioridade),
+		TecnicoID:                origem.TecnicoID,
+		AbertoPorID:              abertoPorID,
+		Origem:                   "interno",
+		GrupoAtendimento:         grupo,
+	}
+	return s.Criar(nova)
+}
+
+// ListarDoGrupo devolve as OUTRAS OS do mesmo atendimento (exceto a informada).
+func (s *OrdemServicoService) ListarDoGrupo(id uint) ([]models.OrdemServico, error) {
+	os, err := s.repo.BuscarPorID(id)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	if os.GrupoAtendimento == "" {
+		return []models.OrdemServico{}, nil
+	}
+	return s.repo.ListarPorGrupo(os.GrupoAtendimento, id)
 }
 
 // UpsertViaIntegracao cria ou atualiza uma OS a partir de um chamado externo.

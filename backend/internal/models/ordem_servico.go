@@ -83,6 +83,12 @@ type OrdemServico struct {
 	// idempotência do sync (criar/atualizar sem duplicar).
 	ReferenciaExterna string `gorm:"size:100;index" json:"referencia_externa,omitempty"`
 
+	// GrupoAtendimento agrupa OS originadas de um mesmo chamado quando ele
+	// envolve mais de um equipamento (ex.: o solicitante trouxe 2 computadores).
+	// Vazio = OS avulsa. Preenchido ao desdobrar. A OS de origem mantém o
+	// vínculo externo/conversa; as irmãs nascem internas no mesmo grupo.
+	GrupoAtendimento string `gorm:"size:40;index" json:"grupo_atendimento,omitempty"`
+
 	// Assunto: título curto do chamado (usado quando aberto pelo solicitante,
 	// sem equipamento vinculado).
 	Assunto string `gorm:"size:150" json:"assunto,omitempty"`

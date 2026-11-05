@@ -67,6 +67,53 @@ func (h *OrdemServicoHandler) Criar(c *gin.Context) {
 	c.JSON(http.StatusCreated, os)
 }
 
+type desdobrarRequest struct {
+	ItemID                   uint   `json:"item_id"`
+	EquipamentoDescricao     string `json:"equipamento_descricao"`
+	EquipamentoIdentificacao string `json:"equipamento_identificacao"`
+	DefeitoRelatado          string `json:"defeito_relatado"`
+}
+
+// Desdobrar abre uma OS irmã para um segundo equipamento do mesmo chamado.
+func (h *OrdemServicoHandler) Desdobrar(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	var req desdobrarRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+	entrada := services.EntradaOS{
+		ItemID:                   req.ItemID,
+		EquipamentoDescricao:     req.EquipamentoDescricao,
+		EquipamentoIdentificacao: req.EquipamentoIdentificacao,
+		DefeitoRelatado:          req.DefeitoRelatado,
+	}
+	abertoPorID, _ := middlewares.UsuarioIDDoContexto(c)
+	os, err := h.svc.Desdobrar(id, entrada, abertoPorID)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, os)
+}
+
+// Relacionadas lista as outras OS do mesmo atendimento (grupo).
+func (h *OrdemServicoHandler) Relacionadas(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	lista, err := h.svc.ListarDoGrupo(id)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, lista)
+}
+
 func (h *OrdemServicoHandler) Atualizar(c *gin.Context) {
 	id, ok := parseID(c, "id")
 	if !ok {

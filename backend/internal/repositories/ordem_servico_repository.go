@@ -64,6 +64,9 @@ type OrdemServicoRepository interface {
 	Listar(f FiltroOrdemServico) ([]models.OrdemServico, int64, error)
 	// ListarPorItem devolve todas as OS vinculadas a um item (linha do tempo).
 	ListarPorItem(itemID uint) ([]models.OrdemServico, error)
+	// ListarPorGrupo devolve as OS de um mesmo atendimento (grupo); excetoID > 0
+	// remove uma OS do resultado (a própria, ao listar as "irmãs").
+	ListarPorGrupo(grupo string, excetoID uint) ([]models.OrdemServico, error)
 	Remover(id uint) error
 	// SubstituirPassos troca todos os passos de uma OS numa transação.
 	SubstituirPassos(osID uint, passos []models.OrdemServicoPasso) error
@@ -245,6 +248,16 @@ func (r *ordemServicoRepository) ListarPorItem(itemID uint) ([]models.OrdemServi
 		Where("item_id = ?", itemID).
 		Order("data_abertura DESC, id DESC").
 		Find(&lista).Error
+	return lista, err
+}
+
+func (r *ordemServicoRepository) ListarPorGrupo(grupo string, excetoID uint) ([]models.OrdemServico, error) {
+	var lista []models.OrdemServico
+	q := r.preloads(r.db).Where("grupo_atendimento = ?", grupo)
+	if excetoID != 0 {
+		q = q.Where("id <> ?", excetoID)
+	}
+	err := q.Order("data_abertura ASC, id ASC").Find(&lista).Error
 	return lista, err
 }
 

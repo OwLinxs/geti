@@ -242,6 +242,8 @@ func registrarOrdensServico(g *gin.RouterGroup, ct *container.Container) {
 	o.POST("", ct.OrdemServicoHandler.Criar)
 	o.GET("/:id", ct.OrdemServicoHandler.BuscarPorID)
 	o.GET("/:id/eventos", ct.OrdemServicoHandler.ListarEventos)
+	o.GET("/:id/relacionadas", ct.OrdemServicoHandler.Relacionadas)
+	o.POST("/:id/desdobrar", ct.OrdemServicoHandler.Desdobrar)
 	o.PUT("/:id", ct.OrdemServicoHandler.Atualizar)
 	o.PATCH("/:id/status", ct.OrdemServicoHandler.DefinirStatus)
 	o.PATCH("/:id/atribuir", ct.OrdemServicoHandler.AtribuirTecnico)

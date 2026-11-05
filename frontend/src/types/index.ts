@@ -215,6 +215,7 @@ export interface OrdemServico extends Base {
   numero: string;
   origem?: string;
   referencia_externa?: string;
+  grupo_atendimento?: string;
   assunto?: string;
   categoria_chamado_id?: number | null;
   categoria_chamado?: CategoriaChamado | null;

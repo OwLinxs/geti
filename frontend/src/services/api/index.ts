@@ -433,6 +433,22 @@ export const ordensServicoApi = {
     api
       .get<import("@/types").EventoChamado[]>(`/ordens-servico/${id}/eventos`)
       .then((r) => r.data),
+  relacionadas: (id: number) =>
+    api
+      .get<OrdemServico[]>(`/ordens-servico/${id}/relacionadas`)
+      .then((r) => r.data),
+  desdobrar: (
+    id: number,
+    dados: {
+      item_id?: number;
+      equipamento_descricao?: string;
+      equipamento_identificacao?: string;
+      defeito_relatado?: string;
+    }
+  ) =>
+    api
+      .post<OrdemServico>(`/ordens-servico/${id}/desdobrar`, dados)
+      .then((r) => r.data),
   baixarDocumento: (id: number, passos_extra: string[] = []) =>
     api
       .post(

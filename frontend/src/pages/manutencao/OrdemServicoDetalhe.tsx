@@ -8,6 +8,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  Layers,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ConversaChamado } from "@/components/ConversaChamado";
 import { CarregandoTela, Spinner } from "@/components/ui/spinner";
 import { OrdemServicoForm } from "./OrdemServicoForm";
+import { DesdobrarOSDialog } from "@/components/DesdobrarOSDialog";
 import {
   categoriasChamadoApi,
   itensApi,
@@ -141,6 +143,8 @@ export default function OrdemServicoDetalhe() {
   const [itens, setItens] = React.useState<Item[]>([]);
   const [tecnicos, setTecnicos] = React.useState<Usuario[]>([]);
   const [editAberto, setEditAberto] = React.useState(false);
+  const [desdobrarAberto, setDesdobrarAberto] = React.useState(false);
+  const [relacionadas, setRelacionadas] = React.useState<OrdemServico[]>([]);
   const [imprimirAberto, setImprimirAberto] = React.useState(false);
   const [excluindo, setExcluindo] = React.useState(false);
   const [processandoExcluir, setProcessandoExcluir] = React.useState(false);
@@ -171,6 +175,10 @@ export default function OrdemServicoDetalhe() {
       .eventos(osId)
       .then(setEventos)
       .catch(() => setEventos([]));
+    ordensServicoApi
+      .relacionadas(osId)
+      .then(setRelacionadas)
+      .catch(() => setRelacionadas([]));
   }, [osId, toast]);
 
   React.useEffect(carregar, [carregar]);
@@ -305,6 +313,9 @@ export default function OrdemServicoDetalhe() {
             </Button>
             <Button variant="outline" onClick={() => setEditAberto(true)}>
               <Pencil className="h-4 w-4" /> Editar
+            </Button>
+            <Button variant="outline" onClick={() => setDesdobrarAberto(true)}>
+              <Layers className="h-4 w-4" /> Add equipamento
             </Button>
             {podeExcluir && (
               <Button
@@ -463,6 +474,26 @@ export default function OrdemServicoDetalhe() {
                 {"★".repeat(os.avaliacao_nota)}
                 {"☆".repeat(5 - os.avaliacao_nota)} ({os.avaliacao_nota}/5)
               </Campo>
+            )}
+            {relacionadas.length > 0 && (
+              <div className="border-t border-border pt-3">
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Layers className="h-3.5 w-3.5" /> Outras OS deste atendimento
+                </p>
+                <ul className="space-y-1">
+                  {relacionadas.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/manutencao/${r.id}`)}
+                        className="text-left text-sm text-primary hover:underline"
+                      >
+                        {r.numero} — {r.equipamento_snapshot || "Sem equipamento"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -633,6 +664,18 @@ export default function OrdemServicoDetalhe() {
         onSalvo={() => {
           setEditAberto(false);
           carregar();
+        }}
+      />
+
+      <DesdobrarOSDialog
+        aberto={desdobrarAberto}
+        osId={os.id}
+        numeroOrigem={os.numero}
+        itens={itens}
+        onFechar={() => setDesdobrarAberto(false)}
+        onCriada={(nova) => {
+          setDesdobrarAberto(false);
+          navigate(`/manutencao/${nova.id}`);
         }}
       />
 
