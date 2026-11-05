@@ -75,7 +75,7 @@ func (s *ItemService) ImportarCSV(r io.Reader, dryRun bool) (*ResultadoImportaca
 		return nil, err
 	}
 
-	res := &ResultadoImportacao{Validacao: dryRun}
+	res := &ResultadoImportacao{Validacao: dryRun, Erros: []ErroLinha{}}
 
 	for n := 1; n < len(registros); n++ {
 		linha := registros[n]

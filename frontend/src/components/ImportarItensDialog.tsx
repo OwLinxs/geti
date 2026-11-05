@@ -91,7 +91,7 @@ export function ImportarItensDialog({
       setImportado(res);
       toast({
         titulo: `${res.importados} item(ns) importado(s).`,
-        descricao: res.erros.length ? `${res.erros.length} linha(s) ignorada(s) por erro.` : undefined,
+        descricao: (res.erros?.length ?? 0) ? `${res.erros.length} linha(s) ignorada(s) por erro.` : undefined,
         variant: res.importados > 0 ? "success" : "default",
       });
       onConcluido();
@@ -144,8 +144,8 @@ export function ImportarItensDialog({
                   <strong>{importado ? importado.importados : resultado.validas}</strong>{" "}
                   {importado ? "importada(s)" : "válida(s)"}
                 </span>
-                <span className={resultado.erros.length ? "text-destructive" : ""}>
-                  <strong>{resultado.erros.length}</strong> com erro
+                <span className={(resultado.erros?.length ?? 0) ? "text-destructive" : ""}>
+                  <strong>{resultado.erros?.length ?? 0}</strong> com erro
                 </span>
               </div>
 
@@ -156,7 +156,7 @@ export function ImportarItensDialog({
                 </div>
               )}
 
-              {resultado.erros.length > 0 && (
+              {(resultado.erros?.length ?? 0) > 0 && (
                 <div className="max-h-64 overflow-auto rounded-md border border-border">
                   <Table>
                     <TableHeader>
@@ -167,7 +167,7 @@ export function ImportarItensDialog({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {resultado.erros.map((e) => (
+                      {(resultado.erros ?? []).map((e) => (
                         <TableRow key={e.linha}>
                           <TableCell className="font-mono">{e.linha}</TableCell>
                           <TableCell className="max-w-[200px] truncate text-muted-foreground">

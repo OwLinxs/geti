@@ -100,7 +100,7 @@ export function ImportarServidoresDialog({
       setImportado(res);
       toast({
         titulo: `${res.importados} servidor(es) importado(s).`,
-        descricao: res.erros.length
+        descricao: (res.erros?.length ?? 0)
           ? `${res.erros.length} linha(s) ignorada(s) por erro.`
           : undefined,
         variant: res.importados > 0 ? "success" : "default",
@@ -163,8 +163,8 @@ export function ImportarServidoresDialog({
                   </strong>{" "}
                   {importado ? "importado(s)" : "válido(s)"}
                 </span>
-                <span className={resultado.erros.length ? "text-destructive" : ""}>
-                  <strong>{resultado.erros.length}</strong> com erro
+                <span className={(resultado.erros?.length ?? 0) ? "text-destructive" : ""}>
+                  <strong>{resultado.erros?.length ?? 0}</strong> com erro
                 </span>
               </div>
 
@@ -176,7 +176,7 @@ export function ImportarServidoresDialog({
                 </div>
               )}
 
-              {resultado.erros.length > 0 && (
+              {(resultado.erros?.length ?? 0) > 0 && (
                 <div className="max-h-64 overflow-auto rounded-md border border-border">
                   <Table>
                     <TableHeader>
@@ -187,7 +187,7 @@ export function ImportarServidoresDialog({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {resultado.erros.map((e) => (
+                      {(resultado.erros ?? []).map((e) => (
                         <TableRow key={e.linha}>
                           <TableCell className="font-mono">{e.linha}</TableCell>
                           <TableCell className="max-w-[200px] truncate text-muted-foreground">
