@@ -297,6 +297,11 @@ func registrarIntegracao(api *gin.RouterGroup, cfg *config.Config, ct *container
 	g.GET("/ordens-servico", ct.IntegracaoHandler.Listar)
 	g.GET("/ordens-servico/:id", ct.IntegracaoHandler.BuscarPorID)
 	g.PATCH("/ordens-servico/:id/status", ct.IntegracaoHandler.DefinirStatus)
+
+	// Coletor de inventário (script nas máquinas). Chave DEDICADA, separada da
+	// de chamados, com alcance mínimo (só upsert de item). 503 se não configurada.
+	inv := api.Group("/inventario", middlewares.ChaveAPIIntegracao(cfg.InventarioAPIKey))
+	inv.POST("/coleta", ct.InventarioHandler.Coletar)
 }
 
 func registrarCategoriasChamado(g *gin.RouterGroup, ct *container.Container) {

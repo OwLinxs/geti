@@ -34,6 +34,9 @@ type ItemRepository interface {
 	Criar(i *models.Item) error
 	CriarLote(itens []models.Item) error
 	BuscarPorID(id uint) (*models.Item, error)
+	// BuscarPorNumeroSerie localiza um item pelo número de série (coletor de
+	// inventário). Série vazia nunca casa. Devolve ErrNaoEncontrado se não achar.
+	BuscarPorNumeroSerie(serie string) (*models.Item, error)
 	Listar(f FiltroItem) ([]models.Item, int64, error)
 	Atualizar(i *models.Item) error
 	// Remover faz soft delete (GORM): o registro fica oculto nas consultas.
@@ -73,6 +76,22 @@ func (r *itemRepository) BuscarPorID(id uint) (*models.Item, error) {
 	var i models.Item
 	q := r.preloads(r.db).Preload("Atributos").Preload("Atributos.Campo")
 	if err := q.First(&i, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNaoEncontrado
+		}
+		return nil, err
+	}
+	return &i, nil
+}
+
+func (r *itemRepository) BuscarPorNumeroSerie(serie string) (*models.Item, error) {
+	serie = strings.TrimSpace(serie)
+	if serie == "" {
+		return nil, ErrNaoEncontrado
+	}
+	var i models.Item
+	q := r.preloads(r.db).Preload("Atributos").Preload("Atributos.Campo")
+	if err := q.Where("numero_serie = ?", serie).First(&i).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNaoEncontrado
 		}

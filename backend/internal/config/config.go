@@ -60,6 +60,12 @@ type Config struct {
 	// desabilitada (endpoints /integracao respondem 503).
 	IntegracaoAPIKey string
 
+	// Chave DEDICADA do coletor de inventário (script PowerShell nas máquinas).
+	// Separada da IntegracaoAPIKey por segurança: o endpoint só faz upsert de
+	// inventário, então mesmo exposta no script seu alcance é mínimo. Vazio =
+	// coleta desabilitada (/inventario responde 503).
+	InventarioAPIKey string
+
 	// Diretório onde os anexos das mensagens de chamado são guardados.
 	AnexosDir string
 
@@ -98,6 +104,7 @@ func Load() (*Config, error) {
 		TermoCabecalho:       getEnv("TERMO_CABECALHO", "Termo de Responsabilidade de Equipamento"),
 		TermoCidadeUF:        getEnv("TERMO_CIDADE_UF", ""),
 		IntegracaoAPIKey:     strings.TrimSpace(getEnv("INTEGRACAO_API_KEY", "")),
+		InventarioAPIKey:     strings.TrimSpace(getEnv("INVENTARIO_API_KEY", "")),
 		AnexosDir:            getEnv("ANEXOS_DIR", "data/anexos"),
 		ZapGovBaseURL:        strings.TrimRight(getEnv("ZAPGOV_BASE_URL", ""), "/"),
 		ZapGovAPIKey:         getEnv("ZAPGOV_API_KEY", ""),

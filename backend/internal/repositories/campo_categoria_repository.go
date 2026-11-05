@@ -18,6 +18,10 @@ type CampoCategoriaRepository interface {
 	// SubstituirAtributosDoItem apaga os atributos atuais do item e grava os
 	// novos, em uma transação.
 	SubstituirAtributosDoItem(itemID uint, atributos []models.ItemAtributo) error
+	// UpsertAtributo grava/atualiza o valor de UM campo no item sem tocar nos
+	// demais (usado pelo coletor de inventário, que não deve apagar atributos
+	// preenchidos à mão).
+	UpsertAtributo(itemID, campoID uint, valor string) error
 }
 
 type campoCategoriaRepository struct {
@@ -66,6 +70,23 @@ func (r *campoCategoriaRepository) Remover(id uint) error {
 		}
 		return tx.Delete(&models.CampoCategoria{}, id).Error
 	})
+}
+
+func (r *campoCategoriaRepository) UpsertAtributo(itemID, campoID uint, valor string) error {
+	var atrib models.ItemAtributo
+	err := r.db.Where("item_id = ? AND campo_id = ?", itemID, campoID).First(&atrib).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return r.db.Create(&models.ItemAtributo{
+			ItemID:  itemID,
+			CampoID: campoID,
+			Valor:   valor,
+		}).Error
+	}
+	if err != nil {
+		return err
+	}
+	atrib.Valor = valor
+	return r.db.Save(&atrib).Error
 }
 
 func (r *campoCategoriaRepository) SubstituirAtributosDoItem(itemID uint, atributos []models.ItemAtributo) error {

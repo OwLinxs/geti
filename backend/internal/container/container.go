@@ -21,6 +21,7 @@ type Container struct {
 	AuthService             *services.AuthService
 	CategoriaService        *services.CategoriaService
 	CampoCategoriaService   *services.CampoCategoriaService
+	InventarioService       *services.InventarioService
 	SetorService            *services.SetorService
 	ServidorService         *services.ServidorService
 	ItemService             *services.ItemService
@@ -66,6 +67,7 @@ type Container struct {
 	ContratoHandler         *handlers.ContratoHandler
 	ReservaHandler          *handlers.ReservaHandler
 	IntegracaoHandler       *handlers.IntegracaoHandler
+	InventarioHandler       *handlers.InventarioHandler
 	ZapGovHandler           *handlers.ZapGovHandler
 	MidiaHandler            *handlers.MidiaHandler
 }
@@ -100,6 +102,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	categoriaSvc := services.NewCategoriaService(categoriaRepo)
 	campoCategoriaRepo := repositories.NewCampoCategoriaRepository(db)
 	campoCategoriaSvc := services.NewCampoCategoriaService(campoCategoriaRepo, categoriaRepo)
+	inventarioSvc := services.NewInventarioService(itemRepo, categoriaRepo, campoCategoriaRepo)
 	setorSvc := services.NewSetorService(setorRepo)
 	servidorSvc := services.NewServidorService(servidorRepo, setorRepo)
 	itemSvc := services.NewItemService(itemRepo, categoriaRepo, setorRepo, servidorRepo, movRepo, termoRepo)
@@ -149,6 +152,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		AuthService:             authSvc,
 		CategoriaService:        categoriaSvc,
 		CampoCategoriaService:   campoCategoriaSvc,
+		InventarioService:       inventarioSvc,
 		SetorService:            setorSvc,
 		ServidorService:         servidorSvc,
 		ItemService:             itemSvc,
@@ -193,6 +197,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 		ContratoHandler:         handlers.NewContratoHandler(contratoSvc),
 		ReservaHandler:          handlers.NewReservaHandler(reservaSvc),
 		IntegracaoHandler:       handlers.NewIntegracaoHandler(ordemServicoSvc),
+		InventarioHandler:       handlers.NewInventarioHandler(inventarioSvc),
 		ZapGovHandler:           handlers.NewZapGovHandler(ordemServicoSvc, mensagemSvc),
 		MidiaHandler:            handlers.NewMidiaHandler(mensagemSvc, cfg.JWTSecret),
 	}
