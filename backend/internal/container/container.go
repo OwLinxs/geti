@@ -102,7 +102,7 @@ func New(cfg *config.Config, db *gorm.DB) *Container {
 	categoriaSvc := services.NewCategoriaService(categoriaRepo)
 	campoCategoriaRepo := repositories.NewCampoCategoriaRepository(db)
 	campoCategoriaSvc := services.NewCampoCategoriaService(campoCategoriaRepo, categoriaRepo)
-	inventarioSvc := services.NewInventarioService(itemRepo, categoriaRepo, campoCategoriaRepo)
+	inventarioSvc := services.NewInventarioService(itemRepo, categoriaRepo, campoCategoriaRepo, setorRepo)
 	setorSvc := services.NewSetorService(setorRepo)
 	servidorSvc := services.NewServidorService(servidorRepo, setorRepo)
 	itemSvc := services.NewItemService(itemRepo, categoriaRepo, setorRepo, servidorRepo, movRepo, termoRepo)

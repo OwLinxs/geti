@@ -302,6 +302,7 @@ func registrarIntegracao(api *gin.RouterGroup, cfg *config.Config, ct *container
 	// de chamados, com alcance mínimo (só upsert de item). 503 se não configurada.
 	inv := api.Group("/inventario", middlewares.ChaveAPIIntegracao(cfg.InventarioAPIKey))
 	inv.POST("/coleta", ct.InventarioHandler.Coletar)
+	inv.GET("/setores", ct.InventarioHandler.Setores)
 }
 
 func registrarCategoriasChamado(g *gin.RouterGroup, ct *container.Container) {

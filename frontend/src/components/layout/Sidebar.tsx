@@ -71,14 +71,22 @@ const CADASTROS: ItemMenu[] = [
   },
 ];
 
-export function Sidebar({ aberto }: { aberto: boolean }) {
+export function Sidebar({
+  aberto,
+  recolhido = false,
+}: {
+  aberto: boolean;
+  recolhido?: boolean;
+}) {
   const { pode } = useAuth();
 
   return (
     <aside
       className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 transform border-r border-border bg-card transition-transform duration-200 lg:static lg:translate-x-0",
-        aberto ? "translate-x-0" : "-translate-x-full"
+        "fixed inset-y-0 left-0 z-40 w-64 transform overflow-hidden border-r border-border bg-card transition-all duration-200 lg:static lg:translate-x-0",
+        aberto ? "translate-x-0" : "-translate-x-full",
+        // Desktop: recolhido zera a largura e some com a borda (conteúdo cortado).
+        recolhido && "lg:w-0 lg:border-0"
       )}
     >
       <div className="flex h-16 items-center gap-2 border-b border-border px-6">

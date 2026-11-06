@@ -26,19 +26,23 @@
 [CmdletBinding()]
 param(
     [string] $BaseUrl,
-    [string] $ApiKey
+    [string] $ApiKey,
+    [int]    $SetorId,
+    [switch] $ListarSetores
 )
 
 # ============================================================================
 # CONFIGURAÇÃO — preencha aqui para rodar sem passar parâmetros.
-# Os parâmetros -BaseUrl / -ApiKey, se informados, têm prioridade sobre isto.
+# Os parâmetros -BaseUrl / -ApiKey / -SetorId, se informados, têm prioridade.
 # ============================================================================
 $ConfigBaseUrl = "https://sige.prefeitura.gov.br"   # URL HTTPS do SIGE
 $ConfigApiKey  = "COLE_A_INVENTARIO_API_KEY_AQUI"   # INVENTARIO_API_KEY do servidor
+$ConfigSetorId = 0                                   # ID do departamento desta máquina (0 = não define)
 # ============================================================================
 
 if ([string]::IsNullOrWhiteSpace($BaseUrl)) { $BaseUrl = $ConfigBaseUrl }
 if ([string]::IsNullOrWhiteSpace($ApiKey))  { $ApiKey  = $ConfigApiKey }
+if ($SetorId -le 0) { $SetorId = $ConfigSetorId }
 
 if ([string]::IsNullOrWhiteSpace($BaseUrl) -or [string]::IsNullOrWhiteSpace($ApiKey) -or
     $ApiKey -eq "COLE_A_INVENTARIO_API_KEY_AQUI") {
@@ -49,6 +53,21 @@ if ([string]::IsNullOrWhiteSpace($BaseUrl) -or [string]::IsNullOrWhiteSpace($Api
 $ErrorActionPreference = "Stop"
 # Garante TLS 1.2 em Windows/PowerShell antigos.
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+
+# Modo descoberta: lista os departamentos (id/nome/sigla) para preencher o
+# -SetorId / $ConfigSetorId. Rode UMA vez no PC do admin.
+if ($ListarSetores) {
+    try {
+        $uri = ($BaseUrl.TrimEnd("/")) + "/api/v1/inventario/setores"
+        $setores = Invoke-RestMethod -Uri $uri -Method Get -Headers @{ "X-API-Key" = $ApiKey }
+        $setores | Select-Object id, sigla, nome | Format-Table -AutoSize
+        exit 0
+    }
+    catch {
+        Write-Error "Falha ao listar setores: $($_.Exception.Message)"
+        exit 1
+    }
+}
 
 function Get-Especificacao {
     param([string] $Nome, [string] $Valor)
@@ -116,7 +135,7 @@ try {
         Get-Especificacao "Usuário"            $cs.UserName
     ) | Where-Object { $_ -ne $null }
 
-    $payload = [pscustomobject]@{
+    $payload = [ordered]@{
         hostname       = $env:COMPUTERNAME
         numero_serie   = $serie
         fabricante     = ("" + $cs.Manufacturer).Trim()
@@ -124,8 +143,10 @@ try {
         categoria      = $categoria
         especificacoes = $especificacoes
     }
+    # Define o local (departamento) só quando houver um ID configurado.
+    if ($SetorId -gt 0) { $payload.setor_id = [int]$SetorId }
 
-    $json = $payload | ConvertTo-Json -Depth 5
+    $json = ([pscustomobject]$payload) | ConvertTo-Json -Depth 5
     $uri  = ($BaseUrl.TrimEnd("/")) + "/api/v1/inventario/coleta"
 
     $resp = Invoke-RestMethod -Uri $uri -Method Post -Body $json `

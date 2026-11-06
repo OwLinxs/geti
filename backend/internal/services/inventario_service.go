@@ -18,18 +18,27 @@ type InventarioService struct {
 	itemRepo      repositories.ItemRepository
 	categoriaRepo repositories.CategoriaRepository
 	campoRepo     repositories.CampoCategoriaRepository
+	setorRepo     repositories.SetorRepository
 }
 
 func NewInventarioService(
 	itemRepo repositories.ItemRepository,
 	categoriaRepo repositories.CategoriaRepository,
 	campoRepo repositories.CampoCategoriaRepository,
+	setorRepo repositories.SetorRepository,
 ) *InventarioService {
 	return &InventarioService{
 		itemRepo:      itemRepo,
 		categoriaRepo: categoriaRepo,
 		campoRepo:     campoRepo,
+		setorRepo:     setorRepo,
 	}
+}
+
+// ListarSetores devolve os setores (id/nome/sigla) para o script montar o mapa
+// de IDs. Somente leitura, sem dados sensíveis.
+func (s *InventarioService) ListarSetores() ([]models.Setor, error) {
+	return s.setorRepo.Listar()
 }
 
 // EspecificacaoColeta é um par rótulo/valor de configuração coletada (ex.:
@@ -46,6 +55,7 @@ type EntradaInventario struct {
 	Fabricante     string
 	Modelo         string
 	Categoria      string // "Desktop", "Notebook"... (casada por nome; criada se faltar)
+	SetorID        *uint  // local da máquina; nil = não altera o setor atual
 	Especificacoes []EspecificacaoColeta
 }
 
@@ -66,6 +76,14 @@ func (s *InventarioService) Coletar(in EntradaInventario) (*models.Item, bool, e
 	categoria, err := s.resolverCategoria(in.Categoria)
 	if err != nil {
 		return nil, false, err
+	}
+
+	// Setor (local): se informado, precisa existir.
+	if in.SetorID != nil {
+		if _, err := s.setorRepo.BuscarPorID(*in.SetorID); err != nil {
+			ev.Add("setor_id", "Departamento (setor_id) não encontrado.")
+			return nil, false, ev
+		}
 	}
 
 	descricao := hostname
@@ -99,6 +117,9 @@ func (s *InventarioService) Coletar(in EntradaInventario) (*models.Item, bool, e
 		if serie != "" {
 			novo.NumeroSerie = &serie
 		}
+		if in.SetorID != nil {
+			novo.SetorID = in.SetorID
+		}
 		if err := s.itemRepo.Criar(novo); err != nil {
 			return nil, false, err
 		}
@@ -112,6 +133,10 @@ func (s *InventarioService) Coletar(in EntradaInventario) (*models.Item, bool, e
 		item.Modelo = strings.TrimSpace(in.Modelo)
 		if item.CategoriaID == 0 {
 			item.CategoriaID = categoria.ID
+		}
+		// Local informado pela coleta vira a fonte da verdade (script por setor).
+		if in.SetorID != nil {
+			item.SetorID = in.SetorID
 		}
 		if err := s.itemRepo.Atualizar(item); err != nil {
 			return nil, false, err

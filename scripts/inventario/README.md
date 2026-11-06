@@ -45,6 +45,24 @@ se informados, ainda têm prioridade sobre o que está no arquivo.
 > + SYSTEM) e **não** o coloque no SYSVOL de um logon script. Rotacione a chave se
 > vazar. Como a chave só permite upsert de inventário, o risco é limitado.
 
+## Local da máquina (departamento) por ID
+Defina o departamento da máquina pelo **ID** do setor — sem digitar nome.
+
+1. Descubra os IDs (rode uma vez, no PC do admin):
+   ```powershell
+   .\Coletar-Inventario.ps1 -ListarSetores
+   ```
+   Imprime `id / sigla / nome` de todos os departamentos.
+2. Configure o ID no script (por departamento) ou passe na linha de comando:
+   ```powershell
+   $ConfigSetorId = 12        # no topo do .ps1
+   # ou
+   .\Coletar-Inventario.ps1 -SetorId 12
+   ```
+`0` (padrão) = não mexe no setor. Com um ID, a coleta **define** o local do item
+(inclusive sobrescreve numa recoleta — o script vira a fonte da verdade do local,
+então use um ID por departamento). `-SetorId` tem prioridade sobre `$ConfigSetorId`.
+
 ## Uso manual (teste)
 ```powershell
 # Com config embutida:
