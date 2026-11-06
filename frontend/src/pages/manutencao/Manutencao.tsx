@@ -193,6 +193,7 @@ export default function Manutencao() {
                 <TableRow>
                   <TableHead>Número</TableHead>
                   <TableHead>Equipamento</TableHead>
+                  <TableHead>Departamento</TableHead>
                   <TableHead>Diagnóstico</TableHead>
                   <TableHead>Prioridade</TableHead>
                   <TableHead>Status</TableHead>
@@ -209,6 +210,9 @@ export default function Manutencao() {
                   >
                     <TableCell className="font-medium">{os.numero}</TableCell>
                     <TableCell>{os.equipamento_snapshot}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {os.setor?.nome ?? "—"}
+                    </TableCell>
                     <TableCell className="max-w-[18rem] text-muted-foreground">
                       {os.diagnostico ? (
                         <span

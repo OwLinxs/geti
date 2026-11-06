@@ -457,12 +457,24 @@ func passosPadrao() []models.OrdemServicoPasso {
 	return passos
 }
 
+// bloquearSeConcluida impede editar o conteúdo de um chamado já concluído. O
+// status continua alterável (mudar o status reabre para edição).
+func bloquearSeConcluida(os *models.OrdemServico) error {
+	if os.Status == models.OSConcluida {
+		return fmt.Errorf("%w: chamado concluído não pode ser editado; altere o status para reabrir", ErrRegraNegocio)
+	}
+	return nil
+}
+
 // Atualizar edita os dados da OS (não altera número, abertura, status nem os
 // passos — estes têm endpoints próprios).
 func (s *OrdemServicoService) Atualizar(id uint, in EntradaOS) (*models.OrdemServico, error) {
 	os, err := s.repo.BuscarPorID(id)
 	if err != nil {
 		return nil, traduzErroRepo(err)
+	}
+	if err := bloquearSeConcluida(os); err != nil {
+		return nil, err
 	}
 	d, err := s.validar(in)
 	if err != nil {
@@ -596,6 +608,9 @@ func (s *OrdemServicoService) Classificar(id uint, setorID, categoriaID *uint, p
 	os, err := s.repo.BuscarPorID(id)
 	if err != nil {
 		return nil, traduzErroRepo(err)
+	}
+	if err := bloquearSeConcluida(os); err != nil {
+		return nil, err
 	}
 	if prioridade != nil {
 		p := models.PrioridadeOS(*prioridade)
@@ -751,8 +766,12 @@ type PassoEntrada struct {
 
 // SalvarPassos substitui todo o checklist da OS pelo conjunto informado.
 func (s *OrdemServicoService) SalvarPassos(id uint, entradas []PassoEntrada) (*models.OrdemServico, error) {
-	if _, err := s.repo.BuscarPorID(id); err != nil {
+	os, err := s.repo.BuscarPorID(id)
+	if err != nil {
 		return nil, traduzErroRepo(err)
+	}
+	if err := bloquearSeConcluida(os); err != nil {
+		return nil, err
 	}
 
 	passos := make([]models.OrdemServicoPasso, 0, len(entradas))

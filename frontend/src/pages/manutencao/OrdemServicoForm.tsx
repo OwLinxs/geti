@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,6 +75,8 @@ export function OrdemServicoForm({
   const [diagnostico, setDiagnostico] = React.useState("");
   const [solucao, setSolucao] = React.useState("");
   const [prioridade, setPrioridade] = React.useState("normal");
+  // Campos secundários ficam recolhidos na abertura (form enxuto); abertos na edição.
+  const [avancado, setAvancado] = React.useState(false);
   const [tecnicoId, setTecnicoId] = React.useState<string>(SEM);
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [salvando, setSalvando] = React.useState(false);
@@ -110,6 +113,7 @@ export function OrdemServicoForm({
       setSolucao(ordem.solucao_aplicada ?? "");
       setPrioridade(ordem.prioridade);
       setTecnicoId(ordem.tecnico_id ? String(ordem.tecnico_id) : SEM);
+      setAvancado(true);
     } else {
       setOrigem("inventario");
       setItemId(SEM);
@@ -126,6 +130,7 @@ export function OrdemServicoForm({
       setTecnicoId(
         tecnicos.length === 0 && usuarioAtual ? String(usuarioAtual.id) : SEM
       );
+      setAvancado(false);
     }
     setErros({});
   }, [aberto, ordem, tecnicos.length, usuarioAtual]);
@@ -267,107 +272,123 @@ export function OrdemServicoForm({
             />
           </FormField>
 
-          <FormField label="Categoria do chamado">
-            <Select value={categoriaId} onValueChange={setCategoriaId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Opcional" />
+          <FormField label="Prioridade">
+            <Select value={prioridade} onValueChange={setPrioridade}>
+              <SelectTrigger className="sm:w-56">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SEM}>Não classificado</SelectItem>
-                {categorias.map((cat) => (
-                  <SelectItem key={cat.id} value={String(cat.id)}>
-                    {cat.nome}
+                {PRIORIDADES_OS.map((p) => (
+                  <SelectItem key={p.valor} value={p.valor}>
+                    {p.rotulo}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </FormField>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Prioridade">
-              <Select value={prioridade} onValueChange={setPrioridade}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORIDADES_OS.map((p) => (
-                    <SelectItem key={p.valor} value={p.valor}>
-                      {p.rotulo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
+          {/* Campos secundários: recolhidos na abertura para agilizar. */}
+          <button
+            type="button"
+            onClick={() => setAvancado((v) => !v)}
+            className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            {avancado ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+            Mais opções (categoria, técnico, departamento, solicitante…)
+          </button>
 
-            <FormField label="Técnico responsável">
-              <Select value={tecnicoId} onValueChange={setTecnicoId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Não definido" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SEM}>Não definido</SelectItem>
-                  {opcoesTecnico.map((u) => (
-                    <SelectItem key={u.id} value={String(u.id)}>
-                      {u.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-          </div>
+          {avancado && (
+            <div className="space-y-4 rounded-md border border-border bg-muted/20 p-3">
+              <FormField label="Categoria do chamado">
+                <Select value={categoriaId} onValueChange={setCategoriaId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Opcional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SEM}>Não classificado</SelectItem>
+                    {categorias.map((cat) => (
+                      <SelectItem key={cat.id} value={String(cat.id)}>
+                        {cat.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Departamento de origem">
-              <Select value={setorId} onValueChange={setSetorId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Opcional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SEM}>Não informado</SelectItem>
-                  {setoresArvore.map(({ setor: s, nivel }) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      {prefixoIndentacao(nivel)}
-                      {s.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <FormField label="Técnico responsável">
+                  <Select value={tecnicoId} onValueChange={setTecnicoId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Não definido" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SEM}>Não definido</SelectItem>
+                      {opcoesTecnico.map((u) => (
+                        <SelectItem key={u.id} value={String(u.id)}>
+                          {u.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
 
-            <FormField label="Solicitante">
-              <Select value={solicitanteId} onValueChange={setSolicitanteId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Opcional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SEM}>Não informado</SelectItem>
-                  {servidores.map((s) => (
-                    <SelectItem key={s.id} value={String(s.id)}>
-                      {s.nome} ({s.matricula})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-          </div>
+                <FormField label="Departamento de origem">
+                  <Select value={setorId} onValueChange={setSetorId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Opcional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SEM}>Não informado</SelectItem>
+                      {setoresArvore.map(({ setor: s, nivel }) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                          {prefixoIndentacao(nivel)}
+                          {s.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              </div>
 
-          <FormField label="Diagnóstico" htmlFor="diagnostico">
-            <Textarea
-              id="diagnostico"
-              value={diagnostico}
-              onChange={(e) => setDiagnostico(e.target.value)}
-              placeholder="Preenchido durante o atendimento (opcional)"
-            />
-          </FormField>
+              <FormField label="Solicitante">
+                <Select value={solicitanteId} onValueChange={setSolicitanteId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Opcional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SEM}>Não informado</SelectItem>
+                    {servidores.map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.nome} ({s.matricula})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
 
-          <FormField label="Solução aplicada" htmlFor="solucao">
-            <Textarea
-              id="solucao"
-              value={solucao}
-              onChange={(e) => setSolucao(e.target.value)}
-              placeholder="Preenchido ao concluir (opcional)"
-            />
-          </FormField>
+              <FormField label="Diagnóstico" htmlFor="diagnostico">
+                <Textarea
+                  id="diagnostico"
+                  value={diagnostico}
+                  onChange={(e) => setDiagnostico(e.target.value)}
+                  placeholder="Preenchido durante o atendimento (opcional)"
+                />
+              </FormField>
+
+              <FormField label="Solução aplicada" htmlFor="solucao">
+                <Textarea
+                  id="solucao"
+                  value={solucao}
+                  onChange={(e) => setSolucao(e.target.value)}
+                  placeholder="Preenchido ao concluir (opcional)"
+                />
+              </FormField>
+            </div>
+          )}
 
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onFechar}>

@@ -57,8 +57,27 @@ import type {
   EventoChamado,
   Item,
   OrdemServico,
+  OrdemServicoPayload,
   Usuario,
 } from "@/types";
+
+// Monta o payload completo a partir da OS atual, para edições pontuais (PUT
+// exige o objeto inteiro; sobrescrevemos só o campo editado inline).
+function payloadDaOS(os: OrdemServico): OrdemServicoPayload {
+  return {
+    item_id: os.item_id ?? 0,
+    equipamento_descricao: os.equipamento_descricao ?? "",
+    equipamento_identificacao: os.equipamento_identificacao ?? "",
+    setor_id: os.setor_id ?? null,
+    categoria_chamado_id: os.categoria_chamado_id ?? null,
+    solicitante_id: os.solicitante_id ?? null,
+    defeito_relatado: os.defeito_relatado,
+    diagnostico: os.diagnostico ?? "",
+    solucao_aplicada: os.solucao_aplicada ?? "",
+    prioridade: os.prioridade,
+    tecnico_id: os.tecnico_id ?? null,
+  };
+}
 
 // Passo em edição no cliente (id opcional: novos passos ainda não persistidos).
 interface PassoEdit {
@@ -280,6 +299,26 @@ export default function OrdemServicoDetalhe() {
     }
   }
 
+  async function salvarCampoOS(
+    campo: keyof OrdemServicoPayload,
+    valor: string
+  ) {
+    if (!os) return;
+    const payload = { ...payloadDaOS(os), [campo]: valor };
+    try {
+      const atualizada = await ordensServicoApi.atualizar(os.id, payload);
+      setOs(atualizada);
+      toast({ titulo: "Campo atualizado.", variant: "success" });
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível salvar",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+      throw err; // mantém o editor aberto para o usuário tentar de novo
+    }
+  }
+
   if (carregando) return <CarregandoTela texto="Carregando OS..." />;
   if (!os)
     return (
@@ -291,6 +330,9 @@ export default function OrdemServicoDetalhe() {
   const podeExcluir =
     pode("chamados.excluir") &&
     (os.status === "aberta" || os.status === "cancelada");
+
+  // Chamado concluído fica travado para edição (muda o status para reabrir).
+  const bloqueado = os.status === "concluida";
 
   return (
     <div>
@@ -311,12 +353,19 @@ export default function OrdemServicoDetalhe() {
             <Button variant="outline" onClick={() => setImprimirAberto(true)}>
               <Printer className="h-4 w-4" /> Imprimir
             </Button>
-            <Button variant="outline" onClick={() => setEditAberto(true)}>
-              <Pencil className="h-4 w-4" /> Editar
-            </Button>
-            <Button variant="outline" onClick={() => setDesdobrarAberto(true)}>
-              <Layers className="h-4 w-4" /> Add equipamento
-            </Button>
+            {!bloqueado && (
+              <>
+                <Button variant="outline" onClick={() => setEditAberto(true)}>
+                  <Pencil className="h-4 w-4" /> Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setDesdobrarAberto(true)}
+                >
+                  <Layers className="h-4 w-4" /> Add equipamento
+                </Button>
+              </>
+            )}
             {podeExcluir && (
               <Button
                 variant="outline"
@@ -362,7 +411,7 @@ export default function OrdemServicoDetalhe() {
               <Select
                 value={os.prioridade}
                 onValueChange={(v) => classificar("prioridade", v)}
-                disabled={classificando}
+                disabled={classificando || bloqueado}
               >
                 <SelectTrigger className="h-8 w-36">
                   <SelectValue />
@@ -411,7 +460,7 @@ export default function OrdemServicoDetalhe() {
               <Select
                 value={os.categoria_chamado_id?.toString() ?? "0"}
                 onValueChange={(v) => classificar("categoria", v)}
-                disabled={classificando}
+                disabled={classificando || bloqueado}
               >
                 <SelectTrigger className="h-8 w-36">
                   <SelectValue placeholder="—" />
@@ -430,7 +479,7 @@ export default function OrdemServicoDetalhe() {
               <Select
                 value={os.setor_id?.toString() ?? "0"}
                 onValueChange={(v) => classificar("setor", v)}
-                disabled={classificando}
+                disabled={classificando || bloqueado}
               >
                 <SelectTrigger className="h-8 w-36">
                   <SelectValue placeholder="—" />
@@ -452,7 +501,7 @@ export default function OrdemServicoDetalhe() {
                   size="sm"
                   className="h-7"
                   onClick={atribuirAMim}
-                  disabled={atribuindo}
+                  disabled={atribuindo || bloqueado}
                 >
                   {atribuindo ? (
                     <Spinner className="h-3 w-3" />
@@ -505,9 +554,30 @@ export default function OrdemServicoDetalhe() {
               <CardTitle className="text-base">Atendimento</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <Texto rotulo="Defeito relatado" valor={os.defeito_relatado} />
-              <Texto rotulo="Diagnóstico" valor={os.diagnostico} />
-              <Texto rotulo="Solução aplicada" valor={os.solucao_aplicada} />
+              {bloqueado && (
+                <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  Chamado concluído. Para editar, altere o status (reabre o
+                  atendimento).
+                </p>
+              )}
+              <TextoEditavel
+                rotulo="Defeito relatado"
+                valor={os.defeito_relatado}
+                bloqueado={bloqueado}
+                onSalvar={(v) => salvarCampoOS("defeito_relatado", v)}
+              />
+              <TextoEditavel
+                rotulo="Diagnóstico"
+                valor={os.diagnostico}
+                bloqueado={bloqueado}
+                onSalvar={(v) => salvarCampoOS("diagnostico", v)}
+              />
+              <TextoEditavel
+                rotulo="Solução aplicada"
+                valor={os.solucao_aplicada}
+                bloqueado={bloqueado}
+                onSalvar={(v) => salvarCampoOS("solucao_aplicada", v)}
+              />
               {os.avaliacao_comentario && (
                 <Texto
                   rotulo="Comentário da avaliação"
@@ -541,7 +611,7 @@ export default function OrdemServicoDetalhe() {
                 <Button
                   size="sm"
                   onClick={salvarChecklist}
-                  disabled={salvandoPassos}
+                  disabled={salvandoPassos || bloqueado}
                 >
                   {salvandoPassos ? (
                     <Spinner className="h-4 w-4" />
@@ -934,6 +1004,90 @@ function Texto({ rotulo, valor }: { rotulo: string; valor?: string }) {
     <div>
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {rotulo}
+      </p>
+      <p className="whitespace-pre-wrap text-foreground">
+        {valor?.trim() ? valor : "—"}
+      </p>
+    </div>
+  );
+}
+
+// Texto com edição inline: lápis ao lado do rótulo abre um campo para editar
+// aquele campo sem abrir o diálogo de edição completo.
+function TextoEditavel({
+  rotulo,
+  valor,
+  bloqueado,
+  onSalvar,
+}: {
+  rotulo: string;
+  valor?: string;
+  bloqueado?: boolean;
+  onSalvar: (valor: string) => Promise<void>;
+}) {
+  const [editando, setEditando] = React.useState(false);
+  const [texto, setTexto] = React.useState(valor ?? "");
+  const [salvando, setSalvando] = React.useState(false);
+
+  async function salvar() {
+    setSalvando(true);
+    try {
+      await onSalvar(texto.trim());
+      setEditando(false);
+    } catch {
+      /* erro já notificado pelo pai; mantém aberto */
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (editando) {
+    return (
+      <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {rotulo}
+        </p>
+        <Textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          rows={3}
+          autoFocus
+        />
+        <div className="mt-1 flex gap-2">
+          <Button size="sm" onClick={salvar} disabled={salvando}>
+            {salvando ? <Spinner className="h-4 w-4" /> : "Salvar"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setEditando(false)}
+            disabled={salvando}
+          >
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {rotulo}
+        {!bloqueado && (
+          <button
+            type="button"
+            onClick={() => {
+              setTexto(valor ?? "");
+              setEditando(true);
+            }}
+            className="text-muted-foreground/70 transition hover:text-foreground"
+            aria-label={`Editar ${rotulo}`}
+            title={`Editar ${rotulo}`}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
       </p>
       <p className="whitespace-pre-wrap text-foreground">
         {valor?.trim() ? valor : "—"}
