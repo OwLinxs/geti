@@ -520,6 +520,15 @@ func (s *OrdemServicoService) DefinirStatus(id uint, status models.StatusOS) (*m
 	if err != nil {
 		return nil, traduzErroRepo(err)
 	}
+
+	// Ao iniciar o atendimento, exige o mínimo preenchido (diagnóstico,
+	// departamento, técnico e categoria). A resolução NÃO é exigida aqui.
+	if status == models.OSEmAndamento && os.Status != models.OSEmAndamento {
+		if ev := validarParaAndamento(os); ev != nil {
+			return nil, ev
+		}
+	}
+
 	statusAnterior := os.Status
 
 	os.Status = status
@@ -561,6 +570,29 @@ func (s *OrdemServicoService) DefinirStatus(id uint, status models.StatusOS) (*m
 		}
 	}
 	return atualizada, nil
+}
+
+// validarParaAndamento garante o mínimo preenchido antes de iniciar o
+// atendimento (status "em_andamento"): diagnóstico, departamento (setor),
+// técnico e categoria. A solução aplicada (resolução) NÃO entra — só ao concluir.
+func validarParaAndamento(os *models.OrdemServico) *ErroValidacao {
+	ev := NovoErroValidacao()
+	if strings.TrimSpace(os.Diagnostico) == "" {
+		ev.Add("diagnostico", "Preencha o diagnóstico antes de iniciar o atendimento.")
+	}
+	if os.SetorID == nil {
+		ev.Add("setor_id", "Defina o departamento antes de iniciar o atendimento.")
+	}
+	if os.TecnicoID == nil {
+		ev.Add("tecnico_id", "Atribua um técnico antes de iniciar o atendimento.")
+	}
+	if os.CategoriaChamadoID == nil {
+		ev.Add("categoria_chamado_id", "Classifique a categoria antes de iniciar o atendimento.")
+	}
+	if ev.TemErros() {
+		return ev
+	}
+	return nil
 }
 
 // textoEncerramento monta a mensagem enviada ao contato ao encerrar o chamado.
@@ -831,6 +863,32 @@ func (s *OrdemServicoService) BuscarPorID(id uint) (*models.OrdemServico, error)
 // GarantirContato preenche telefone/nome do solicitante num chamado que ainda
 // não os tem (ex.: chamado de WhatsApp criado por um evento sem telefone).
 // Necessário para a resposta da equipe conseguir voltar ao contato.
+// DefinirContato grava/atualiza o contato de WhatsApp do solicitante na OS
+// (usado para "chamar o contato" em chamados abertos manualmente). Habilita o
+// envio de template e a conversa pelo WhatsApp.
+func (s *OrdemServicoService) DefinirContato(osID uint, contato, nome string) (*models.OrdemServico, error) {
+	c := strings.TrimSpace(contato)
+	if c == "" {
+		ev := NovoErroValidacao()
+		ev.Add("contato", "Informe o telefone/WhatsApp do contato.")
+		return nil, ev
+	}
+	os, err := s.repo.BuscarPorID(osID)
+	if err != nil {
+		return nil, traduzErroRepo(err)
+	}
+	os.SolicitanteContato = c
+	if n := strings.TrimSpace(nome); n != "" && strings.TrimSpace(os.SolicitanteNomeSnapshot) == "" {
+		os.SolicitanteNomeSnapshot = n
+	}
+	limparAssociacoes(os)
+	if err := s.repo.Atualizar(os); err != nil {
+		return nil, err
+	}
+	s.registrarEvento(osID, "contato", "Contato de WhatsApp definido", "")
+	return s.repo.BuscarPorID(osID)
+}
+
 func (s *OrdemServicoService) GarantirContato(osID uint, telefone, nome string) {
 	if strings.TrimSpace(telefone) == "" {
 		return

@@ -414,6 +414,10 @@ export const ordensServicoApi = {
       .then((r) => r.data),
   enviarTemplate: (id: number, dados: { template: string; params: string[] }) =>
     api.post(`/ordens-servico/${id}/template`, dados).then((r) => r.data),
+  definirContato: (id: number, dados: { contato: string; nome?: string }) =>
+    api
+      .patch<OrdemServico>(`/ordens-servico/${id}/contato`, dados)
+      .then((r) => r.data),
   exportar: (f: FiltroOrdensServico = {}) =>
     api
       .get("/ordens-servico/exportar", {

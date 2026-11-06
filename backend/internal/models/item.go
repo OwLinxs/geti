@@ -80,6 +80,12 @@ type Item struct {
 	// (entra no pool da aba Reservas).
 	Reservavel bool `gorm:"not null;default:false;index" json:"reservavel"`
 
+	// Autoria do cadastro: quem registrou o patrimônio no sistema. Preenchido no
+	// Criar/CriarLote a partir do usuário autenticado. Nulo em itens antigos ou
+	// criados por integração/importação (sem sessão). Aparece na linha do tempo.
+	CadastradoPorID *uint    `gorm:"index" json:"cadastrado_por_id,omitempty"`
+	CadastradoPor   *Usuario `gorm:"foreignKey:CadastradoPorID" json:"cadastrado_por,omitempty"`
+
 	// Flag de baixa patrimonial (mantém item visível, rastreável).
 	Baixado     bool       `gorm:"not null;default:false;index" json:"baixado"`
 	DataBaixa   *time.Time `json:"data_baixa,omitempty"`

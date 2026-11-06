@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronRight,
   Layers,
+  MessageCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ import {
   ordensServicoApi,
   usuariosApi,
 } from "@/services/api";
-import { mensagemErro } from "@/services/api/client";
+import { mensagemErro, camposInvalidos } from "@/services/api/client";
 import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useReferencias } from "@/hooks/useReferencias";
@@ -223,9 +224,15 @@ export default function OrdemServicoDetalhe() {
       setOs(atualizada);
       toast({ titulo: "Status atualizado.", variant: "success" });
     } catch (err) {
+      // Ao iniciar o atendimento o backend exige diagnóstico, departamento,
+      // técnico e categoria. Lista os campos que faltam no toast.
+      const campos = camposInvalidos(err);
+      const descricao = campos
+        ? Object.values(campos).join(" ")
+        : mensagemErro(err);
       toast({
         titulo: "Não foi possível alterar o status",
-        descricao: mensagemErro(err),
+        descricao,
         variant: "destructive",
       });
     } finally {
@@ -707,14 +714,24 @@ export default function OrdemServicoDetalhe() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {os.origem && os.origem !== "interno" && (
+              {os.solicitante_contato?.trim() ? (
                 <>
                   <JanelaWhatsApp em={os.ultima_msg_solicitante_em} />
                   <EnviarTemplateWhatsApp
                     osId={os.id}
                     em={os.ultima_msg_solicitante_em}
+                    numero={os.numero}
+                    tecnico={os.tecnico?.nome ?? ""}
                   />
                 </>
+              ) : (
+                <ChamarContatoWhatsApp
+                  osId={os.id}
+                  nomePadrao={
+                    os.solicitante?.nome ?? os.solicitante_nome_snapshot ?? ""
+                  }
+                  onDefinido={carregar}
+                />
               )}
               <ConversaChamado osId={os.id} modo="equipe" />
             </CardContent>
@@ -870,24 +887,132 @@ function Campo({
   );
 }
 
+// ChamarContatoWhatsApp aparece em chamados SEM contato (ex.: abertos
+// manualmente). Define o telefone/WhatsApp do solicitante e habilita a conversa
+// (depois disso a equipe inicia com um template).
+function ChamarContatoWhatsApp({
+  osId,
+  nomePadrao,
+  onDefinido,
+}: {
+  osId: number;
+  nomePadrao: string;
+  onDefinido: () => void;
+}) {
+  const { toast } = useToast();
+  const [aberto, setAberto] = React.useState(false);
+  const [contato, setContato] = React.useState("");
+  const [nome, setNome] = React.useState(nomePadrao);
+  const [salvando, setSalvando] = React.useState(false);
+
+  async function salvar() {
+    if (!contato.trim()) {
+      toast({ titulo: "Informe o telefone/WhatsApp.", variant: "destructive" });
+      return;
+    }
+    setSalvando(true);
+    try {
+      await ordensServicoApi.definirContato(osId, {
+        contato: contato.trim(),
+        nome: nome.trim() || undefined,
+      });
+      toast({ titulo: "Contato definido.", variant: "success" });
+      setAberto(false);
+      onDefinido();
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível definir o contato",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="mb-2">
+      <Button size="sm" variant="outline" onClick={() => setAberto(true)}>
+        <MessageCircle className="h-4 w-4" /> Chamar contato no WhatsApp
+      </Button>
+      <Dialog open={aberto} onOpenChange={setAberto}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chamar contato no WhatsApp</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <FormField label="Telefone / WhatsApp" htmlFor="ct-fone">
+              <Input
+                id="ct-fone"
+                value={contato}
+                onChange={(e) => setContato(e.target.value)}
+                placeholder="Ex.: 5544999998888 (com DDI e DDD)"
+              />
+            </FormField>
+            <FormField label="Nome do contato (opcional)" htmlFor="ct-nome">
+              <Input
+                id="ct-nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+              />
+            </FormField>
+            <p className="text-xs text-muted-foreground">
+              Depois de definir, use "Enviar por template" para iniciar a conversa
+              (fora da janela de 24h, o WhatsApp exige template aprovado).
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAberto(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={salvar} disabled={salvando}>
+              {salvando ? <Spinner className="h-4 w-4" /> : "Definir contato"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Template aprovado padrão para avisar o contato que o chamado foi atribuído /
+// está em atendimento. Params: {{1}} = nº do chamado, {{2}} = técnico.
+const TEMPLATE_ATRIBUIDO = "chamado_atribuido";
+
 // EnviarTemplateWhatsApp mostra, quando a janela de 24h está FECHADA, um botão
 // para disparar um template aprovado (único jeito de falar com a pessoa fora da
 // janela).
 function EnviarTemplateWhatsApp({
   osId,
   em,
+  numero,
+  tecnico,
 }: {
   osId: number;
   em?: string | null;
+  numero?: string;
+  tecnico?: string;
 }) {
   const { toast } = useToast();
   const fechada = em
     ? Date.now() >= new Date(em).getTime() + 24 * 60 * 60 * 1000
     : true;
   const [aberto, setAberto] = React.useState(false);
-  const [nome, setNome] = React.useState("");
-  const [params, setParams] = React.useState("");
+  const [nome, setNome] = React.useState(TEMPLATE_ATRIBUIDO);
+  // Pré-preenche os parâmetros comuns ({{1}} = nº do chamado, {{2}} = técnico).
+  const [params, setParams] = React.useState(
+    [numero ?? "", tecnico ?? ""].join(", ")
+  );
   const [enviando, setEnviando] = React.useState(false);
+
+  // Ao abrir, re-sincroniza os params com os dados atuais da OS.
+  React.useEffect(() => {
+    if (aberto) setParams([numero ?? "", tecnico ?? ""].join(", "));
+  }, [aberto, numero, tecnico]);
 
   if (!fechada) return null;
 
@@ -907,8 +1032,34 @@ function EnviarTemplateWhatsApp({
       });
       toast({ titulo: "Template enviado.", variant: "success" });
       setAberto(false);
-      setNome("");
-      setParams("");
+    } catch (err) {
+      toast({
+        titulo: "Não foi possível enviar",
+        descricao: mensagemErro(err),
+        variant: "destructive",
+      });
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  // Um clique: avisa o contato que o chamado está em atendimento (template
+  // "chamado_atribuido": {{1}} = nº do chamado, {{2}} = técnico).
+  async function avisarAtribuido() {
+    if (!tecnico?.trim()) {
+      toast({
+        titulo: "Atribua um técnico antes de avisar.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEnviando(true);
+    try {
+      await ordensServicoApi.enviarTemplate(osId, {
+        template: TEMPLATE_ATRIBUIDO,
+        params: [numero ?? "", tecnico ?? ""],
+      });
+      toast({ titulo: "Aviso enviado ao contato.", variant: "success" });
     } catch (err) {
       toast({
         titulo: "Não foi possível enviar",
@@ -921,9 +1072,16 @@ function EnviarTemplateWhatsApp({
   }
 
   return (
-    <div className="mb-2">
+    <div className="mb-2 flex flex-wrap gap-2">
+      <Button size="sm" onClick={avisarAtribuido} disabled={enviando}>
+        {enviando ? (
+          <Spinner className="h-4 w-4" />
+        ) : (
+          "Avisar início do atendimento"
+        )}
+      </Button>
       <Button size="sm" variant="outline" onClick={() => setAberto(true)}>
-        Enviar por template
+        Outro template
       </Button>
       <Dialog open={aberto} onOpenChange={setAberto}>
         <DialogContent>

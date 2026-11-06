@@ -374,6 +374,11 @@ function LinhaDoTempo({
     EventoTimeline["tipo"],
     { icone: React.ElementType; cor: string; rotulo: string }
   > = {
+    cadastro: {
+      icone: PlusCircle,
+      cor: "bg-emerald-100 text-emerald-700",
+      rotulo: "Cadastro",
+    },
     movimentacao: {
       icone: ArrowLeftRight,
       cor: "bg-sky-100 text-sky-700",

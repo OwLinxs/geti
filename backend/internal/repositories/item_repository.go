@@ -59,7 +59,7 @@ func NewItemRepository(db *gorm.DB) ItemRepository {
 }
 
 func (r *itemRepository) preloads(q *gorm.DB) *gorm.DB {
-	return q.Preload("Categoria").Preload("Setor").Preload("Responsavel")
+	return q.Preload("Categoria").Preload("Setor").Preload("Responsavel").Preload("CadastradoPor")
 }
 
 func (r *itemRepository) Criar(i *models.Item) error {

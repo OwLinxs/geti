@@ -157,7 +157,11 @@ func (h *ItemHandler) CriarLote(c *gin.Context) {
 		erroBind(c, err)
 		return
 	}
-	resultado, err := h.svc.CriarLote(req.itemRequest.toEntrada(), req.Unidades)
+	entrada := req.itemRequest.toEntrada()
+	if uid, ok := middlewares.UsuarioIDDoContexto(c); ok {
+		entrada.CadastradoPorID = &uid
+	}
+	resultado, err := h.svc.CriarLote(entrada, req.Unidades)
 	if err != nil {
 		responderErro(c, err)
 		return
@@ -171,7 +175,11 @@ func (h *ItemHandler) Criar(c *gin.Context) {
 		erroBind(c, err)
 		return
 	}
-	item, err := h.svc.Criar(req.toEntrada())
+	entrada := req.toEntrada()
+	if uid, ok := middlewares.UsuarioIDDoContexto(c); ok {
+		entrada.CadastradoPorID = &uid
+	}
+	item, err := h.svc.Criar(entrada)
 	if err != nil {
 		responderErro(c, err)
 		return

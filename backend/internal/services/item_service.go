@@ -70,6 +70,9 @@ type EntradaItem struct {
 	Valor             *float64
 	GarantiaAte       *time.Time
 	Reservavel        bool
+	// CadastradoPorID é o usuário autenticado que registrou o item. Vem do
+	// contexto da requisição (nunca do corpo), por segurança de autoria.
+	CadastradoPorID *uint
 	// Atributos: valores dos campos customizados da categoria. Quando nil, os
 	// atributos do item não são alterados; quando não-nil (mesmo vazio),
 	// substituem os atuais.
@@ -104,6 +107,7 @@ func (s *ItemService) Criar(in EntradaItem) (*models.Item, error) {
 		Valor:             in.Valor,
 		GarantiaAte:       in.GarantiaAte,
 		Reservavel:        in.Reservavel,
+		CadastradoPorID:   in.CadastradoPorID,
 	}
 	// Bens permanentes têm controle unitário, inclusive antes do tombamento.
 	if !categoria.Consumivel && item.Quantidade == 0 {
@@ -181,6 +185,7 @@ func (s *ItemService) CriarLote(in EntradaItem, unidades int) (*ResultadoLote, e
 			LoteCodigo: lote, Marca: strings.TrimSpace(in.Marca), Modelo: strings.TrimSpace(in.Modelo),
 			EstadoConservacao: in.EstadoConservacao, Quantidade: 1, SetorID: in.SetorID,
 			DataAquisicao: in.DataAquisicao, Valor: in.Valor,
+			CadastradoPorID: in.CadastradoPorID,
 		}
 	}
 	if err := s.repo.CriarLote(itens); err != nil {

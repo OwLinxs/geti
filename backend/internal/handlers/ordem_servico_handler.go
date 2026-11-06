@@ -114,6 +114,30 @@ func (h *OrdemServicoHandler) Relacionadas(c *gin.Context) {
 	c.JSON(http.StatusOK, lista)
 }
 
+type definirContatoRequest struct {
+	Contato string `json:"contato"`
+	Nome    string `json:"nome"`
+}
+
+// DefinirContato grava o contato de WhatsApp do solicitante (chamar o contato).
+func (h *OrdemServicoHandler) DefinirContato(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	var req definirContatoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		erroBind(c, err)
+		return
+	}
+	os, err := h.svc.DefinirContato(id, req.Contato, req.Nome)
+	if err != nil {
+		responderErro(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, os)
+}
+
 func (h *OrdemServicoHandler) Atualizar(c *gin.Context) {
 	id, ok := parseID(c, "id")
 	if !ok {

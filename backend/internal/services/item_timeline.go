@@ -19,11 +19,25 @@ type EventoTimeline struct {
 // Timeline monta a linha do tempo consolidada do item: movimentações + ordens de
 // serviço + termos, em ordem cronológica decrescente.
 func (s *ItemService) Timeline(itemID uint) ([]EventoTimeline, error) {
-	if _, err := s.repo.BuscarPorID(itemID); err != nil {
+	item, err := s.repo.BuscarPorID(itemID)
+	if err != nil {
 		return nil, traduzErroRepo(err)
 	}
 
 	eventos := []EventoTimeline{}
+
+	// Cadastro do item: origem da linha do tempo. Mostra quem registrou o
+	// patrimônio (quando a autoria foi capturada).
+	cadastro := EventoTimeline{
+		Tipo:   "cadastro",
+		Data:   item.CriadoEm,
+		Titulo: "Item cadastrado",
+		RefID:  item.ID,
+	}
+	if item.CadastradoPor != nil && item.CadastradoPor.Nome != "" {
+		cadastro.Detalhe = "Cadastrado por " + item.CadastradoPor.Nome
+	}
+	eventos = append(eventos, cadastro)
 
 	// Movimentações.
 	movs, err := s.movRepo.ListarPorItem(itemID)

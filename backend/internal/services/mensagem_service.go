@@ -149,9 +149,11 @@ func (s *MensagemService) Enviar(in EntradaMensagem) (*models.MensagemChamado, e
 		if s.notif != nil {
 			s.notif.NotificarMensagem(os, autorTipo, interna)
 		}
-		// Saída para o WhatsApp: só resposta pública da equipe em chamado de
-		// origem WhatsApp, quando o ZapGov está configurado.
-		if autorTipo == models.AutorTecnico && !interna && os.Origem == "whatsapp" {
+		// Saída para o WhatsApp: resposta pública da equipe em qualquer chamado
+		// que tenha um contato de WhatsApp definido (origem WhatsApp OU chamado
+		// manual onde a equipe "chamou o contato"). Best-effort; exige ZapGov.
+		if autorTipo == models.AutorTecnico && !interna &&
+			strings.TrimSpace(os.SolicitanteContato) != "" {
 			s.enviarWhatsApp(os, msg, in.AutorNome)
 		}
 	}

@@ -152,7 +152,7 @@ export interface Movimentacao extends Base {
 
 // Evento unificado da linha do tempo de um item (movimentação, OS ou termo).
 export interface EventoTimeline {
-  tipo: "movimentacao" | "os" | "termo";
+  tipo: "cadastro" | "movimentacao" | "os" | "termo";
   data: string;
   titulo: string;
   detalhe?: string;
