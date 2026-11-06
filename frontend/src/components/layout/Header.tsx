@@ -15,9 +15,9 @@ export function Header({ onToggleMenu }: { onToggleMenu: () => void }) {
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden"
           onClick={onToggleMenu}
-          aria-label="Abrir menu"
+          aria-label="Abrir/recolher menu"
+          title="Abrir/recolher menu"
         >
           <Menu className="h-5 w-5" />
         </Button>
